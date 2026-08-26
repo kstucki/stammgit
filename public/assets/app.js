@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=7";
-import { getT } from "/assets/strings.js?v=7";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=7";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=7";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=7";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=8";
+import { getT } from "/assets/strings.js?v=8";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=8";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=8";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=8";
 
 let data = null;
 let people = {};
@@ -106,7 +106,7 @@ function years(p) {
   const b = yr(p.birth);
   const d = yr(p.death);
   if (b && d) return `${b}–${d}`;
-  if (b) return `geb. ${b}`;
+  if (b) return `${strings.get("bornAbbr")} ${b}`;
   if (d) return `† ${d}`;
   return "";
 }
@@ -115,17 +115,17 @@ function unique(ids = []) {
   return [...new Set((ids || []).filter(Boolean))];
 }
 
-const PARTNER_STATUS_LABELS = {
-  verheiratet: "",
-  geschieden: "geschieden",
-  verwitwet: "verwitwet",
-  partner: "Partner, unverheiratet"
-};
+function partnerStatusLabel(status) {
+  if (status === "geschieden") return strings.get("statusDivorced");
+  if (status === "verwitwet") return strings.get("statusWidowed");
+  if (status === "partner") return strings.get("statusPartner");
+  return "";
+}
 
 function partnerLabel(ownerId, partnerId) {
   const name = people[partnerId]?.name || partnerId;
   const status = people[ownerId]?.partnerDetails?.[partnerId]?.status;
-  const suffix = status && PARTNER_STATUS_LABELS[status] ? ` (${PARTNER_STATUS_LABELS[status]})` : "";
+  const suffix = status && partnerStatusLabel(status) ? ` (${partnerStatusLabel(status)})` : "";
   return `${name}${suffix}`;
 }
 
@@ -288,7 +288,7 @@ function renderOverview() {
   const focusNode = laid.nodes.find(n => n.persons.includes(refPerson));
   const focusGen = focusNode ? focusNode.gen : 0;
   const genText = (diff) => {
-    if (inDescMode && diff === "0") return "Stammeltern";
+    if (inDescMode && diff === "0") return strings.get("descRootLabel");
     if (inHourglass && diff === "0" && hgRoot !== data.meta.focusPersonId) return strings.get("genCenter");
     return genLabel(diff);
   };
@@ -369,7 +369,7 @@ function renderOverview() {
       .slice(0, 8);
     gResults.innerHTML = hits.map(([id, p]) =>
       `<button type="button" class="search-suggest-item" data-suggest="${esc(id)}">${esc(p.name)}${years(p) ? ` <span class="meta">${esc(years(p))}</span>` : ""}</button>`).join("") ||
-      `<div class="search-suggest-empty">Keine Treffer</div>`;
+      `<div class="search-suggest-empty">${strings.get("noHits")}</div>`;
     gResults.hidden = false;
   });
   gResults?.addEventListener("click", (e) => {
@@ -684,12 +684,12 @@ function renderAdmin() {
       const res = await fetch(`${API_BASE}/download-sources`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Fehler ${res.status}`);
+        throw new Error(err.error || `Error ${res.status}`);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = "stammbaum-quellen.zip"; a.click();
+      a.href = url; a.download = `${activeTree}-sources.zip`; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       alert(strings.get("zipFailed", { err: err.message }));
@@ -1105,10 +1105,10 @@ function openPerson(id) {
       <h2>${esc(p.name)}</h2>
       ${years(p) ? `<div class="muted">${esc(years(p))}</div>` : ""}
       ${p.occupation ? `<p>${esc(p.occupation)}</p>` : ""}
-      ${rel("Eltern", p.parents)}
+      ${rel(strings.get("relParents"), p.parents)}
       ${(p.partners || []).length ? `
         <div class="detail-section">
-          <h3>Partner</h3>
+          <h3>${strings.get("relPartners")}</h3>
           <div class="detail-links">
             ${unique(p.partners).map(x => `<button data-person="${esc(x)}">${esc(partnerLabel(id, x))}</button>`).join("")}
           </div>
@@ -1218,7 +1218,7 @@ searchInput.addEventListener("input", () => {
     <div class="search-result" data-person="${esc(id)}">
       <strong>${esc(p.name)}</strong>
       ${years(p) ? `<div class="meta">${esc(years(p))}</div>` : ""}
-    </div>`).join("") || `<p class="empty">Keine Treffer.</p>`;
+    </div>`).join("") || `<p class="empty">${strings.get("noHits")}</p>`;
 });
 
 async function loadData() {
@@ -1301,5 +1301,5 @@ async function init() {
 }
 
 init().catch(err => {
-  app.innerHTML = `<section class="notice"><strong>Fehler:</strong> ${esc(err.message)}</section>`;
+  app.innerHTML = `<section class="notice"><strong>Error:</strong> ${esc(err.message)}</section>`;
 });
