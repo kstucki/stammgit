@@ -27,6 +27,35 @@ writes straight into the working directory and validates with the full
 test suite. Invalid data is rejected and rolled back. Set `LOCAL_GIT=1`
 to get a local Git commit per sync.
 
+## Make it yours
+
+Napoleon is just the demo dataset. Everything instance-specific lives in
+`data/config.yaml` — edit it in your editor or directly on GitHub, it is
+never written by the app:
+
+```yaml
+language: en                # UI language: de | en
+title: "Family Tree"        # browser tab
+eyebrow: "Private family archive"
+defaultTree: napoleon       # what visitors see: data/trees/<name>.yaml
+
+overview:
+  heading: "Napoleon Bonaparte"
+  intro: "One or two sentences shown above the tree."
+  note: "Supports <b>HTML</b>; explain the views or your data here."
+  linesHeading: "Starting points"
+  extraLines:               # optional jump links into the tree
+    - label: "Napoleon I"
+      person: napoleon_i_bonaparte
+      text: "Description shown next to the link."
+```
+
+Typical path: create your dataset in the app (admin → New dataset, or
+GEDCOM import), sync it, then point `defaultTree` at it and rewrite the
+overview texts. The build validates the config, including every
+`extraLines` person id. Deleting `data/trees/napoleon.yaml` afterwards is
+fine.
+
 ## What it does
 
 - Three views: direct line (hourglass), full family, descendants of one
