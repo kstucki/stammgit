@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=6";
-import { getT } from "/assets/strings.js?v=6";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=6";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=6";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=6";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=7";
+import { getT } from "/assets/strings.js?v=7";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=7";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=7";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=7";
 
 let data = null;
 let people = {};
@@ -917,7 +917,7 @@ function openEditDialog(id) {
           <button type="button" class="secondary small" id="srcUpload">${strings.get("srcUploadButton")}</button>
         </div>
         <div class="source-add">
-          <input id="srcUrlLabel" placeholder="${strings.get('srcLabelPlaceholder')}" />
+          <input id="srcUrlLabel" placeholder="${strings.get('srcUrlLabelPlaceholder')}" />
           <input id="srcUrl" type="url" placeholder="https://…" />
           <button type="button" class="secondary small" id="srcAddUrl">${strings.get("srcAddUrl")}</button>
         </div>
