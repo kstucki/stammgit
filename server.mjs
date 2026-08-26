@@ -6,7 +6,10 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import YAML from "yaml";
 import { COOKIE_NAME, roleFromCookieValue } from "./netlify/shared/token.mjs";
+import { requireAdmin } from "./netlify/functions/_auth.mjs";
 
 const root = process.cwd();
 
@@ -20,6 +23,94 @@ if (fs.existsSync(envFile)) {
 }
 
 const PORT = Number(process.env.PORT || 8888);
+
+// --- Local write mode -------------------------------------------------------
+// When this standalone server runs WITHOUT GitHub credentials, "Sync" writes
+// directly into the working directory, validates via the build, and can
+// optionally create local Git commits (LOCAL_GIT=1). Never active on hosted
+// platforms: their serverless runtimes execute netlify/functions/* directly,
+// and as belt and braces we refuse local mode when a platform env is present.
+const HOSTED = Boolean(
+  process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.VERCEL || process.env.DENO_DEPLOYMENT_ID || process.env.CF_PAGES
+);
+const LOCAL_MODE = !HOSTED && process.env.LOCAL_WRITE !== "0" &&
+  (!process.env.GITHUB_TOKEN || process.env.LOCAL_WRITE === "1");
+const LOCAL_GIT = LOCAL_MODE && process.env.LOCAL_GIT === "1";
+
+const jsonResponse = (obj, status = 200) => Response.json(obj, { status });
+
+function runBuild() {
+  return spawnSync("npm", ["run", "build"], { cwd: root, encoding: "utf8", shell: process.platform === "win32" });
+}
+
+function gitCommit(message) {
+  if (!LOCAL_GIT) return { commit: null };
+  const add = spawnSync("git", ["add", "-A", "--", "data/trees", "public/sources"], { cwd: root, encoding: "utf8" });
+  const commit = spawnSync("git", ["commit", "-m", message], { cwd: root, encoding: "utf8" });
+  if (add.status !== 0 || commit.status !== 0) {
+    return { commit: null, gitWarning: (commit.stderr || commit.stdout || add.stderr || "git commit failed").trim().slice(0, 300) };
+  }
+  const sha = spawnSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root, encoding: "utf8" });
+  return { commit: (sha.stdout || "").trim() || null };
+}
+
+const LOCAL_FNS = {
+  "save-family": async (request) => {
+    const forbidden = await requireAdmin(request);
+    if (forbidden) return forbidden;
+    let body;
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
+    const data = body?.data;
+    if (!data || typeof data !== "object" || !data.people || typeof data.people !== "object") {
+      return jsonResponse({ error: "Invalid family tree data." }, 400);
+    }
+    const tree = String(body?.tree || "family");
+    if (!/^[a-z0-9_-]+$/.test(tree)) return jsonResponse({ error: "Invalid dataset name." }, 400);
+    const filePath = path.join(root, "data", "trees", `${tree}.yaml`);
+    const exists = fs.existsSync(filePath);
+    if (!exists && !body?.create) return jsonResponse({ error: `Dataset '${tree}' does not exist.` }, 400);
+    const backup = exists ? fs.readFileSync(filePath, "utf8") : null;
+    fs.writeFileSync(filePath, YAML.stringify(data, { lineWidth: 0 }), "utf8");
+    const build = runBuild();
+    if (build.status !== 0) {
+      // restore the previous valid state, rebuild, report the validation output
+      if (backup === null) fs.unlinkSync(filePath); else fs.writeFileSync(filePath, backup, "utf8");
+      runBuild();
+      const output = `${build.stdout || ""}\n${build.stderr || ""}`.trim().split("\n").slice(-12).join("\n");
+      return jsonResponse({ error: `Validation failed – nothing was saved:\n${output}` }, 422);
+    }
+    const git = gitCommit(`Update dataset ${tree} (local)`);
+    return jsonResponse({ ok: true, mode: "local", ...git });
+  },
+  "upload-source": async (request) => {
+    const forbidden = await requireAdmin(request);
+    if (forbidden) return forbidden;
+    let body;
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
+    const filename = String(body?.filename || "");
+    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
+    const contentBase64 = String(body?.contentBase64 || "");
+    if (!contentBase64 || contentBase64.length > 6 * 1024 * 1024) return jsonResponse({ error: "File too large (max. ~4 MB)." }, 413);
+    fs.writeFileSync(path.join(root, "public", "sources", filename), Buffer.from(contentBase64, "base64"));
+    const git = gitCommit(`Upload source: ${filename}`);
+    return jsonResponse({ ok: true, filename, mode: "local", ...git });
+  },
+  "delete-source": async (request) => {
+    const forbidden = await requireAdmin(request);
+    if (forbidden) return forbidden;
+    let body;
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
+    const filename = String(body?.filename || "");
+    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
+    const filePath = path.join(root, "public", "sources", filename);
+    if (!fs.existsSync(filePath)) return jsonResponse({ error: "File not found." }, 404);
+    fs.unlinkSync(filePath);
+    const git = gitCommit(`Delete source: ${filename}`);
+    return jsonResponse({ ok: true, mode: "local", ...git });
+  }
+};
+// ---------------------------------------------------------------------------
 const FUNCTIONS_DIR = path.join(root, "netlify", "functions");
 const PUBLIC_DIR = path.join(root, "public");
 
@@ -73,11 +164,15 @@ const server = http.createServer(async (req, res) => {
     // Serverless handlers
     const fnMatch = pathname.match(/^\/\.netlify\/functions\/([a-z0-9-]+)$/);
     if (fnMatch) {
-      const handler = handlers[fnMatch[1]];
-      if (!handler) { res.writeHead(404); return res.end("Unknown function"); }
-      if (!["login", "logout"].includes(fnMatch[1]) && !(await sessionRole(req))) {
+      const name = fnMatch[1];
+      if (!["login", "logout"].includes(name) && !(await sessionRole(req))) {
         res.writeHead(403); return res.end("Not signed in");
       }
+      if (LOCAL_MODE && LOCAL_FNS[name]) {
+        return send(res, await LOCAL_FNS[name](await toRequest(req)));
+      }
+      const handler = handlers[name];
+      if (!handler) { res.writeHead(404); return res.end("Unknown function"); }
       return send(res, await handler(await toRequest(req)));
     }
 
@@ -115,5 +210,11 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`stammgit running at http://localhost:${PORT}`);
   if (!process.env.FAMILY_TREE_PASSWORD) console.log("Warning: FAMILY_TREE_PASSWORD is not set – copy .env.example to .env first.");
-  if (!process.env.GITHUB_TOKEN) console.log("Note: without GITHUB_TOKEN/GITHUB_REPO, sync and uploads are disabled (read/edit drafts still work).");
+  if (LOCAL_MODE) {
+    console.log(`Local write mode: Sync writes to the working directory and validates via the build${LOCAL_GIT ? ", then commits locally (LOCAL_GIT=1)" : " (set LOCAL_GIT=1 for automatic local commits)"}.`);
+  } else if (!process.env.GITHUB_TOKEN) {
+    console.log("Note: without GITHUB_TOKEN/GITHUB_REPO, sync and uploads are disabled.");
+  } else {
+    console.log("GitHub mode: Sync commits via the GitHub API.");
+  }
 });

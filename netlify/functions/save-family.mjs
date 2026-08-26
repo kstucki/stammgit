@@ -35,7 +35,7 @@ export default async (request) => {
   }
 
   const count = Object.keys(data.people).length;
-  if (count < 1 || count > 5000) return bad("Unplausible Anzahl Personen.");
+  if (count < 1 || count > 5000) return bad("Implausible number of persons.");
 
   const tree = String(body?.tree || "family");
   if (!/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid dataset name.");

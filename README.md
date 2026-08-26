@@ -45,9 +45,16 @@ Sign in with your password and explore the Napoleon demo. Create your own
 dataset via **Admin → New dataset**, or import a GEDCOM file. Everything
 you edit is a local draft in your browser.
 
-To also **publish** changes as Git commits from the app (sync, file
-uploads, dataset switching), set `GITHUB_TOKEN` (fine-grained,
-Contents: Read/Write, this repo only) and `GITHUB_REPO` in `.env`.
+Running locally without GitHub credentials, the server is in **local write
+mode**: Sync writes your changes straight into the working directory,
+validates them with the full test suite (invalid data is rejected and the
+previous state restored), and with `LOCAL_GIT=1` also creates a local Git
+commit per sync — a complete CI pipeline on your machine, no accounts
+involved. To publish via the GitHub API instead (the mode used on Netlify),
+set `GITHUB_TOKEN` (fine-grained, Contents: Read/Write, this repo only) and
+`GITHUB_REPO` in `.env`. On hosted deployments without a token, the write
+endpoints simply report that saving is not configured — nothing is ever
+written on the host.
 
 ## Deploy to Netlify
 
