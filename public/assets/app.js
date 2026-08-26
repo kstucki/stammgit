@@ -35,6 +35,15 @@ async function openSource(url) {
   }
 }
 const draftKey = () => `familyTreeDraft:${activeTree}`;
+function draftPersonCount(treeId) {
+  if (treeId === activeTree) return Object.keys(people).length;
+  try {
+    const d = JSON.parse(localStorage.getItem(`familyTreeDraft:${treeId}`) || "null");
+    if (d) return Object.keys(d.people || {}).length;
+  } catch { /* corrupt draft – fall back to server count */ }
+  return null;
+}
+
 function localOnlyTrees() {
   const known = new Set((treeIndex.trees || []).map(t => t.id));
   const out = [];
@@ -628,8 +637,8 @@ function renderAdmin() {
       ${isNewLocalTree ? `<p class="muted">${strings.get("datasetLocal")}</p>` : ""}
       <div class="toolbar">
         <select id="treeSelect">
-          ${(treeIndex.trees || []).map(t => `<option value="${esc(t.id)}" ${t.id === activeTree ? "selected" : ""}>${strings.get("datasetPersons", { id: esc(t.id), n: t.people })}</option>`).join("")}
-          ${localOnlyTrees().map(id => `<option value="${esc(id)}" ${id === activeTree ? "selected" : ""}>${strings.get("datasetNewLocal", { id: esc(id) })}</option>`).join("")}
+          ${(treeIndex.trees || []).map(t => `<option value="${esc(t.id)}" ${t.id === activeTree ? "selected" : ""}>${strings.get("datasetPersons", { id: esc(t.id), n: draftPersonCount(t.id) ?? t.people })}</option>`).join("")}
+          ${localOnlyTrees().map(id => `<option value="${esc(id)}" ${id === activeTree ? "selected" : ""}>${strings.get("datasetNewLocal", { id: esc(id), n: draftPersonCount(id) ?? 0 })}</option>`).join("")}
         </select>
         <button id="treeCreate" class="secondary">${strings.get("datasetNew")}</button>
       </div>
