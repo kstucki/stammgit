@@ -151,6 +151,10 @@ for (const [tid, tree] of Object.entries(trees)) {
   if (d2.people.dora.partners[0] !== "anna") fail("absorb: dora's reference not rewritten.");
   if (d2.people.anna.death !== "2020") fail("absorb: missing field death not taken over.");
   if (!d2.people.anna.notes.includes("new") || !d2.people.anna.notes.includes("old")) fail("absorb: notes not united.");
+  // absorbing the focus person transfers the focus
+  const rf = absorbPerson(d2, "anna", "f");
+  if (!rf.ok) fail("absorb: absorbing the focus person should succeed.");
+  if (d2.meta.focusPersonId !== "anna") fail("absorb: focus must transfer to the kept person.");
 
   // real-data hard tests on the default dataset
   const real = structuredClone(data);

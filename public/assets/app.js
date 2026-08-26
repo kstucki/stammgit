@@ -10,6 +10,18 @@ let people = {};
 // server (server.mjs) or another hosting adapter mounts the same handlers here.
 const API_BASE = "/.netlify/functions";
 let currentView = "overview";
+// Surface unexpected errors once, so field reports contain the actual message.
+let errorShown = false;
+window.addEventListener("error", (e) => {
+  if (errorShown) return;
+  errorShown = true;
+  alert(`Unexpected error: ${e.message}\n${(e.filename || "").split("/").pop()}:${e.lineno}`);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  if (errorShown) return;
+  errorShown = true;
+  alert(`Unexpected error: ${e.reason?.message || e.reason}`);
+});
 let strings = getT("de");
 let config = { overview: { extraLines: [] } };
 let treeIndex = { trees: [], defaultTree: "family" };
@@ -994,7 +1006,7 @@ function openEditDialog(id) {
     const keepId = match ? match[1] : answer.trim();
     if (!people[keepId]) return alert(strings.get("idUnknown"));
     const result = absorbPerson(data, keepId, id);
-    if (!result.ok) return alert(strings.get(result.reason === "focus" ? "mergeFocus" : "mergeFailed"));
+    if (!result.ok) return alert(strings.get("mergeFailed"));
     saveDraft();
     editDialog.close();
     renderView(currentView);

@@ -86,7 +86,10 @@ export function absorbPerson(data, keepId, dropId) {
   if (keepId === dropId) return { ok: false, reason: "same" };
   const keep = people[keepId], drop = people[dropId];
   if (!keep || !drop) return { ok: false, reason: "not_found" };
-  if (data.meta?.focusPersonId === dropId) return { ok: false, reason: "focus" };
+  // Absorbing the focus person transfers the focus to the kept person –
+  // important for the create-dataset-then-import workflow, where the seed
+  // person is merged into the imported "real" one.
+  if (data.meta?.focusPersonId === dropId) data.meta.focusPersonId = keepId;
 
   const union = (a = [], b = []) => [...new Set([...a, ...b])].filter((x) => x !== keepId && x !== dropId);
   for (const key of ["parents", "children", "partners"]) {
