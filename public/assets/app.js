@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=4";
-import { getT } from "/assets/strings.js?v=4";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=4";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=4";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=4";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=5";
+import { getT } from "/assets/strings.js?v=5";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=5";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=5";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=5";
 
 let data = null;
 let people = {};
@@ -29,23 +29,30 @@ let activeTree = "family";
 let isNewLocalTree = false;
 let pendingFiles = [];      // filenames waiting for upload on sync
 let pendingDeletions = [];  // filenames queued for repository deletion on sync
+const pendingObjectUrls = new Map(); // filename -> blob object URL (prepared so plain links work)
 async function refreshPending() {
   try {
     pendingFiles = await pendingListFiles();
     pendingDeletions = await pendingListDeletions();
   } catch { pendingFiles = []; pendingDeletions = []; }
-}
-function hasPendingWork() { return draftActive || pendingFiles.length > 0 || pendingDeletions.length > 0; }
-async function openSource(url) {
-  const name = url.startsWith("/sources/") ? url.slice("/sources/".length) : null;
-  const local = name ? await pendingGetFile(name) : null;
-  if (local) {
-    const blobUrl = URL.createObjectURL(new Blob([local.blob], { type: local.type || "application/octet-stream" }));
-    window.open(blobUrl, "_blank", "noopener");
-  } else {
-    window.open(url, "_blank", "noopener");
+  // Prepare object URLs for pending files: source links stay plain <a target="_blank">
+  // anchors (no async window.open), so popup blockers never interfere.
+  for (const [name, url] of [...pendingObjectUrls]) {
+    if (!pendingFiles.includes(name)) { URL.revokeObjectURL(url); pendingObjectUrls.delete(name); }
+  }
+  for (const name of pendingFiles) {
+    if (pendingObjectUrls.has(name)) continue;
+    try {
+      const entry = await pendingGetFile(name);
+      if (entry) pendingObjectUrls.set(name, URL.createObjectURL(new Blob([entry.blob], { type: entry.type || "application/octet-stream" })));
+    } catch { /* file will fall back to the server URL */ }
   }
 }
+function sourceHref(url) {
+  const name = url.startsWith("/sources/") ? url.slice("/sources/".length) : null;
+  return (name && pendingObjectUrls.get(name)) || url;
+}
+function hasPendingWork() { return draftActive || pendingFiles.length > 0 || pendingDeletions.length > 0; }
 const draftKey = () => `familyTreeDraft:${activeTree}`;
 function draftPersonCount(treeId) {
   if (treeId === activeTree) return Object.keys(people).length;
@@ -720,7 +727,7 @@ function renderSources() {
         <div class="source-doc-head">
           <h3>${esc(e.label)}</h3>
           <div class="toolbar compact">
-            <button class="secondary small" data-open-source="${esc(e.url)}">${strings.get("openDocument")}</button>${pendingFiles.includes(e.url.replace("/sources/", "")) ? `<span class="muted small">${strings.get("sourcePendingTag")}</span>` : ""}
+            <a class="secondary button-link small" href="${esc(sourceHref(e.url))}" target="_blank" rel="noreferrer">${strings.get("openDocument")}</a>${pendingFiles.includes(e.url.replace("/sources/", "")) ? `<span class="muted small">${strings.get("sourcePendingTag")}</span>` : ""}
             ${isAdmin ? `<button class="danger small" data-delete-source="${esc(e.url)}">${strings.get("delete")}</button>` : ""}
           </div>
         </div>
@@ -757,11 +764,6 @@ function renderSources() {
     });
   });
 }
-
-document.addEventListener("click", (e) => {
-  const src = e.target.closest("[data-open-source]");
-  if (src) { e.preventDefault(); openSource(src.dataset.openSource); }
-});
 
 /* ---------------- YAML export helpers ---------------- */
 
@@ -1110,7 +1112,7 @@ function openPerson(id) {
       ${(p.sources || []).length ? `
         <div class="detail-section source-list">
           <h3>${strings.get("sources")}</h3>
-          <ul>${p.sources.map(s => `<li><button class="linklike" data-open-source="${esc(s.url)}">${esc(s.label)}</button></li>`).join("")}</ul>
+          <ul>${p.sources.map(s => `<li><a href="${esc(sourceHref(s.url))}" target="_blank" rel="noreferrer">${esc(s.label)}</a></li>`).join("")}</ul>
         </div>` : ""}
       <div class="toolbar">
         ${isAdmin ? `<button class="primary" data-edit-person="${esc(id)}">${strings.get("edit")}</button>` : ""}
