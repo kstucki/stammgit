@@ -15,5 +15,13 @@ overview:
     The <b>direct line</b> shows ancestors and descendants of the center
     person, the <b>full view</b> shows the whole family. Click a name to
     open the person. Create your own dataset in the admin tab.
-  linesHeading: "Additional lines"
-  extraLines: []
+  linesHeading: "Starting points"
+  # Template: each entry links a label to a person in the default dataset;
+  # clicking it jumps into the tree focused on that person.
+  extraLines:
+    - label: "Napoleon I"
+      person: napoleon_i_bonaparte
+      text: "Emperor of the French - the focus of this dataset, shown with his parents, eight siblings and both marriages."
+    - label: "Napoleon III"
+      person: napoleon_iii_bonaparte
+      text: "Son of Napoleon's brother Louis and of Josephine's daughter Hortense - the family's double connection, visible as a loop in the full view."

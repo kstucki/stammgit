@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=3";
-import { getT } from "/assets/strings.js?v=3";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=3";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=3";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=3";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=4";
+import { getT } from "/assets/strings.js?v=4";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=4";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=4";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=4";
 
 let data = null;
 let people = {};
@@ -184,7 +184,6 @@ function measureNode(n) {
 }
 
 function nodeLines(n) {
-  if (n.type === "placeholder") return [{ text: n.label, person: null }];
   const first = n.persons[0];
   return n.persons.map((pid, i) => {
     const isPartnerOfFirst = i > 0 && (people[first]?.partners || []).includes(pid);
@@ -238,9 +237,7 @@ function renderOverview() {
   if (!inDescMode && !inHourglass) visible.add(data.meta.focusPersonId);
   const anchors = new Set();
   const toggles = new Set([...anchors, ...expandedAnchors]);
-  const placeholderRoots = (people[data.meta.focusPersonId]?.parents || [])
-    .filter(pid => people[pid] && !(people[pid].parents || []).some(x => people[x]));
-  const graph = buildFamGraph(people, visible, { placeholderRoots });
+  const graph = buildFamGraph(people, visible, {});
   const personGen = computeGenerations(people, visible, inDescMode ? descendantRoot : (inHourglass ? hgRoot : data.meta.focusPersonId));
   const cacheKey = [...visible].sort().join(",");
   let laid = layoutCache.get(cacheKey);
@@ -260,7 +257,7 @@ function renderOverview() {
     const isFocus = n.persons.includes(data.meta.focusPersonId);
     return `
       <g class="gnode ${n.type} ${isFocus ? "focus" : ""} ${isHl ? "highlight" : ""}">
-        <rect x="${x}" y="${y}" rx="8" width="${n.w}" height="${n.h}" ${n.type === "placeholder" ? 'stroke-dasharray="5,4"' : ""}/>
+        <rect x="${x}" y="${y}" rx="8" width="${n.w}" height="${n.h}"/>
         ${lines.map((l, i) => {
           const lineY = y + 15 + i * 17;
           return `

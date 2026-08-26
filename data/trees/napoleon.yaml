@@ -60,6 +60,9 @@ people:
     - marie_louise_of_austria
     children:
     - napoleon_ii_bonaparte
+    sources:
+    - label: 'Wikipedia summary: Napoleon I'
+      url: /sources/wikipedia-napoleon-i.pdf
   lucien_bonaparte:
     name: Lucien Bonaparte
     birth: '1775'
@@ -205,6 +208,9 @@ people:
     gender: f
     partners:
     - napoleon_i_bonaparte
+    sources:
+    - label: 'Wikipedia summary: Josephine de Beauharnais'
+      url: /sources/wikipedia-josephine-de-beauharnais.pdf
   marie_louise_of_austria:
     name: Marie Louise of Austria
     birth: '1791'
@@ -372,6 +378,9 @@ people:
     - napoleon_charles_bonaparte
     - napoleon_louis_bonaparte
     - napoleon_iii_bonaparte
+    sources:
+    - label: 'Wikipedia summary: Hortense de Beauharnais'
+      url: /sources/wikipedia-hortense-de-beauharnais.pdf
   napoleon_charles_bonaparte:
     name: Napoleon Charles Bonaparte
     birth: '1802'
@@ -402,6 +411,9 @@ people:
     - eugenie_de_montijo
     children:
     - napoleon_eugene_louis_jean_joseph_bonaparte
+    sources:
+    - label: 'Wikipedia summary: Napoleon III'
+      url: /sources/wikipedia-napoleon-iii.pdf
   charles_leclerc:
     name: Charles Leclerc
     birth: '1772'
