@@ -1,0 +1,652 @@
+meta:
+  title: Napoleon Bonaparte
+  focusPersonId: napoleon_i_bonaparte
+  defaultAncestorDepth: 3
+people:
+  charles_marie_bonaparte:
+    name: Charles-Marie Bonaparte
+    birth: '1746'
+    death: '1785'
+    gender: m
+    partners:
+    - maria_letizia_ramolino
+    children:
+    - joseph_bonaparte
+    - napoleon_i_bonaparte
+    - lucien_bonaparte
+    - elisa_bonaparte
+    - louis_bonaparte
+    - pauline_bonaparte
+    - caroline_bonaparte
+    - jerome_bonaparte
+  maria_letizia_ramolino:
+    name: Maria Letizia Ramolino
+    birth: '1750'
+    death: '1836'
+    gender: f
+    partners:
+    - charles_marie_bonaparte
+    children:
+    - joseph_bonaparte
+    - napoleon_i_bonaparte
+    - lucien_bonaparte
+    - elisa_bonaparte
+    - louis_bonaparte
+    - pauline_bonaparte
+    - caroline_bonaparte
+    - jerome_bonaparte
+  joseph_bonaparte:
+    name: Joseph Bonaparte
+    birth: '1768'
+    death: '1844'
+    gender: m
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - julie_clary
+    children:
+    - zenaide_bonaparte
+    - charlotte_bonaparte
+  napoleon_i_bonaparte:
+    name: Napoleon I Bonaparte
+    birth: '1769'
+    death: '1821'
+    gender: m
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - josephine_de_beauharnais
+    - marie_louise_of_austria
+    children:
+    - napoleon_ii_bonaparte
+  lucien_bonaparte:
+    name: Lucien Bonaparte
+    birth: '1775'
+    death: '1840'
+    gender: m
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - christine_boyer
+    - alexandrine_de_bleschamp
+    children:
+    - charlotte_bonaparte_2
+    - christine_egypta_bonaparte
+    - charles_lucien_bonaparte
+    - letizia_bonaparte
+    - joseph_bonaparte_2
+    - jeanne_bonaparte
+    - paul_bonaparte
+    - louis_lucien_bonaparte
+    - pierre_napoleon_bonaparte
+    - antoine_bonaparte
+    - marie_alexandrine_bonaparte
+    - constance_bonaparte
+  elisa_bonaparte:
+    name: Elisa Bonaparte
+    birth: '1777'
+    death: '1820'
+    gender: f
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - felix_pascal_baciocchi
+    children:
+    - napoleone_elisa_baciocchi
+    - frederic_napoleon_baciocchi
+  louis_bonaparte:
+    name: Louis Bonaparte
+    birth: '1778'
+    death: '1846'
+    gender: m
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - hortense_de_beauharnais
+    children:
+    - napoleon_charles_bonaparte
+    - napoleon_louis_bonaparte
+    - napoleon_iii_bonaparte
+  pauline_bonaparte:
+    name: Pauline Bonaparte
+    birth: '1780'
+    death: '1825'
+    gender: f
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - charles_leclerc
+    - camillo_borghese
+    children:
+    - dermide_leclerc
+  caroline_bonaparte:
+    name: Caroline Bonaparte
+    birth: '1782'
+    death: '1839'
+    gender: f
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - joachim_murat
+    children:
+    - achille_murat
+    - letizia_murat
+    - lucien_murat
+    - louise_murat
+  jerome_bonaparte:
+    name: Jerome Bonaparte
+    birth: '1784'
+    death: '1860'
+    gender: m
+    parents:
+    - charles_marie_bonaparte
+    - maria_letizia_ramolino
+    partners:
+    - elizabeth_patterson
+    - catherine_of_wurttemberg
+    children:
+    - jerome_napoleon_bonaparte_patterson
+    - jerome_napoleon_charles_bonaparte
+    - mathilde_bonaparte
+    - napoleon_joseph_charles_paul_bonaparte
+  julie_clary:
+    name: Julie Clary
+    birth: '1771'
+    death: '1845'
+    gender: f
+    partners:
+    - joseph_bonaparte
+    children:
+    - zenaide_bonaparte
+    - charlotte_bonaparte
+  zenaide_bonaparte:
+    name: Zenaide Bonaparte
+    birth: '1801'
+    death: '1854'
+    gender: f
+    parents:
+    - joseph_bonaparte
+    - julie_clary
+    partners:
+    - charles_lucien_bonaparte
+    children:
+    - joseph_lucien_bonaparte
+    - alexandrine_bonaparte
+    - lucien_louis_bonaparte
+    - julie_bonaparte
+    - charlotte_bonaparte_3
+    - leonie_bonaparte
+    - marie_desiree_bonaparte
+    - augusta_bonaparte
+    - napoleon_charles_bonaparte_2
+    - bathilde_bonaparte
+    - albertine_bonaparte
+    - charles_albert_bonaparte
+  charlotte_bonaparte:
+    name: Charlotte Bonaparte
+    birth: '1802'
+    death: '1839'
+    gender: f
+    parents:
+    - joseph_bonaparte
+    - julie_clary
+    partners:
+    - napoleon_louis_bonaparte
+  josephine_de_beauharnais:
+    name: Josephine de Beauharnais
+    birth: '1763'
+    death: '1814'
+    gender: f
+    partners:
+    - napoleon_i_bonaparte
+  marie_louise_of_austria:
+    name: Marie Louise of Austria
+    birth: '1791'
+    death: '1847'
+    gender: f
+    partners:
+    - napoleon_i_bonaparte
+    children:
+    - napoleon_ii_bonaparte
+  napoleon_ii_bonaparte:
+    name: Napoleon II Bonaparte
+    birth: '1811'
+    death: '1832'
+    gender: m
+    parents:
+    - napoleon_i_bonaparte
+    - marie_louise_of_austria
+  christine_boyer:
+    name: Christine Boyer
+    birth: '1771'
+    death: '1800'
+    gender: f
+    partners:
+    - lucien_bonaparte
+    children:
+    - charlotte_bonaparte_2
+    - christine_egypta_bonaparte
+  charlotte_bonaparte_2:
+    name: Charlotte Bonaparte
+    gender: f
+    parents:
+    - lucien_bonaparte
+    - christine_boyer
+  christine_egypta_bonaparte:
+    name: Christine Egypta Bonaparte
+    gender: f
+    parents:
+    - lucien_bonaparte
+    - christine_boyer
+  alexandrine_de_bleschamp:
+    name: Alexandrine de Bleschamp
+    birth: '1778'
+    death: '1855'
+    gender: f
+    partners:
+    - lucien_bonaparte
+    children:
+    - charles_lucien_bonaparte
+    - letizia_bonaparte
+    - joseph_bonaparte_2
+    - jeanne_bonaparte
+    - paul_bonaparte
+    - louis_lucien_bonaparte
+    - pierre_napoleon_bonaparte
+    - antoine_bonaparte
+    - marie_alexandrine_bonaparte
+    - constance_bonaparte
+  charles_lucien_bonaparte:
+    name: Charles-Lucien Bonaparte
+    birth: '1803'
+    death: '1857'
+    gender: m
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+    partners:
+    - zenaide_bonaparte
+    children:
+    - joseph_lucien_bonaparte
+    - alexandrine_bonaparte
+    - lucien_louis_bonaparte
+    - julie_bonaparte
+    - charlotte_bonaparte_3
+    - leonie_bonaparte
+    - marie_desiree_bonaparte
+    - augusta_bonaparte
+    - napoleon_charles_bonaparte_2
+    - bathilde_bonaparte
+    - albertine_bonaparte
+    - charles_albert_bonaparte
+  letizia_bonaparte:
+    name: Letizia Bonaparte
+    gender: f
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  joseph_bonaparte_2:
+    name: Joseph Bonaparte
+    gender: m
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  jeanne_bonaparte:
+    name: Jeanne Bonaparte
+    gender: f
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  paul_bonaparte:
+    name: Paul Bonaparte
+    gender: m
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  louis_lucien_bonaparte:
+    name: Louis-Lucien Bonaparte
+    gender: m
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  pierre_napoleon_bonaparte:
+    name: Pierre-Napoleon Bonaparte
+    gender: m
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  antoine_bonaparte:
+    name: Antoine Bonaparte
+    gender: m
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  marie_alexandrine_bonaparte:
+    name: Marie-Alexandrine Bonaparte
+    gender: f
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  constance_bonaparte:
+    name: Constance Bonaparte
+    gender: f
+    parents:
+    - lucien_bonaparte
+    - alexandrine_de_bleschamp
+  felix_pascal_baciocchi:
+    name: Felix-Pascal Baciocchi
+    birth: '1762'
+    death: '1841'
+    gender: m
+    partners:
+    - elisa_bonaparte
+    children:
+    - napoleone_elisa_baciocchi
+    - frederic_napoleon_baciocchi
+  napoleone_elisa_baciocchi:
+    name: Napoleone Elisa Baciocchi
+    gender: f
+    parents:
+    - felix_pascal_baciocchi
+    - elisa_bonaparte
+  frederic_napoleon_baciocchi:
+    name: Frederic-Napoleon Baciocchi
+    gender: m
+    parents:
+    - felix_pascal_baciocchi
+    - elisa_bonaparte
+  hortense_de_beauharnais:
+    name: Hortense de Beauharnais
+    birth: '1783'
+    death: '1837'
+    gender: f
+    partners:
+    - louis_bonaparte
+    children:
+    - napoleon_charles_bonaparte
+    - napoleon_louis_bonaparte
+    - napoleon_iii_bonaparte
+  napoleon_charles_bonaparte:
+    name: Napoleon Charles Bonaparte
+    birth: '1802'
+    death: '1807'
+    gender: m
+    parents:
+    - louis_bonaparte
+    - hortense_de_beauharnais
+  napoleon_louis_bonaparte:
+    name: Napoleon Louis Bonaparte
+    birth: '1804'
+    death: '1831'
+    gender: m
+    parents:
+    - louis_bonaparte
+    - hortense_de_beauharnais
+    partners:
+    - charlotte_bonaparte
+  napoleon_iii_bonaparte:
+    name: Napoleon III Bonaparte
+    birth: '1808'
+    death: '1873'
+    gender: m
+    parents:
+    - louis_bonaparte
+    - hortense_de_beauharnais
+    partners:
+    - eugenie_de_montijo
+    children:
+    - napoleon_eugene_louis_jean_joseph_bonaparte
+  charles_leclerc:
+    name: Charles Leclerc
+    birth: '1772'
+    death: '1802'
+    gender: m
+    partners:
+    - pauline_bonaparte
+    children:
+    - dermide_leclerc
+  dermide_leclerc:
+    name: Dermide Leclerc
+    gender: m
+    parents:
+    - charles_leclerc
+    - pauline_bonaparte
+  camillo_borghese:
+    name: Camillo Borghese
+    birth: '1775'
+    death: '1832'
+    gender: m
+    partners:
+    - pauline_bonaparte
+  joachim_murat:
+    name: Joachim Murat
+    birth: '1767'
+    death: '1815'
+    gender: m
+    partners:
+    - caroline_bonaparte
+    children:
+    - achille_murat
+    - letizia_murat
+    - lucien_murat
+    - louise_murat
+  achille_murat:
+    name: Achille Murat
+    gender: m
+    parents:
+    - joachim_murat
+    - caroline_bonaparte
+  letizia_murat:
+    name: Letizia Murat
+    gender: f
+    parents:
+    - joachim_murat
+    - caroline_bonaparte
+  lucien_murat:
+    name: Lucien Murat
+    gender: m
+    parents:
+    - joachim_murat
+    - caroline_bonaparte
+  louise_murat:
+    name: Louise Murat
+    gender: f
+    parents:
+    - joachim_murat
+    - caroline_bonaparte
+  elizabeth_patterson:
+    name: Elizabeth Patterson
+    birth: '1785'
+    death: '1879'
+    gender: f
+    partners:
+    - jerome_bonaparte
+    children:
+    - jerome_napoleon_bonaparte_patterson
+  jerome_napoleon_bonaparte_patterson:
+    name: Jerome Napoleon Bonaparte-Patterson
+    gender: m
+    parents:
+    - jerome_bonaparte
+    - elizabeth_patterson
+  catherine_of_wurttemberg:
+    name: Catherine of Wurttemberg
+    birth: '1783'
+    death: '1835'
+    gender: f
+    partners:
+    - jerome_bonaparte
+    children:
+    - jerome_napoleon_charles_bonaparte
+    - mathilde_bonaparte
+    - napoleon_joseph_charles_paul_bonaparte
+  jerome_napoleon_charles_bonaparte:
+    name: Jerome Napoleon Charles Bonaparte
+    birth: '1814'
+    death: '1847'
+    gender: m
+    parents:
+    - jerome_bonaparte
+    - catherine_of_wurttemberg
+  mathilde_bonaparte:
+    name: Mathilde Bonaparte
+    birth: '1820'
+    death: '1904'
+    gender: f
+    parents:
+    - jerome_bonaparte
+    - catherine_of_wurttemberg
+    partners:
+    - anatoly_demidov
+  napoleon_joseph_charles_paul_bonaparte:
+    name: Napoleon Joseph Charles Paul Bonaparte
+    birth: '1822'
+    death: '1891'
+    gender: m
+    parents:
+    - jerome_bonaparte
+    - catherine_of_wurttemberg
+    partners:
+    - marie_clotilde_of_savoy
+    children:
+    - victor_bonaparte
+    - louis_bonaparte_2
+    - laetitia_bonaparte
+  joseph_lucien_bonaparte:
+    name: Joseph-Lucien Bonaparte
+    gender: m
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  alexandrine_bonaparte:
+    name: Alexandrine Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  lucien_louis_bonaparte:
+    name: Lucien-Louis Bonaparte
+    gender: m
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  julie_bonaparte:
+    name: Julie Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  charlotte_bonaparte_3:
+    name: Charlotte Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  leonie_bonaparte:
+    name: Leonie Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  marie_desiree_bonaparte:
+    name: Marie-Desiree Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  augusta_bonaparte:
+    name: Augusta Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  napoleon_charles_bonaparte_2:
+    name: Napoleon-Charles Bonaparte
+    gender: m
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  bathilde_bonaparte:
+    name: Bathilde Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  albertine_bonaparte:
+    name: Albertine Bonaparte
+    gender: f
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  charles_albert_bonaparte:
+    name: Charles-Albert Bonaparte
+    gender: m
+    parents:
+    - charles_lucien_bonaparte
+    - zenaide_bonaparte
+  eugenie_de_montijo:
+    name: Eugenie de Montijo
+    birth: '1826'
+    death: '1920'
+    gender: f
+    partners:
+    - napoleon_iii_bonaparte
+    children:
+    - napoleon_eugene_louis_jean_joseph_bonaparte
+  napoleon_eugene_louis_jean_joseph_bonaparte:
+    name: Napoleon Eugene Louis Jean Joseph Bonaparte
+    birth: '1856'
+    death: '1879'
+    gender: m
+    parents:
+    - napoleon_iii_bonaparte
+    - eugenie_de_montijo
+  marie_clotilde_of_savoy:
+    name: Marie Clotilde of Savoy
+    birth: '1843'
+    death: '1911'
+    gender: f
+    partners:
+    - napoleon_joseph_charles_paul_bonaparte
+    children:
+    - victor_bonaparte
+    - louis_bonaparte_2
+    - laetitia_bonaparte
+  victor_bonaparte:
+    name: Victor Bonaparte
+    birth: '1862'
+    death: '1926'
+    gender: m
+    parents:
+    - napoleon_joseph_charles_paul_bonaparte
+    - marie_clotilde_of_savoy
+  louis_bonaparte_2:
+    name: Louis Bonaparte
+    birth: '1864'
+    death: '1932'
+    gender: m
+    parents:
+    - napoleon_joseph_charles_paul_bonaparte
+    - marie_clotilde_of_savoy
+  laetitia_bonaparte:
+    name: Laetitia Bonaparte
+    birth: '1866'
+    death: '1926'
+    gender: f
+    parents:
+    - napoleon_joseph_charles_paul_bonaparte
+    - marie_clotilde_of_savoy
+  anatoly_demidov:
+    name: Anatoly Demidov
+    birth: '1813'
+    death: '1870'
+    gender: m
+    partners:
+    - mathilde_bonaparte

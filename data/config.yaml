@@ -1,0 +1,19 @@
+# Instance configuration – the app only READS this file, it never writes it.
+# Edit it directly in GitHub (or locally); every commit deploys automatically.
+
+language: en                # UI language: de | en
+title: "Family Tree"        # browser tab
+eyebrow: "Private family archive"
+repoUrl: ""                 # e.g. "https://github.com/you/your-repo" – enables the config editor link in the admin tab
+
+overview:
+  heading: "Napoleon Bonaparte"
+  intro: >-
+    Demo dataset: the Bonaparte family across four generations – eight
+    siblings, two marriages of Napoleon I, and the line to Napoleon III.
+  note: >-
+    The <b>direct line</b> shows ancestors and descendants of the center
+    person, the <b>full view</b> shows the whole family. Click a name to
+    open the person. Create your own dataset in the admin tab.
+  linesHeading: "Additional lines"
+  extraLines: []

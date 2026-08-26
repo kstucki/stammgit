@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Family Tree</title>
+  <link rel="stylesheet" href="/assets/app.css?v=20260826k" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="eyebrow">Privates Familienarchiv</div>
+    <div class="header-actions">
+      <a class="ghost button-link small" href="/.netlify/functions/logout">Abmelden</a>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Hauptnavigation">
+    <button class="tab active" data-view="overview">Übersicht</button>
+    <button class="tab" data-view="sources">Quellen</button>
+    <button class="tab" data-view="admin">Admin</button>
+  </nav>
+
+  <main id="app">
+    <section class="loading">Stammbaum wird geladen …</section>
+  </main>
+
+  <dialog id="personDialog">
+    <button class="dialog-close" aria-label="Schliessen">×</button>
+    <div id="personDialogContent"></div>
+  </dialog>
+
+  <dialog id="editDialog">
+    <button class="dialog-close" aria-label="Schliessen">×</button>
+    <div id="editDialogContent"></div>
+  </dialog>
+
+  <dialog id="searchDialog">
+    <button class="dialog-close" aria-label="Schliessen">×</button>
+    <h2>Person suchen</h2>
+    <input id="searchInput" type="search" placeholder="Name eingeben …" autocomplete="off" />
+    <div id="searchResults" class="search-results"></div>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js" defer></script>
+  <script type="module" src="/assets/app.js?v=20260826k"></script>
+</body>
+</html>

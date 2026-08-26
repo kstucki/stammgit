@@ -1,0 +1,15 @@
+{
+  "name": "stammgit",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/test.mjs && node scripts/build-data.mjs",
+    "test": "node scripts/test.mjs",
+    "start": "npm run build && node server.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "yaml": "^2.9.0"
+  }
+}

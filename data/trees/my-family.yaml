@@ -1,0 +1,7 @@
+meta:
+  title: My Family
+  focusPersonId: me
+  defaultAncestorDepth: 3
+people:
+  me:
+    name: Your Name

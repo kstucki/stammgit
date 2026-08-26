@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <title>Family Tree – Sign in</title>
+  <style>
+    :root { font-family: ui-serif, Georgia, serif; color-scheme: light dark; }
+    body { min-height:100vh; margin:0; display:grid; place-items:center; background:#f3f0e8; color:#1f2b27; }
+    main { width:min(92vw,420px); background:#fff; border:1px solid #d7d2c8; border-radius:18px; padding:2rem; box-shadow:0 18px 60px rgba(0,0,0,.08); }
+    h1 { margin-top:0; font-size:1.7rem; }
+    p { color:#5e6863; line-height:1.5; }
+    label { display:block; margin:.9rem 0 .35rem; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.9rem; }
+    input { width:100%; box-sizing:border-box; padding:.85rem 1rem; border:1px solid #b9beb9; border-radius:10px; font-size:1rem; background:#fff; color:#111; }
+    button { margin-top:1rem; width:100%; padding:.85rem 1rem; border:0; border-radius:10px; background:#263f35; color:#fff; font-weight:650; cursor:pointer; }
+    .error { display:none; color:#8f1d1d; font-family:ui-sans-serif,system-ui,sans-serif; }
+    .error.show { display:block; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Family Tree</h1>
+    <p>Private family archive. Please enter the password.</p>
+    <p id="error" class="error">That password was not correct.</p>
+    <form method="post" action="/.netlify/functions/login">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+  <script>
+    if (new URLSearchParams(location.search).get("error")) {
+      document.getElementById("error").classList.add("show");
+    }
+  </script>
+</body>
+</html>
