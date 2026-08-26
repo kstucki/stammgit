@@ -14,14 +14,15 @@ readable text files under version control.
 
 - **Data you own:** one YAML file per dataset, Git history as the change
   log, GEDCOM import/export for the way in and the way out.
-- **Draft → commit:** edit in the browser; changes live as a local draft
-  and are published as a Git commit. CI validates every dataset — a broken
-  edit can't deploy.
+- **Draft → commit:** everything you do in the browser — edits, dataset
+  creation, GEDCOM imports, even source file uploads — first lives locally
+  in your browser. One **Sync** button publishes it all as Git commits. CI
+  validates every dataset — a broken edit can't deploy.
 - **Custom layout engine:** generation layers with indivisible sibling
   blocks, crossing minimization, couple-adjacent ancestor lines, hourglass
   view around any person.
-- **Sources as files:** upload PDFs/images, versioned in the repo, linked
-  to persons.
+- **Sources as files:** upload PDFs/images, linked to persons; stored in
+  your browser until Sync commits them to the repo as versioned files.
 - **Multiple datasets:** ships with a 70-person Napoleon Bonaparte demo;
   create your own dataset in the app or import a GEDCOM as a new one.
 - **Two roles:** admin (full access) and optional read-only user, enforced
@@ -70,8 +71,7 @@ trigger one deploy manually.
 ## How it works
 
 ```
-data/config.yaml          instance configuration (the app only reads it)
-data/default-tree.txt     default dataset (written by set-default-tree)
+data/config.yaml          instance configuration incl. defaultTree (read-only for the app)
 data/trees/*.yaml         canonical datasets
 scripts/build-data.mjs    YAML -> public/data/ (validated)
 scripts/test.mjs          test suite (runs in every build)
@@ -81,16 +81,21 @@ public/assets/graph.js    visibility, generations, layout engine
 public/assets/model.js    pure data operations (delete, merge, import)
 public/assets/gedcom.js   GEDCOM export and parser
 public/assets/strings.js  UI strings (en, de)
+public/assets/pending.js  local store for not-yet-synced source files (IndexedDB)
 netlify/shared/token.mjs  session tokens (WebCrypto, shared by all runtimes)
 netlify/edge-functions/   auth gate for the Netlify deployment
-netlify/functions/        login, logout, save-family, set-default-tree,
+netlify/functions/        login, logout, save-family,
                           upload-source, delete-source, download-sources
 ```
 
-Editing model: changes are saved as a draft in the device's localStorage
-and apply immediately. **Sync** (admin tab) commits the dataset's YAML via
-the GitHub API; the build validates and republishes. Every destructive
-action is therefore a revertible Git commit.
+Editing model: all changes stay on your device first — dataset edits as a
+draft in localStorage, uploaded source files as blobs in IndexedDB, file
+deletions as a queue. **Sync** (admin tab) then publishes everything in one
+batch via the GitHub API: pending uploads, queued deletions, and the
+dataset's YAML — each a Git commit; the build validates and republishes.
+Every destructive action is therefore a revertible Git commit, and until
+you sync, nothing leaves your browser. Note the flip side: unsynced work
+lives only in this one browser profile — clearing site data discards it.
 
 ## Data schema
 
@@ -125,6 +130,15 @@ npm test          # integrity of all datasets, GEDCOM roundtrip,
 npm run build
 node server.mjs
 ```
+
+## Public demo deployments
+
+Because all editing is local-first, you can run a **public demo** where
+everyone gets the admin experience without any write access: deploy with
+only `FAMILY_TREE_PASSWORD` set (published openly, e.g. `napoleon`) and
+**never set `GITHUB_TOKEN`/`GITHUB_REPO` on a demo site** — every visitor
+then plays in their own browser sandbox; Sync reports "not configured" and
+the repository stays untouched.
 
 ## Notes and limits
 

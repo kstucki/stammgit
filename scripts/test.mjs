@@ -16,9 +16,9 @@ const trees = {};
 for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml"))) {
   trees[file.replace(/\.yaml$/, "")] = YAML.parse(fs.readFileSync(path.join(treesDir, file), "utf8"));
 }
-let defaultTree = "napoleon";
-try { defaultTree = fs.readFileSync(path.join(root, "data", "default-tree.txt"), "utf8").trim() || defaultTree; } catch {}
-check(trees[defaultTree], `default-tree.txt points to unknown dataset '${defaultTree}'.`);
+const cfg = YAML.parse(fs.readFileSync(path.join(root, "data", "config.yaml"), "utf8"));
+const defaultTree = String(cfg.defaultTree || "").trim();
+check(trees[defaultTree], `config.defaultTree points to unknown dataset '${defaultTree}'.`);
 const data = trees[defaultTree];
 const ids = new Set(Object.keys(data.people || {}));
 

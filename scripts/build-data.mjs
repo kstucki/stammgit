@@ -18,11 +18,11 @@ for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).s
   fs.copyFileSync(path.join(treesDir, file), path.join(outTrees, `${id}.yaml`));
   index.push({ id, title: data.meta?.title || id, people: Object.keys(data.people || {}).length });
 }
-let defaultTree = "family";
-try {
-  defaultTree = fs.readFileSync(path.join(root, "data", "default-tree.txt"), "utf8").trim() || "family";
-} catch { /* file is optional */ }
-if (!index.some((t) => t.id === defaultTree)) defaultTree = "family";
+const defaultTree = String(config.defaultTree || "").trim();
+if (!index.some((t) => t.id === defaultTree)) {
+  console.error(`config.yaml: defaultTree '${defaultTree}' is not a dataset in data/trees/.`);
+  process.exit(1);
+}
 fs.writeFileSync(
   path.join(outTrees, "index.json"),
   JSON.stringify({ trees: index, defaultTree }, null, 2),

@@ -1,7 +1,8 @@
-import { getT } from "/assets/strings.js?v=20260826k";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=20260826k";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=20260826k";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=20260826k";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=1";
+import { getT } from "/assets/strings.js?v=2";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=2";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=2";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=2";
 
 let data = null;
 let people = {};
@@ -14,6 +15,25 @@ let config = { overview: { extraLines: [] } };
 let treeIndex = { trees: [], defaultTree: "family" };
 let activeTree = "family";
 let isNewLocalTree = false;
+let pendingFiles = [];      // filenames waiting for upload on sync
+let pendingDeletions = [];  // filenames queued for repository deletion on sync
+async function refreshPending() {
+  try {
+    pendingFiles = await pendingListFiles();
+    pendingDeletions = await pendingListDeletions();
+  } catch { pendingFiles = []; pendingDeletions = []; }
+}
+function hasPendingWork() { return draftActive || pendingFiles.length > 0 || pendingDeletions.length > 0; }
+async function openSource(url) {
+  const name = url.startsWith("/sources/") ? url.slice("/sources/".length) : null;
+  const local = name ? await pendingGetFile(name) : null;
+  if (local) {
+    const blobUrl = URL.createObjectURL(new Blob([local.blob], { type: local.type || "application/octet-stream" }));
+    window.open(blobUrl, "_blank", "noopener");
+  } else {
+    window.open(url, "_blank", "noopener");
+  }
+}
 const draftKey = () => `familyTreeDraft:${activeTree}`;
 function localOnlyTrees() {
   const known = new Set((treeIndex.trees || []).map(t => t.id));
@@ -89,7 +109,7 @@ function saveDraft() {
 }
 
 function updateDraftBadge() {
-  document.querySelectorAll(".draft-badge").forEach(el => el.hidden = !draftActive);
+  document.querySelectorAll(".draft-badge").forEach(el => el.hidden = !hasPendingWork());
 }
 
 function personButton(id) {
@@ -519,22 +539,64 @@ function showInTree(personId) {
 async function saveCentral() {
   const button = document.getElementById("adminSync");
   const oldText = button?.textContent;
-  if (button) { button.disabled = true; button.textContent = strings.get("saving"); }
+  if (button) button.disabled = true;
+  const setStatus = (t) => { if (button) button.textContent = t; };
   try {
+    await refreshPending();
+    // 1) pending file uploads
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const name = pendingFiles[i];
+      setStatus(strings.get("syncUploading", { i: i + 1, n: pendingFiles.length }));
+      const entry = await pendingGetFile(name);
+      if (!entry) continue;
+      const contentBase64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(",")[1]);
+        r.onerror = rej;
+        r.readAsDataURL(new Blob([entry.blob], { type: entry.type }));
+      });
+      const resp = await fetch(`${API_BASE}/upload-source`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ filename: name, contentBase64 })
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(result?.error || `Upload ${name} failed (${resp.status})`);
+      await pendingRemoveFile(name);
+    }
+    // 2) queued deletions (missing files are fine)
+    for (const name of pendingDeletions) {
+      setStatus(strings.get("syncDeleting", { name }));
+      const resp = await fetch(`${API_BASE}/delete-source`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ filename: name })
+      });
+      if (!resp.ok && resp.status !== 404) {
+        const result = await resp.json().catch(() => ({}));
+        throw new Error(result?.error || `Delete ${name} failed (${resp.status})`);
+      }
+      await pendingClearDeletion(name);
+    }
+    // 3) dataset YAML
+    setStatus(strings.get("saving"));
     const res = await fetch(`${API_BASE}/save-family`, {
       method: "POST",
       headers: {"content-type": "application/json"},
       body: JSON.stringify({data, tree: activeTree, create: isNewLocalTree})
     });
     const result = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(result.error || `Speichern fehlgeschlagen (${res.status})`);
+    if (!res.ok) throw new Error(result.error || `Save failed (${res.status})`);
     localStorage.removeItem(draftKey());
     draftActive = false;
     isNewLocalTree = false;
+    await refreshPending();
     updateDraftBadge();
     alert(strings.get("saved", { commit: result.commit || strings.get("savedFallback") }));
     if (currentView === "admin") renderView("admin");
   } catch (err) {
+    await refreshPending();
+    updateDraftBadge();
     alert(`${err.message}${strings.get("saveErrorHint")}`);
   } finally {
     if (button) { button.disabled = false; button.textContent = oldText; }
@@ -554,14 +616,15 @@ function renderAdmin() {
     <div class="card admin-card">
       <h3>${strings.get("draftCard")}</h3>
       <p class="muted">${strings.get(draftActive ? "draftActive" : "draftNone")}</p>
+      ${pendingFiles.length || pendingDeletions.length ? `<p class="muted">${strings.get("pendingInfo", { u: pendingFiles.length, d: pendingDeletions.length })}</p>` : ""}
       <div class="toolbar">
-        <button id="adminSync" class="primary" ${draftActive ? "" : "disabled"}>${strings.get("syncButton")}</button>
+        <button id="adminSync" class="primary" ${hasPendingWork() ? "" : "disabled"}>${strings.get("syncButton")}</button>
         <button id="adminDiscard" class="secondary" ${draftActive ? "" : "disabled"}>${strings.get("discardButton")}</button>
       </div>
     </div>
     <div class="card admin-card">
       <h3>${strings.get("datasetCard")}</h3>
-      <p class="muted">${strings.get("datasetInfo", { tree: esc(activeTree), n: Object.keys(people).length })}</p>
+      <p class="muted">${strings.get("datasetInfo", { tree: esc(activeTree), n: Object.keys(people).length, def: esc(treeIndex.defaultTree) })}</p>
       ${isNewLocalTree ? `<p class="muted">${strings.get("datasetLocal")}</p>` : ""}
       <div class="toolbar">
         <select id="treeSelect">
@@ -570,11 +633,6 @@ function renderAdmin() {
         </select>
         <button id="treeCreate" class="secondary">${strings.get("datasetNew")}</button>
       </div>
-    </div>
-    <div class="card admin-card">
-      <h3>${strings.get("configCard")}</h3>
-      <p class="muted">${strings.get("configInfo")}</p>
-      ${config.repoUrl ? `<a class="secondary button-link" href="${esc(config.repoUrl)}/edit/main/data/config.yaml" target="_blank" rel="noreferrer">${strings.get("configOpen")}</a>` : ""}
     </div>
     <div class="card admin-card">
       <h3>${strings.get("importCard")}</h3>
@@ -620,31 +678,9 @@ function renderAdmin() {
     localStorage.setItem("activeTree", slug);
     location.reload();
   });
-  document.getElementById("treeSelect")?.addEventListener("change", async (e) => {
-    const tree = e.target.value;
-    if (localOnlyTrees().includes(tree)) {
-      localStorage.setItem("activeTree", tree);
-      location.reload();
-      return;
-    }
-    if (!confirm(strings.get("switchDefaultConfirm", { tree }))) {
-      e.target.value = activeTree;
-      return;
-    }
-    try {
-      const resp = await fetch(`${API_BASE}/set-default-tree`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tree })
-      });
-      const result = await resp.json();
-      if (!resp.ok) throw new Error(result?.error || "Umschalten fehlgeschlagen.");
-      localStorage.setItem("activeTree", tree);
-      location.reload();
-    } catch (err) {
-      alert(String(err.message || err));
-      e.target.value = activeTree;
-    }
+  document.getElementById("treeSelect")?.addEventListener("change", (e) => {
+    localStorage.setItem("activeTree", e.target.value);
+    location.reload();
   });
   document.getElementById("gedImportBtn")?.addEventListener("click", async () => {
     const status = document.getElementById("gedImportStatus");
@@ -751,7 +787,7 @@ function renderSources() {
         <div class="source-doc-head">
           <h3>${esc(e.label)}</h3>
           <div class="toolbar compact">
-            <a class="secondary button-link small" href="${esc(e.url)}" target="_blank" rel="noreferrer">${strings.get("openDocument")}</a>
+            <button class="secondary small" data-open-source="${esc(e.url)}">${strings.get("openDocument")}</button>${pendingFiles.includes(e.url.replace("/sources/", "")) ? `<span class="muted small">${strings.get("sourcePendingTag")}</span>` : ""}
             ${isAdmin ? `<button class="danger small" data-delete-source="${esc(e.url)}">${strings.get("delete")}</button>` : ""}
           </div>
         </div>
@@ -774,23 +810,25 @@ function renderSources() {
       if (!confirm(warn)) return;
       removeSourceLinks(people, url);
       saveDraft();
-      if (url.startsWith("/sources/") && confirm(strings.get("sourceDeleteFile"))) {
-        try {
-          const resp = await fetch(`${API_BASE}/delete-source`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ filename: url.replace("/sources/", "") })
-          });
-          const result = await resp.json();
-          if (!resp.ok) throw new Error(result?.error || strings.get("deleteFailed"));
-        } catch (err) {
-          alert(strings.get("sourceDeleteFailed", { err: err.message || err }));
+      if (url.startsWith("/sources/")) {
+        const name = url.replace("/sources/", "");
+        if (pendingFiles.includes(name)) {
+          await pendingRemoveFile(name);          // never synced – just drop the local blob
+        } else if (confirm(strings.get("sourceDeleteFile"))) {
+          await pendingQueueDeletion(name);       // executed on next sync
         }
+        await refreshPending();
+        updateDraftBadge();
       }
       renderView("sources");
     });
   });
 }
+
+document.addEventListener("click", (e) => {
+  const src = e.target.closest("[data-open-source]");
+  if (src) { e.preventDefault(); openSource(src.dataset.openSource); }
+});
 
 /* ---------------- YAML export helpers ---------------- */
 
@@ -1011,25 +1049,20 @@ function openEditDialog(id) {
     const file = editDialogContent.querySelector("#srcFile").files[0];
     if (!label || !file) { status.textContent = strings.get("srcNeedBoth"); return; }
     if (file.size > 4 * 1024 * 1024) { status.textContent = strings.get("srcTooBig"); return; }
-    status.textContent = strings.get("srcUploading");
+    if (!/\.(pdf|png|jpe?g)$/i.test(file.name)) { status.textContent = strings.get("srcBadType"); return; }
     try {
-      const contentBase64 = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(String(r.result).split(",")[1]);
-        r.onerror = rej;
-        r.readAsDataURL(file);
-      });
-      const resp = await fetch(`${API_BASE}/upload-source`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentBase64 })
-      });
-      const result = await resp.json();
-      if (!resp.ok) throw new Error(result?.error || "Upload fehlgeschlagen.");
-      p.sources = [...(p.sources || []), { label, url: `/sources/${result.filename}` }];
+      const base = file.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9._-]+/g, "-").replace(/^[-.]+|-+$/g, "");
+      let filename = base;
+      let n = 2;
+      const taken = new Set([...knownSourceDocs().map(d => d.url.replace("/sources/", "")), ...pendingFiles]);
+      while (taken.has(filename)) filename = base.replace(/(\.[a-z0-9]+)$/i, `-${n++}$1`);
+      await pendingPutFile(filename, file);
+      await refreshPending();
+      p.sources = [...(p.sources || []), { label, url: `/sources/${filename}` }];
       saveDraft();
       openEditDialog(id);
-      editDialogContent.querySelector("#srcStatus").textContent = strings.get("srcUploaded");
+      editDialogContent.querySelector("#srcStatus").textContent = strings.get("srcStoredLocally");
     } catch (err) {
       status.textContent = String(err.message || err);
     }
@@ -1144,7 +1177,7 @@ function openPerson(id) {
       ${(p.sources || []).length ? `
         <div class="detail-section source-list">
           <h3>${strings.get("sources")}</h3>
-          <ul>${p.sources.map(s => `<li><a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.label)}</a></li>`).join("")}</ul>
+          <ul>${p.sources.map(s => `<li><button class="linklike" data-open-source="${esc(s.url)}">${esc(s.label)}</button></li>`).join("")}</ul>
         </div>` : ""}
       <div class="toolbar">
         ${isAdmin ? `<button class="primary" data-edit-person="${esc(id)}">${strings.get("edit")}</button>` : ""}
@@ -1288,6 +1321,7 @@ async function loadData() {
 
 async function init() {
   await loadData();
+  await refreshPending();
   if (isNewLocalTree) {
     draftActive = true;
     updateDraftBadge?.();

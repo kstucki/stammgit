@@ -4,7 +4,7 @@
 language: en                # UI language: de | en
 title: "Family Tree"        # browser tab
 eyebrow: "Private family archive"
-repoUrl: ""                 # e.g. "https://github.com/you/your-repo" – enables the config editor link in the admin tab
+defaultTree: napoleon       # dataset visitors see (data/trees/<name>.yaml); admins switch locally per device
 
 overview:
   heading: "Napoleon Bonaparte"
