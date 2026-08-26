@@ -7,11 +7,10 @@ family tree.)
 
 ## Demo
 
-Sign in with password `admin` (full access) or `user` (read-only).
+**[stammgit-demo.netlify.app](https://stammgit-demo.netlify.app)** –
+sign in with password `admin` (full access) or `user` (read-only).
 Editing is local-first, so every visitor plays in their own browser
 sandbox and the repository stays untouched.
-
-<!-- hosted demo URL goes here once deployed -->
 
 ## Run it locally
 
