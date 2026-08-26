@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=5";
-import { getT } from "/assets/strings.js?v=5";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=5";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=5";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=5";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=6";
+import { getT } from "/assets/strings.js?v=6";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=6";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=6";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=6";
 
 let data = null;
 let people = {};
@@ -916,6 +916,11 @@ function openEditDialog(id) {
           <input id="srcFile" type="file" accept=".pdf,.png,.jpg,.jpeg" />
           <button type="button" class="secondary small" id="srcUpload">${strings.get("srcUploadButton")}</button>
         </div>
+        <div class="source-add">
+          <input id="srcUrlLabel" placeholder="${strings.get('srcLabelPlaceholder')}" />
+          <input id="srcUrl" type="url" placeholder="https://…" />
+          <button type="button" class="secondary small" id="srcAddUrl">${strings.get("srcAddUrl")}</button>
+        </div>
         <p class="muted" id="srcStatus"></p>
       </div>
 
@@ -977,6 +982,17 @@ function openEditDialog(id) {
     p.sources = [...(p.sources || []).filter(x => x.url !== url), { label, url }];
     saveDraft();
     openEditDialog(id);
+  });
+  editDialogContent.querySelector("#srcAddUrl")?.addEventListener("click", () => {
+    const status = editDialogContent.querySelector("#srcStatus");
+    const label = editDialogContent.querySelector("#srcUrlLabel").value.trim();
+    const url = editDialogContent.querySelector("#srcUrl").value.trim();
+    if (!label || !url) { status.textContent = strings.get("srcNeedBoth"); return; }
+    if (!/^https?:\/\//i.test(url)) { status.textContent = strings.get("srcBadUrl"); return; }
+    p.sources = [...(p.sources || []).filter(x => x.url !== url), { label, url }];
+    saveDraft();
+    openEditDialog(id);
+    editDialogContent.querySelector("#srcStatus").textContent = strings.get("srcUrlAdded");
   });
   editDialogContent.querySelector("#srcUpload")?.addEventListener("click", async () => {
     const status = editDialogContent.querySelector("#srcStatus");
