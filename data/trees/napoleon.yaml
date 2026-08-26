@@ -1,7 +1,6 @@
 meta:
   title: Napoleon Bonaparte
   focusPersonId: napoleon_i_bonaparte
-  defaultAncestorDepth: 3
 people:
   charles_marie_bonaparte:
     name: Charles-Marie Bonaparte

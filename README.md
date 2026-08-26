@@ -103,8 +103,6 @@ lives only in this one browser profile — clearing site data discards it.
 meta:
   title: "Napoleon Bonaparte"
   focusPersonId: napoleon_i_bonaparte
-  # optional branch colouring:
-  # branches: { paternal: { roots: [id, id], color: "#4c78a8", surname: "Bonaparte" } }
 people:
   person_id:
     name: "First Last"

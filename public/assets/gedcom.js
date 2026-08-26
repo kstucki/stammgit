@@ -176,7 +176,7 @@ export function importGedcom(text) {
 
   const first = Object.keys(people)[0];
   return {
-    meta: { title: "Familienstammbaum (GEDCOM-Import)", focusPersonId: first, defaultAncestorDepth: 3 },
+    meta: { title: "GEDCOM import", focusPersonId: first },
     people
   };
 }

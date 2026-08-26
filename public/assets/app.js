@@ -197,71 +197,6 @@ function nodeLines(n) {
   });
 }
 
-// Branch colouring is dataset-driven: define in the tree's meta, e.g.
-// meta.branches: { paternal: { roots: [id, id], color: "#4c78a8", surname: "Bonaparte" } }
-// Lines above these root couples stay uncoloured; without meta.branches everything is neutral.
-const branchDefs = () => (data.meta && data.meta.branches) || {};
-const rootBranchOf = (pid) => {
-  for (const [branch, def] of Object.entries(branchDefs())) if ((def.roots || []).includes(pid)) return branch;
-  return null;
-};
-// Branch colouring all the way down: each person inherits their parents' branch.
-// At confluences the surname decides, otherwise the siblings of the same parents.
-const branchMemo = new Map();
-function resolveBranch(pid) {
-  if (branchMemo.has(pid)) return branchMemo.get(pid);
-  const result = resolveBranchInner(pid, new Set());
-  branchMemo.set(pid, result);
-  return result;
-}
-function resolveBranchInner(pid, seen) {
-  if (branchMemo.has(pid)) return branchMemo.get(pid);
-  if (seen.has(pid) || !people[pid]) return null;
-  seen.add(pid);
-  const direct = rootBranchOf(pid);
-  if (direct) return direct;
-  const parents = (people[pid].parents || []).filter(x => people[x]);
-  const candidates = [...new Set(parents.map(par => resolveBranchInner(par, seen)).filter(Boolean))];
-  let result = null;
-  if (candidates.length === 1) result = candidates[0];
-  else if (candidates.length > 1) {
-    const byName = (name) => {
-      let bestBranch = null, bestPos = Infinity;
-      for (const b of candidates) {
-        const pos = (name || "").indexOf(branchDefs()[b]?.surname || "\u0000");
-        if (pos >= 0 && pos < bestPos) { bestPos = pos; bestBranch = b; }
-      }
-      return bestBranch;
-    };
-    result = byName(people[pid].name);
-    if (!result) {
-      // Geschwister derselben Eltern befragen
-      const siblings = new Set();
-      for (const par of parents) for (const c of people[par].children || []) if (c !== pid && people[c]) siblings.add(c);
-      for (const sib of siblings) {
-        const m = byName(people[sib].name);
-        if (m) { result = m; break; }
-      }
-    }
-    if (!result) result = candidates[0];
-  }
-  return result;
-}
-function branchColor(n) {
-  const branches = [...new Set((n.persons || []).map(pid => resolveBranch(pid)).filter(Boolean))];
-  if (branches.length === 1) return branchDefs()[branches[0]?.color];
-  if (branches.length > 1) {
-    // Couple from two branches: the branch the children carry on determines the colour
-    for (const pid of n.persons || []) {
-      for (const child of people[pid]?.children || []) {
-        const cb = resolveBranch(child);
-        if (cb && branches.includes(cb)) return branchDefs()[cb]?.color;
-      }
-    }
-    return branchDefs()[branches[0]?.color];
-  }
-  return null;
-}
 function genLabel(diff) {
   return strings.getGenLabel(diff);
 }
@@ -290,7 +225,6 @@ function computeFullVisible(roots) {
 }
 
 function renderOverview() {
-  branchMemo.clear();
   const roots = baseRootIds();
   const inDescMode = descendantRoot && people[descendantRoot];
   const hgRoot = (hourglassRoot && people[hourglassRoot]) ? hourglassRoot : data.meta.focusPersonId;
@@ -688,7 +622,7 @@ function renderAdmin() {
     if (!firstName) return;
     const pid = firstName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "person";
     const fresh = {
-      meta: { title: name, focusPersonId: pid, defaultAncestorDepth: 3 },
+      meta: { title: name, focusPersonId: pid },
       people: { [pid]: { name: firstName } }
     };
     localStorage.setItem(`familyTreeDraft:${slug}`, JSON.stringify(fresh));
@@ -1300,7 +1234,6 @@ async function loadData() {
     people = data.people || {};
   }
   strings = getT(config.language === "en" ? "en" : "de");
-  branchMemo.clear();
   if (config.title) document.title = config.title;
   const eyebrowEl = document.querySelector(".eyebrow");
   if (eyebrowEl && config.eyebrow) eyebrowEl.textContent = config.eyebrow;
