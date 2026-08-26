@@ -13,7 +13,7 @@ export default async (request) => {
 
   const adminPassword = process.env.FAMILY_TREE_PASSWORD;
   if (!adminPassword) {
-    return new Response("FAMILY_TREE_PASSWORD ist nicht gesetzt.", { status: 503 });
+    return new Response("FAMILY_TREE_PASSWORD is not set.", { status: 503 });
   }
   const userPassword = process.env.FAMILY_TREE_USER_PASSWORD || "";
 

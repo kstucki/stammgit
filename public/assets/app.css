@@ -185,7 +185,7 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 .tree-compact .person-card button.name { font-size: .86rem; }
 .tree-compact .person-card .years, .tree-compact .person-card .meta { font-size: .72rem; margin-top: .12rem; }
 
-/* Aufklappbare Seitenlinien in der Übersicht */
+/* Expandable side lines in the overview */
 .couple { display: inline-block; }
 .subtree-toggle { display: block; margin: .35rem auto 0; }
 .subtree { margin-top: .6rem; border: 1px dashed var(--line); border-radius: 10px; padding: .4rem; }
@@ -194,7 +194,7 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 .status-select { margin-left: .4rem; font-size: .78rem; }
 
 
-/* Übersicht: Urgrosseltern-Spalten */
+/* Overview: great-grandparent columns */
 .overview-columns { display: flex; gap: 2.2rem; align-items: flex-start; flex-wrap: wrap; padding: .4rem; }
 .root-column { min-width: 260px; }
 .above-toggles { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .4rem; }

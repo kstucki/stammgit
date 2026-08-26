@@ -120,10 +120,10 @@ function getSiblingIds(id) {
   return unique([...explicit, ...viaParents]);
 }
 
-/* ---------------- Übersicht: Stammbaum-Graph ---------------- */
+/* ---------------- Overview: tree graph ---------------- */
 
 function baseRootIds() {
-  // Oberste bekannte Vorfahren des Fokus (max. Urgrosseltern-Ebene) inkl. Partner.
+  // Topmost known ancestors of the focus (up to great-grandparent level) incl. partners.
   const focusId = data.meta.focusPersonId;
   const tops = [];
   const up = (id, depth) => {
@@ -164,8 +164,8 @@ const rootBranchOf = (pid) => {
   for (const [branch, def] of Object.entries(branchDefs())) if ((def.roots || []).includes(pid)) return branch;
   return null;
 };
-// Stammlinien-Färbung bis zuunterst: jede Person erbt den Zweig ihrer Eltern.
-// Bei Zusammenflüssen entscheidet der Nachname, sonst die Geschwister derselben Eltern.
+// Branch colouring all the way down: each person inherits their parents' branch.
+// At confluences the surname decides, otherwise the siblings of the same parents.
 const branchMemo = new Map();
 function resolveBranch(pid) {
   if (branchMemo.has(pid)) return branchMemo.get(pid);
@@ -210,7 +210,7 @@ function branchColor(n) {
   const branches = [...new Set((n.persons || []).map(pid => resolveBranch(pid)).filter(Boolean))];
   if (branches.length === 1) return branchDefs()[branches[0]?.color];
   if (branches.length > 1) {
-    // Paar aus zwei Stämmen: der Zweig, den die Kinder weitertragen, bestimmt die Farbe
+    // Couple from two branches: the branch the children carry on determines the colour
     for (const pid of n.persons || []) {
       for (const child of people[pid]?.children || []) {
         const cb = resolveBranch(child);
@@ -259,7 +259,7 @@ function renderOverview() {
     : inHourglass
       ? computeHourglass(people, hgRoot)
       : computeFullVisible(roots);
-  // Fokusfamilie sicher sichtbar (nur Gesamtansicht; Sanduhr/Nachkommen zeigen rein den Teilbaum)
+  // Keep the focus family visible (full view only; hourglass/descendants show just the subtree)
   if (!inDescMode && !inHourglass) visible.add(data.meta.focusPersonId);
   const anchors = new Set();
   const toggles = new Set([...anchors, ...expandedAnchors]);
@@ -333,7 +333,7 @@ function renderOverview() {
         <p>${esc(config.overview?.intro || "")}</p>
         <p class="scope-note">${config.overview?.note || ""}</p>
         ${(config.overview?.extraLines || []).length ? `
-        <h3 class="section-title">${esc(config.overview?.linesHeading || "Zusätzliche Linien")}</h3>
+        <h3 class="section-title">${esc(config.overview?.linesHeading || (config.language === "de" ? "Zusätzliche Linien" : "Additional lines"))}</h3>
         <table class="scope-table">
           ${config.overview.extraLines.map(l => `
           <tr>
@@ -350,8 +350,8 @@ function renderOverview() {
         <div id="graphSearchResults" class="search-suggest" hidden></div>
       </span>
       ${inDescMode ? `
-      <span class="desc-banner">Nachkommen von <b>${esc(people[descendantRoot].name)}</b></span>
-      <button class="ghost" id="exitDescendants">Zurück</button>` : inHourglass ? `
+      <span class="desc-banner">${strings.get("descendantsBanner")} <b>${esc(people[descendantRoot].name)}</b></span>
+      <button class="ghost" id="exitDescendants">${strings.get("back")}</button>` : inHourglass ? `
       <span class="desc-banner">${strings.get("hourglassBanner")} <b>${esc(people[hgRoot].name)}</b></span>
       <button class="ghost" id="toFullView">${strings.get("viewFull")}</button>` : `
       <button class="ghost" id="toHourglass">${strings.get("viewHourglass")}</button>`}
@@ -414,7 +414,7 @@ function renderOverview() {
       vb = { x: node.x - w / 2, y: node.y + node.h / 2 - h / 2, w, h };
     }
   } else if (full.w > 1800) {
-    // Grosse Graphen: lesbar auf die Referenzperson einzoomen statt alles winzig zu zeigen
+    // Large graphs: zoom in on the reference person legibly instead of showing everything tiny
     const refNode = laid.nodes.find(n => n.persons.includes(refPerson));
     if (refNode) {
       const w = 1500, h = w * 0.75;
@@ -446,7 +446,7 @@ function renderOverview() {
   const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
   wrap.addEventListener("pointerdown", (e) => {
-    if (e.pointerType === "touch") return; // Touch läuft über touch-Events
+    if (e.pointerType === "touch") return; // touch is handled via touch events
     drag = { x: e.clientX, y: e.clientY, vb: { ...vb } };
     moved = false;
   });
@@ -487,7 +487,7 @@ function renderOverview() {
   wrap.addEventListener("touchend", () => { pinch = null; drag = null; });
 
   // Aufklapp-Anker
-  // Klick auf Namen (nur wenn nicht gezogen wurde)
+  // Click on a name (only if not dragged)
   svg.querySelectorAll(".gname").forEach(t => t.addEventListener("click", (e) => {
     if (moved) return;
     e.stopPropagation();
@@ -503,7 +503,7 @@ function showInTree(personId) {
     renderView("overview");
     return;
   }
-  // Gesamtansicht: Person markieren (alles ist sichtbar); Sicherheitsnetz für Unverknüpfte
+  // Full view: highlight the person — everything is visible; safety net for unconnected persons
   const visible = computeFullVisible(baseRootIds());
   if (!visible.has(personId)) {
     viewMode = "hourglass";
@@ -514,7 +514,7 @@ function showInTree(personId) {
   renderView("overview");
 }
 
-/* ---------------- Personen (inkl. Daten-Aktionen) ---------------- */
+/* ---------------- Persons (incl. data actions) ---------------- */
 
 async function saveCentral() {
   const button = document.getElementById("adminSync");
@@ -541,7 +541,7 @@ async function saveCentral() {
   }
 }
 
-/* ---------------- Quellen ---------------- */
+/* ---------------- Sources ---------------- */
 
 function renderAdmin() {
   app.innerHTML = `
@@ -693,13 +693,13 @@ function renderAdmin() {
     location.reload();
   });
   document.getElementById("exportYaml")?.addEventListener("click", () => {
-    downloadText("familienstammbaum.yaml", (window.jsyaml ? jsyaml.dump(data, { lineWidth: -1 }) : JSON.stringify(data, null, 2)), "text/yaml");
+    downloadText(`${activeTree}.yaml`, (window.jsyaml ? jsyaml.dump(data, { lineWidth: -1 }) : JSON.stringify(data, null, 2)), "text/yaml");
   });
   document.getElementById("exportJson")?.addEventListener("click", () => {
-    downloadText("familienstammbaum.json", JSON.stringify(data, null, 2), "application/json");
+    downloadText(`${activeTree}.json`, JSON.stringify(data, null, 2), "application/json");
   });
   document.getElementById("exportGedcomBtn")?.addEventListener("click", () => {
-    downloadText("familienstammbaum.ged", exportGedcom(data), "text/plain");
+    downloadText(`${activeTree}.ged`, exportGedcom(data), "text/plain");
   });
   document.getElementById("downloadSourcesZip")?.addEventListener("click", async () => {
     const btn = document.getElementById("downloadSourcesZip");
@@ -724,7 +724,7 @@ function renderAdmin() {
 }
 
 function renderSources() {
-  // Dokument-zentrierte Sicht: jedes Quelldokument einmal, mit den Personen, die es belegt.
+  // Document-centric view: each source document once, with the persons it documents.
   const docs = new Map(); // url -> { labels: Map(label->count), persons: [] }
   for (const [id, p] of Object.entries(people)) {
     for (const s of (p.sources || [])) {
@@ -782,7 +782,7 @@ function renderSources() {
             body: JSON.stringify({ filename: url.replace("/sources/", "") })
           });
           const result = await resp.json();
-          if (!resp.ok) throw new Error(result?.error || "Löschen fehlgeschlagen.");
+          if (!resp.ok) throw new Error(result?.error || strings.get("deleteFailed"));
         } catch (err) {
           alert(strings.get("sourceDeleteFailed", { err: err.message || err }));
         }
@@ -792,7 +792,7 @@ function renderSources() {
   });
 }
 
-/* ---------------- YAML-Export-Helfer ---------------- */
+/* ---------------- YAML export helpers ---------------- */
 
 function toYamlScalar(value) {
   if (value === null) return "null";
@@ -832,7 +832,7 @@ function downloadText(filename, text, mime="text/plain") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/* ---------------- Bearbeiten (Dialog) ---------------- */
+/* ---------------- Edit dialog ---------------- */
 
 function knownSourceDocs() {
   const docs = new Map();
@@ -987,7 +987,7 @@ function openEditDialog(id) {
     renderView(currentView);
   });
 
-  // --- Quellen verwalten ---
+  // --- Manage sources ---
   editDialogContent.querySelectorAll("[data-remove-source]").forEach(btn => {
     btn.addEventListener("click", () => {
       p.sources.splice(Number(btn.dataset.removeSource), 1);
@@ -1100,7 +1100,7 @@ function openEditDialog(id) {
 
 }
 
-/* ---------------- Personendialog ---------------- */
+/* ---------------- Person dialog ---------------- */
 
 function openPerson(id) {
   const p = people[id];
@@ -1156,7 +1156,7 @@ function openPerson(id) {
   personDialog.showModal();
 }
 
-/* ---------------- Navigation / Init ---------------- */
+/* ---------------- Navigation / init ---------------- */
 
 function renderView(view) {
   if (!isAdmin && view === "admin") view = "overview";
@@ -1168,7 +1168,7 @@ function renderView(view) {
 }
 
 document.addEventListener("click", (e) => {
-  // Externe Links immer in neuem Tab/Fenster öffnen (auch im Vollbild-/PWA-Modus auf iOS)
+  // Always open external links in a new tab/window (also in fullscreen/PWA mode on iOS)
   const ext = e.target.closest('a[target="_blank"]');
   if (ext) {
     e.preventDefault();
@@ -1249,7 +1249,7 @@ async function loadData() {
   if ((treeIndex.trees || []).some(t => t.id === wanted)) {
     activeTree = wanted;
   } else if (localStorage.getItem(`familyTreeDraft:${wanted}`)) {
-    // Neu angelegter Datensatz, existiert bisher nur als lokaler Entwurf.
+    // Newly created dataset, exists only as a local draft so far.
     activeTree = wanted;
     isNewLocalTree = true;
   } else {

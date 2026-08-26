@@ -1,19 +1,19 @@
-// Reiner Graph-Aufbau und Layout für den Stammbaum (ohne DOM, testbar in Node).
+// Pure graph construction and layout for the family tree (no DOM, testable in Node).
 
 function uniq(arr = []) { return [...new Set(arr.filter(Boolean))]; }
 
-// Sichtbare Personen: Nachkommen-Hülle der Basiswurzeln plus stufenweise aufgeklappte Linien.
-// Ein aufgeklappter Anker zeigt die Eltern seiner Person (samt deren Nachkommen).
-// Reine Ketten (nur ein Elternteil mit weiteren Vorfahren) laufen automatisch weiter nach oben;
-// bei einer Gabelung (beide Elternteile haben Vorfahren) stoppt die Stufe, und jede Seite
-// erhält ihren eigenen Aufklapp-Knopf.
+// Visible persons: descendant hull of the base roots plus lines expanded step by step.
+// An expanded anchor shows its person's parents (including their descendants).
+// Pure chains (only one parent with further ancestors) automatically continue upwards;
+// at a fork (both parents have ancestors) the step stops and each side
+// gets its own expand button.
 export function computeVisible(people, baseRootIds, expandedAnchors = new Set()) {
   const visible = new Set();
   const addDown = (id) => {
     if (!people[id] || visible.has(id)) return;
     visible.add(id);
-    // Partner vollständig einblenden (inkl. deren Kinder aus anderen Verbindungen) –
-    // so bleiben Stieffamilien wie Böhme/Jäckh in Gesamtansicht und Nachkommen-Modus sichtbar.
+    // Show partners completely (including their children from other relationships) –
+    // this keeps step families visible in full view and descendants mode.
     for (const partner of people[id].partners || []) addDown(partner);
     for (const child of people[id].children || []) addDown(child);
   };
@@ -26,12 +26,12 @@ export function computeVisible(people, baseRootIds, expandedAnchors = new Set())
     if (guard > 60) return;
     const parents = (people[id]?.parents || []).filter((p) => people[p]);
     for (const parent of parents) addDown(parent);
-    // Automatisch weiter, solange die Linie nicht gabelt
+    // Continue automatically as long as the line does not fork
     const continuing = parents.filter((p) => hiddenParents(p).length);
     if (continuing.length === 1) reveal(continuing[0], guard + 1);
   };
 
-  // Anker wirken erst, wenn ihre Person sichtbar ist (Verkettung über mehrere Stufen)
+  // Anchors only take effect once their person is visible (chaining across steps)
   let changed = true;
   while (changed) {
     changed = false;
@@ -46,12 +46,12 @@ export function computeVisible(people, baseRootIds, expandedAnchors = new Set())
   return visible;
 }
 
-// Sanduhr-Sicht: nur die direkte Vorfahrenlinie der Zentrumsperson (ohne Seitenäste)
-// plus ihre vollständige Nachkommenschaft.
+// Hourglass view: only the direct ancestor line of the center person (no side branches)
+// plus their complete descendants.
 export function computeHourglass(people, rootId) {
   const visible = new Set();
   if (!people[rootId]) return visible;
-  // abwärts: Person, Partner, alle Nachkommen (wie Basis-Hülle)
+  // downwards: person, partners, all descendants (like the base hull)
   const addDown = (id) => {
     if (!people[id] || visible.has(id)) return;
     visible.add(id);
@@ -59,7 +59,7 @@ export function computeHourglass(people, rootId) {
     for (const child of people[id].children || []) addDown(child);
   };
   addDown(rootId);
-  // aufwärts: nur die Eltern-Kette, keine Geschwister, keine Partner ausserhalb der Linie
+  // upwards: only the parent chain, no siblings, no partners outside the line
   const addAnc = (id) => {
     for (const parent of (people[id]?.parents || [])) {
       if (!people[parent] || visible.has(parent)) continue;
@@ -71,7 +71,7 @@ export function computeHourglass(people, rootId) {
   return visible;
 }
 
-// Personen, an denen sich eine verborgene Vorfahrenlinie aufklappen lässt.
+// Persons where a hidden ancestor line can be expanded.
 export function findAnchors(people, visible) {
   const anchors = [];
   for (const id of visible) {
@@ -81,11 +81,11 @@ export function findAnchors(people, visible) {
   return anchors;
 }
 
-// Generationen relativ zur Fokusperson: Eltern -1, Kinder +1, Partner gleich.
+// Generations relative to the focus person: parents -1, children +1, partners equal.
 export function computeGenerations(people, visible, focusId) {
   const gen = new Map();
   if (!visible.has(focusId)) {
-    // Fallback: irgendeine sichtbare Person als Nullpunkt
+    // Fallback: any visible person as origin
     focusId = [...visible][0];
   }
   gen.set(focusId, 0);
@@ -108,15 +108,15 @@ export function computeGenerations(people, visible, focusId) {
   return gen;
 }
 
-// Familien-Knoten (Paare bzw. Einzelpersonen) und Kanten bauen.
+// Build family nodes (couples or single persons) and edges.
 export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
   const nodes = [];
   const nodeById = new Map();
   const homeOf = new Map(); // personId -> nodeId
 
-  // Partnerschafts-Komponenten: eine Person erscheint genau einmal.
-  // Bei Wiederverheiratung entsteht EIN Knoten mit allen Partnern
-  // (z. B. Thomas + Barbara (geschieden) + Ursula (Partnerin)).
+  // Partnership components: each person appears exactly once.
+  // Remarriage yields ONE node with all partners
+  // (e.g. A + B (divorced) + C (partner)).
   const compRoot = new Map();
   const find = (x) => {
     let r = x;
@@ -138,7 +138,7 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
     comps.get(r).push(id);
   }
   for (const members of comps.values()) {
-    // Blutlinie zuerst (Person mit sichtbaren Eltern), dann nach Name
+    // Bloodline first (person with visible parents), then by name
     members.sort((a, b) => {
       const av = (people[a]?.parents || []).some((x) => visible.has(x)) ? 0 : 1;
       const bv = (people[b]?.parents || []).some((x) => visible.has(x)) ? 0 : 1;
@@ -151,8 +151,8 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
     for (const m of members) homeOf.set(m, key);
   }
 
-  // Eltern→Kind-Kanten (alle Familien einer Person anbinden, damit
-  // Zweitpartnerschaften neben der Erstfamilie stehen)
+  // Parent→child edges (attach all of a person's families so that
+  // second partnerships sit next to the first family)
   const famsOfPerson = new Map();
   for (const n of nodes) {
     for (const pid of n.persons) {
@@ -193,7 +193,7 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
   return { nodes, edges, homeOf };
 }
 
-// Ebenen aus festen Generationen (relativ zur Fokusperson), dann Barycenter-Anordnung.
+// Layers from fixed generations (relative to the focus person), then barycenter ordering.
 export function layoutGraph(graph, measure, personGen = null) {
   const { nodes, edges } = graph;
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -207,7 +207,7 @@ export function layoutGraph(graph, measure, personGen = null) {
 
   const gen = new Map();
   if (personGen) {
-    // Feste Generationen: Knoten-Ebene = Generation seiner Personen (Partner sind gleichauf)
+    // Fixed generations: node layer = generation of its persons (partners are level)
     for (const n of nodes) {
       if (n.ph) gen.set(n.id, (personGen.get(n.ph.person) ?? 0) + n.ph.offset);
       else {
@@ -218,7 +218,7 @@ export function layoutGraph(graph, measure, personGen = null) {
     const minG = Math.min(...gen.values());
     for (const [k, v] of gen) gen.set(k, v - minG);
   } else {
-    // Fallback: längster Pfad von einer Quelle
+    // Fallback: longest path from a source
     const visit = (id, stack = new Set()) => {
       if (gen.has(id)) return gen.get(id);
       if (stack.has(id)) return 0;
@@ -232,21 +232,21 @@ export function layoutGraph(graph, measure, personGen = null) {
     nodes.forEach((n) => visit(n.id));
   }
 
-  // Masse
+  // Sizes
   for (const n of nodes) {
     const m = measure(n);
     n.w = m.w; n.h = m.h;
   }
 
-  // Ebenen füllen
+  // Fill layers
   const maxGen = Math.max(...nodes.map((n) => gen.get(n.id)));
   const layers = Array.from({ length: maxGen + 1 }, () => []);
   for (const n of nodes) layers[gen.get(n.id)].push(n);
 
   const GAP = 28, ROW = 120;
 
-  // --- Phase 1: Reihenfolge pro Ebene ---
-  // Grundprinzip: Kinder derselben Eltern (Geschwister) bilden einen unteilbaren Block.
+  // --- Phase 1: order per layer ---
+  // Core principle: children of the same parents (siblings) form an indivisible block.
   const idx = new Map();
   const reindex = () => layers.forEach((layer) => layer.forEach((n, i) => idx.set(n.id, i)));
   const order = new Map();
@@ -268,16 +268,16 @@ export function layoutGraph(graph, measure, personGen = null) {
     return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
   };
 
-  // Primärer Eltern-Knoten = der am weitesten links stehende
+  // Primary parent node = the leftmost one
   const primaryParent = (id) => {
     const ps = (parentsOf.get(id) || []).filter((p) => idx.has(p));
     if (!ps.length) return null;
     return ps.reduce((a, b) => (idx.get(a) <= idx.get(b) ? a : b));
   };
 
-  // Abwärts: Ebene als Folge von Geschwister-Blöcken unter den Eltern anordnen
+  // Downwards: arrange the layer as a sequence of sibling blocks under the parents
   const groupSortDown = (layer) => {
-    const blockKey = new Map();  // nodeId -> [primärEltern-Idx, sekundär]
+    const blockKey = new Map();  // nodeId -> [primary parent idx, secondary]
     for (const n of layer) {
       const pp = primaryParent(n.id);
       const kids = (childrenOf.get(n.id) || []).map((c) => idx.get(c)).filter((x) => x !== undefined);
@@ -289,7 +289,7 @@ export function layoutGraph(graph, measure, personGen = null) {
       return ka[0] - kb[0] || ka[1] - kb[1];
     });
   };
-  // Aufwärts: Eltern nach Schwerpunkt ihrer Kinder sortieren (bringt verschwägerte Familien zusammen)
+  // Upwards: sort parents by the barycenter of their children (brings in-law families together)
   const sortUp = (layer) => {
     const key = new Map();
     layer.forEach((n, i) => {
@@ -300,7 +300,7 @@ export function layoutGraph(graph, measure, personGen = null) {
     layer.sort((a, b) => key.get(a.id) - key.get(b.id));
   };
 
-  // Kanten je Ebenenpaar einmal vorberechnen
+  // Precompute edges per layer pair once
   const gapEdges = Array.from({ length: Math.max(0, 64) }, () => []);
   for (const e of edges) {
     const a = byId.get(e.from), b = byId.get(e.to);
@@ -308,7 +308,7 @@ export function layoutGraph(graph, measure, personGen = null) {
     const g = gen.get(a.id);
     if (gen.get(b.id) === g + 1 && g >= 0 && g < gapEdges.length) gapEdges[g].push(e);
   }
-  // Inversionen via Mergesort: O(k log k) statt O(k²)
+  // Inversions via mergesort: O(k log k) instead of O(k²)
   const countInv = (arr) => {
     if (arr.length < 2) return 0;
     const buf = arr.slice();
@@ -344,11 +344,11 @@ export function layoutGraph(graph, measure, personGen = null) {
   const localCrossings = (g) =>
     (g > 0 ? crossingsBetween(g - 1) : 0) + (g < maxGen ? crossingsBetween(g) : 0);
 
-  // Zweitkriterium bei gleicher Kreuzungszahl: horizontale Gesamtauslenkung
-  // der Kanten (in zentrierten Ebenen-Indizes). Hält Ahnenketten senkrecht
-  // über ihren Familien und die Elternlinien eines Paars beieinander.
+  // Tie-breaker on equal crossing counts: total horizontal deflection
+  // of the edges (in centered layer indices). Keeps ancestor chains vertical
+  // above their families and the parent lines of a couple together.
   const totalSpan = () => {
-    // pixel-zentrierte Position je Knoten aus der aktuellen Reihenfolge
+    // pixel-centered position per node from the current order
     const pos = new Map();
     for (const layer of layers) {
       let cursor = 0;
@@ -364,7 +364,7 @@ export function layoutGraph(graph, measure, personGen = null) {
     return s;
   };
 
-  // Transpose auf Block-Ebene: ganze Geschwister-Blöcke tauschen, innerhalb eines Blocks einzelne Geschwister
+  // Transpose at block level: swap whole sibling blocks, and single siblings within a block
   const blocksOf = (layer) => {
     const blocks = [];
     for (const n of layer) {
@@ -375,9 +375,9 @@ export function layoutGraph(graph, measure, personGen = null) {
     }
     return blocks;
   };
-  // Tausch mit Kaskade: nach jedem Tausch werden die Ebenen darunter neu unter
-  // ihren Eltern gruppiert und die GESAMT-Kreuzungen verglichen. So werden auch
-  // Verbesserungen gefunden, die erst nach Umsortieren der Kinder wirksam werden.
+  // Swap with cascade: after each swap the layers below are regrouped under
+  // their parents and TOTAL crossings are compared. This also finds
+  // improvements that only pay off after the children are reordered.
   const snapshotLayers = () => layers.map((l) => [...l]);
   const restoreLayers = (snap) => { snap.forEach((l, g) => { layers[g] = [...l]; }); reindex(); };
   const cascadeBelow = (g) => {
@@ -399,7 +399,7 @@ export function layoutGraph(graph, measure, personGen = null) {
   const transpose = (withPerms = true) => {
     let cur = totalCrossings();
     let curS = totalSpan();
-    // Schmale Ebenen: alle Block-Reihenfolgen durchprobieren (nur im ersten Round)
+    // Narrow layers: try all block permutations (first round only)
     for (let g = 0; withPerms && g <= maxGen; g++) {
       const blocks = blocksOf(layers[g]);
       if (blocks.length < 2 || blocks.length > permLimit) continue;
@@ -418,7 +418,7 @@ export function layoutGraph(graph, measure, personGen = null) {
     for (let iter = 0; iter < transposeIters; iter++) {
       let improved = false;
       for (let g = 0; g <= maxGen; g++) {
-        // Blöcke tauschen
+        // Swap blocks
         for (let i = 0; ; i++) {
           const blocks = blocksOf(layers[g]);
           if (i + 1 >= blocks.length) break;
@@ -432,7 +432,7 @@ export function layoutGraph(graph, measure, personGen = null) {
           if (c < cur || (c === cur && sp < curS - 1e-9)) { cur = c; curS = sp; improved = true; }
           else restoreLayers(snap);
         }
-        // Innerhalb der Blöcke einzelne Nachbarn tauschen
+        // Swap single neighbours within blocks
         for (let li = 0; li + 1 < layers[g].length; li++) {
           const blocks = blocksOf(layers[g]);
           const inSameBlock = blocks.some((b) => b.nodes.includes(layers[g][li]) && b.nodes.includes(layers[g][li + 1]));
@@ -473,8 +473,8 @@ export function layoutGraph(graph, measure, personGen = null) {
     }
   };
   runRounds();
-  // Weitere Anläufe aus anderen Startzuständen, solange nicht kreuzungsfrei:
-  // umgekehrte Ordnung, dann (bei kleinen Graphen) deterministisch gemischte Ordnungen.
+  // Further attempts from other start states while not crossing-free:
+  // reversed order, then (for small graphs) deterministically shuffled orders.
   const totalNodes = nodes.length;
   const extraStarts = totalNodes <= 90 ? 4 : 1;
   let seed = 12345;
@@ -495,10 +495,10 @@ export function layoutGraph(graph, measure, personGen = null) {
   }
   if (best) restore(best);
 
-  // Abschliessender Vorfahren-Kamm: alle Ebenen von unten nach oben stabil
-  // unter ihren Kindern gruppieren. Beide Eltern eines Paars erhalten denselben
-  // Schlüssel und stehen dadurch nebeneinander; Ahnenketten folgen senkrecht.
-  // Wird nur übernommen, wenn dabei keine zusätzlichen Kreuzungen entstehen.
+  // Final ancestor comb: group all layers bottom-up stably
+  // under their children. Both parents of a couple get the same
+  // key and therefore stand side by side; ancestor chains follow vertically.
+  // Only adopted if no additional crossings arise.
   {
     const before = totalCrossings();
     const snap = snapshot();
@@ -506,7 +506,7 @@ export function layoutGraph(graph, measure, personGen = null) {
     if (totalCrossings() > before) restore(snap);
   }
 
-  // --- Phase 2: x-Positionen (Reihenfolge bleibt fix) ---
+  // --- Phase 2: x positions (order stays fixed) ---
   layers.forEach((layer) => {
     let cursor = 0;
     for (const n of layer) { n.x = cursor + n.w / 2; cursor += n.w + GAP; }
@@ -517,8 +517,8 @@ export function layoutGraph(graph, measure, personGen = null) {
       const refs = (refMap.get(n.id) || []).map((r) => byId.get(r)).filter((r) => r && r.x != null);
       n.desired = refs.length ? refs.reduce((sum, r) => sum + r.x, 0) / refs.length : n.x;
     }
-    // Überlappungen symmetrisch auflösen: Mittel aus links- und rechtsauflösender
-    // Anordnung, damit Kollisionen nicht systematisch nach rechts drücken.
+    // Resolve overlaps symmetrically: average of left- and right-resolving
+    // placement so collisions do not push systematically to the right.
     const L = new Array(layer.length), R = new Array(layer.length);
     let cursor = -Infinity;
     layer.forEach((n, i) => { L[i] = Math.max(n.desired, cursor + n.w / 2); cursor = L[i] + n.w / 2 + GAP; });
@@ -529,7 +529,7 @@ export function layoutGraph(graph, measure, personGen = null) {
       cursor = R[i] - n.w / 2;
     }
     layer.forEach((n, i) => { n.x = (L[i] + R[i]) / 2; });
-    // Mindestabstände final sichern
+    // Enforce minimum gaps finally
     cursor = -Infinity;
     for (const n of layer) {
       n.x = Math.max(n.x, cursor + n.w / 2);
@@ -541,14 +541,14 @@ export function layoutGraph(graph, measure, personGen = null) {
     for (let g = 1; g <= maxGen; g++) pull(layers[g], parentsOf);
     for (let g = maxGen - 1; g >= 0; g--) pull(layers[g], childrenOf);
   }
-  // Verdichtung: alle Nachbarn (Eltern + Kinder) gemeinsam anziehen,
-  // zieht lose, zu breite Abschnitte zusammen.
+  // Compaction: attract all neighbours (parents + children) jointly,
+  // pulls loose, overly wide sections together.
   const bothMap = new Map(nodes.map((n) => [n.id, [...(parentsOf.get(n.id) || []), ...(childrenOf.get(n.id) || [])]]));
   for (let pass = 0; pass < 3; pass++) {
     for (let g = 0; g <= maxGen; g++) pull(layers[g], bothMap);
   }
 
-  // Normalisieren
+  // Normalize
   let minX = Infinity, maxX = -Infinity;
   for (const n of nodes) {
     minX = Math.min(minX, n.x - n.w / 2);

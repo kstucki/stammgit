@@ -1,4 +1,4 @@
-// UI-Texte in allen unterstützten Sprachen. Weitere Sprache = neuer Block.
+// UI strings for all supported languages. Adding a language = adding a block.
 const STRINGS = {
   de: {
     logout: "Abmelden",
@@ -11,6 +11,8 @@ const STRINGS = {
     viewFull: "Gesamtansicht",
     viewHourglass: "Direkte Linie",
     hourglassBanner: "Direkte Linie:",
+    descendantsBanner: "Nachkommen von",
+    back: "Zurück",
     genCenter: "Zentrum",
     draftBadge: "Entwurf aktiv – noch nicht für alle gespeichert",
     relParents: "Eltern",
@@ -137,6 +139,8 @@ const STRINGS = {
     viewFull: "Full view",
     viewHourglass: "Direct line",
     hourglassBanner: "Direct line:",
+    descendantsBanner: "Descendants of",
+    back: "Back",
     genCenter: "Center",
     draftBadge: "Draft active – not yet published for everyone",
     relParents: "Parents",

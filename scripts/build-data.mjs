@@ -21,7 +21,7 @@ for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).s
 let defaultTree = "family";
 try {
   defaultTree = fs.readFileSync(path.join(root, "data", "default-tree.txt"), "utf8").trim() || "family";
-} catch { /* Datei optional */ }
+} catch { /* file is optional */ }
 if (!index.some((t) => t.id === defaultTree)) defaultTree = "family";
 fs.writeFileSync(
   path.join(outTrees, "index.json"),
@@ -40,4 +40,4 @@ for (const line of config?.overview?.extraLines || []) {
 fs.writeFileSync(path.join(outDir, "config.json"), JSON.stringify(config, null, 2), "utf8");
 
 
-console.log(index.map((t) => `${t.id}: ${t.people} Personen`).join(", "));
+console.log(index.map((t) => `${t.id}: ${t.people} persons`).join(", "));

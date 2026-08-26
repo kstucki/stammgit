@@ -12,18 +12,18 @@ export default async (request) => {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;
   const branch = process.env.GITHUB_BRANCH || "main";
-  if (!token || !repo) return bad("GITHUB_TOKEN und GITHUB_REPO müssen in Netlify konfiguriert sein.", 503);
+  if (!token || !repo) return bad("GITHUB_TOKEN and GITHUB_REPO must be configured.", 503);
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return bad("Ungültiges JSON.");
+    return bad("Invalid JSON.");
   }
 
   const filename = String(body?.filename || "");
   if (!filename || !/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/.test(filename)) {
-    return bad("Ungültiger Dateiname.");
+    return bad("Invalid filename.");
   }
 
   const headers = {
@@ -36,16 +36,16 @@ export default async (request) => {
   const api = `https://api.github.com/repos/${repo}/contents/public/sources/${encodeURIComponent(filename)}`;
 
   const existing = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
-  if (!existing.ok) return bad("Datei nicht gefunden.", 404);
+  if (!existing.ok) return bad("File not found.", 404);
   const sha = (await existing.json())?.sha;
 
   const del = await fetch(api, {
     method: "DELETE",
     headers,
-    body: JSON.stringify({ message: `Quelle gelöscht: ${filename}`, sha, branch })
+    body: JSON.stringify({ message: `Delete source: ${filename}`, sha, branch })
   });
   const result = await del.json().catch(() => ({}));
-  if (!del.ok) return bad(result?.message || `GitHub-Löschen fehlgeschlagen (${del.status}).`, 502);
+  if (!del.ok) return bad(result?.message || `GitHub delete failed (${del.status}).`, 502);
 
   return Response.json({ ok: true, commit: result?.commit?.sha?.slice(0, 10) || null });
 };

@@ -1,4 +1,4 @@
-// GEDCOM 5.5.1 Export/Import für das interne Stammbaum-Schema.
+// GEDCOM 5.5.1 export/import for the internal family tree schema.
 
 const PARTICLES = new Set(["von", "van", "de", "da", "di", "du", "della", "v."]);
 
@@ -19,7 +19,7 @@ function gedcomDate(value = "") {
     const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
     return `${Number(iso[3])} ${months[Number(iso[2]) - 1]} ${iso[1]}`;
   }
-  return v; // Jahreszahlen oder Freitext unverändert
+  return v; // years or free text unchanged
 }
 
 export function exportGedcom(data) {

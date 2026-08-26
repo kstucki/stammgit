@@ -12,12 +12,12 @@ export default async (request) => {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;
   const branch = process.env.GITHUB_BRANCH || "main";
-  if (!token || !repo) return bad("GITHUB_TOKEN und GITHUB_REPO müssen in Netlify konfiguriert sein.", 503);
+  if (!token || !repo) return bad("GITHUB_TOKEN and GITHUB_REPO must be configured.", 503);
 
   let body;
-  try { body = await request.json(); } catch { return bad("Ungültiges JSON."); }
+  try { body = await request.json(); } catch { return bad("Invalid JSON."); }
   const tree = String(body?.tree || "");
-  if (!/^[a-z0-9_-]+$/.test(tree)) return bad("Ungültiger Datensatz-Name.");
+  if (!/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid dataset name.");
 
   const headers = {
     accept: "application/vnd.github+json",
@@ -27,12 +27,12 @@ export default async (request) => {
     "content-type": "application/json"
   };
 
-  // Datensatz muss existieren
+  // The dataset must exist
   const treeCheck = await fetch(
     `https://api.github.com/repos/${repo}/contents/data/trees/${encodeURIComponent(tree)}.yaml?ref=${encodeURIComponent(branch)}`,
     { headers }
   );
-  if (!treeCheck.ok) return bad(`Datensatz '${tree}' existiert nicht.`);
+  if (!treeCheck.ok) return bad(`Dataset '${tree}' does not exist.`);
 
   const api = `https://api.github.com/repos/${repo}/contents/data/default-tree.txt`;
   let sha;
@@ -43,14 +43,14 @@ export default async (request) => {
     method: "PUT",
     headers,
     body: JSON.stringify({
-      message: `Standard-Datensatz: ${tree}`,
+      message: `Set default dataset: ${tree}`,
       content: Buffer.from(`${tree}\n`, "utf8").toString("base64"),
       branch,
       ...(sha ? { sha } : {})
     })
   });
   const result = await save.json().catch(() => ({}));
-  if (!save.ok) return bad(result?.message || `GitHub-Speichern fehlgeschlagen (${save.status}).`, 502);
+  if (!save.ok) return bad(result?.message || `GitHub save failed (${save.status}).`, 502);
 
   return Response.json({ ok: true, tree, commit: result?.commit?.sha?.slice(0, 10) || null });
 };

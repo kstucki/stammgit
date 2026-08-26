@@ -1,4 +1,4 @@
-// Reine Datenoperationen – von App und Tests gemeinsam genutzt.
+// Pure data operations – shared by the app and the tests.
 
 export function removePersonFromData(data, id) {
   const people = data.people;
@@ -42,8 +42,8 @@ export function removeSourceLinks(people, url) {
   return removed;
 }
 
-// GEDCOM-Import additiv in bestehende Daten mergen: kollisionssichere IDs,
-// keine automatische Verschmelzung – nur eine Duplikat-Warnliste.
+// Merge a GEDCOM import additively into existing data: collision-safe IDs,
+// no automatic merging – only a duplicate warning list.
 export function mergeImportedPeople(data, importedPeople) {
   const people = data.people;
   const idMap = new Map();
@@ -78,9 +78,9 @@ export function mergeImportedPeople(data, importedPeople) {
   return { added: idMap.size, idMap, duplicates };
 }
 
-// Duplikat zusammenführen: dropId wird in keepId aufgelöst.
-// Beziehungen, Quellen und Notizen werden vereinigt, alle Verweise
-// anderer Personen auf dropId umgeschrieben, dann wird dropId gelöscht.
+// Absorb a duplicate: dropId is dissolved into keepId.
+// Relationships, sources and notes are united, all references from
+// other persons to dropId are rewritten, then dropId is deleted.
 export function absorbPerson(data, keepId, dropId) {
   const people = data.people;
   if (keepId === dropId) return { ok: false, reason: "same" };

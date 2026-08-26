@@ -17,7 +17,7 @@ export default async (request) => {
 
   if (!token || !repo) {
     return bad(
-      "Zentrales Speichern ist noch nicht konfiguriert. Benötigt GITHUB_TOKEN und GITHUB_REPO in Netlify.",
+      "Central saving is not configured yet. Requires GITHUB_TOKEN and GITHUB_REPO.",
       503
     );
   }
@@ -26,19 +26,19 @@ export default async (request) => {
   try {
     body = await request.json();
   } catch {
-    return bad("Ungültiges JSON.");
+    return bad("Invalid JSON.");
   }
 
   const data = body?.data;
   if (!data || typeof data !== "object" || !data.people || typeof data.people !== "object") {
-    return bad("Ungültige Stammbaumdaten.");
+    return bad("Invalid family tree data.");
   }
 
   const count = Object.keys(data.people).length;
   if (count < 1 || count > 5000) return bad("Unplausible Anzahl Personen.");
 
   const tree = String(body?.tree || "family");
-  if (!/^[a-z0-9_-]+$/.test(tree)) return bad("Ungültiger Datensatz-Name.");
+  if (!/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid dataset name.");
   const path = `data/trees/${tree}.yaml`;
   const api = `https://api.github.com/repos/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`;
   const headers = {
@@ -53,9 +53,9 @@ export default async (request) => {
   if (current.ok) {
     sha = (await current.json())?.sha;
   } else if (current.status === 404) {
-    if (!body?.create) return bad(`Datensatz '${tree}' existiert nicht.`);
+    if (!body?.create) return bad(`Dataset '${tree}' does not exist.`);
   } else {
-    return bad(`Aktuelle YAML-Datei konnte nicht von GitHub gelesen werden (${current.status}).`, 502);
+    return bad(`Current YAML file could not be read from GitHub (${current.status}).`, 502);
   }
 
   const yamlText = YAML.stringify(data, { lineWidth: 0 });
@@ -65,7 +65,7 @@ export default async (request) => {
     method: "PUT",
     headers: {...headers, "content-type": "application/json"},
     body: JSON.stringify({
-      message: `Datensatz ${tree} aktualisiert (${new Date().toISOString().slice(0,10)})`,
+      message: `Update dataset ${tree} (${new Date().toISOString().slice(0,10)})`,
       content,
       ...(sha ? { sha } : {}),
       branch
@@ -74,7 +74,7 @@ export default async (request) => {
 
   const result = await save.json().catch(() => ({}));
   if (!save.ok) {
-    return bad(result?.message || `GitHub-Speichern fehlgeschlagen (${save.status}).`, 502);
+    return bad(result?.message || `GitHub save failed (${save.status}).`, 502);
   }
 
   return Response.json({
