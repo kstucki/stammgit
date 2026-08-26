@@ -28,13 +28,18 @@ export default async (request) => {
     return Response.redirect(new URL("/login.html?error=1", request.url), 303);
   }
 
+  // Secure only over https: Safari drops Secure cookies on http://localhost,
+  // which would loop the login endlessly when using server.mjs locally.
+  const isHttps = new URL(request.url).protocol === "https:" ||
+    String(request.headers.get("x-forwarded-proto") || "").includes("https");
+  const secure = isHttps ? ["Secure"] : [];
   const session = [
     `${COOKIE_NAME}=${await tokenFor(adminPassword, role)}`,
-    "Path=/", "HttpOnly", "Secure", "SameSite=Strict", "Max-Age=2592000"
+    "Path=/", "HttpOnly", ...secure, "SameSite=Strict", "Max-Age=2592000"
   ].join("; ");
   const roleCookie = [
     `${ROLE_COOKIE}=${role}`,
-    "Path=/", "Secure", "SameSite=Strict", "Max-Age=2592000"
+    "Path=/", ...secure, "SameSite=Strict", "Max-Age=2592000"
   ].join("; ");
 
   const headers = new Headers({ location: "/", "cache-control": "no-store" });
