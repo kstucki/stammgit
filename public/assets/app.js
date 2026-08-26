@@ -982,7 +982,7 @@ function openEditDialog(id) {
       <p class="muted">${strings.get("editFooter")}</p>
     </form>
   `;
-  editDialog.showModal();
+  if (!editDialog.open) editDialog.showModal();
 
   editDialogContent.querySelector("#mergePersonBtn").addEventListener("click", () => {
     const names = Object.entries(people)
@@ -1176,7 +1176,7 @@ function openPerson(id) {
       </div>
     </article>
   `;
-  personDialog.showModal();
+  if (!personDialog.open) personDialog.showModal();
 }
 
 /* ---------------- Navigation / init ---------------- */
