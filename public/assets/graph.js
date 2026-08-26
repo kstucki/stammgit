@@ -7,7 +7,7 @@ function uniq(arr = []) { return [...new Set(arr.filter(Boolean))]; }
 // Pure chains (only one parent with further ancestors) automatically continue upwards;
 // at a fork (both parents have ancestors) the step stops and each side
 // gets its own expand button.
-export function computeVisible(people, baseRootIds, expandedAnchors = new Set()) {
+export function computeVisible(people, baseRootIds, expandedAnchors = new Set(), options = {}) {
   const visible = new Set();
   const addDown = (id) => {
     if (!people[id] || visible.has(id)) return;
@@ -41,6 +41,32 @@ export function computeVisible(people, baseRootIds, expandedAnchors = new Set())
         reveal(anchor);
         changed = true;
       }
+    }
+  }
+
+  if (options.includeOrphans) {
+    // Components with no connection to anything visible (e.g. freshly
+    // imported branches) would otherwise stay invisible forever – include
+    // them whole. Components that touch the visible set are left alone,
+    // so staged ancestor expansion keeps working.
+    const marked = new Set();
+    for (const pid of Object.keys(people)) {
+      if (visible.has(pid) || marked.has(pid)) continue;
+      const comp = [];
+      const stack = [pid];
+      marked.add(pid);
+      let touchesVisible = false;
+      while (stack.length) {
+        const cur = stack.pop();
+        comp.push(cur);
+        const neighbours = [...(people[cur].parents || []), ...(people[cur].children || []), ...(people[cur].partners || [])];
+        for (const nb of neighbours) {
+          if (!people[nb]) continue;
+          if (visible.has(nb)) { touchesVisible = true; continue; }
+          if (!marked.has(nb)) { marked.add(nb); stack.push(nb); }
+        }
+      }
+      if (!touchesVisible) comp.forEach((x) => visible.add(x));
     }
   }
   return visible;
@@ -104,7 +130,27 @@ export function computeGenerations(people, visible, focusId) {
       queue.push(other);
     }
   }
-  for (const id of visible) if (!gen.has(id)) gen.set(id, 0);
+  // Components not reached from the focus (e.g. imported branches) get
+  // their own BFS so their internal generations stay consistent.
+  for (const id of visible) {
+    if (gen.has(id)) continue;
+    gen.set(id, 0);
+    const q = [id];
+    while (q.length) {
+      const cur = q.shift();
+      const g0 = gen.get(cur);
+      const neighbours = [
+        ...(people[cur]?.parents || []).map((x) => [x, g0 - 1]),
+        ...(people[cur]?.children || []).map((x) => [x, g0 + 1]),
+        ...(people[cur]?.partners || []).map((x) => [x, g0])
+      ];
+      for (const [other, og] of neighbours) {
+        if (!visible.has(other) || gen.has(other)) continue;
+        gen.set(other, og);
+        q.push(other);
+      }
+    }
+  }
   return gen;
 }
 

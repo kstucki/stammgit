@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=1";
-import { getT } from "/assets/strings.js?v=2";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=2";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=2";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=2";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=3";
+import { getT } from "/assets/strings.js?v=3";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=3";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=3";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=3";
 
 let data = null;
 let people = {};
@@ -255,15 +255,15 @@ function effectiveAnchors() {
 
 const layoutCache = new Map();
 
-// Gesamtansicht: alle historischen Linien immer offen (Anker stufenweise akkumulieren)
+// Full view: all historical lines always expanded – anchors accumulated step by step
 function computeFullVisible(roots) {
   const acc = new Set();
-  let vis = computeVisible(people, roots, acc);
+  let vis = computeVisible(people, roots, acc, { includeOrphans: true });
   for (let i = 0; i < 40; i++) {
     const more = findAnchors(people, vis).filter(a => !acc.has(a));
     if (!more.length) break;
     more.forEach(a => acc.add(a));
-    vis = computeVisible(people, roots, acc);
+    vis = computeVisible(people, roots, acc, { includeOrphans: true });
   }
   return vis;
 }
@@ -639,10 +639,6 @@ function renderAdmin() {
       <p class="muted">${strings.get("importInfo")}</p>
       <div class="toolbar">
         <input id="gedImportFile" type="file" accept=".ged,.gedcom" />
-        <select id="gedImportTarget">
-          <option value="active">${strings.get("importTargetActive", { tree: esc(activeTree) })}</option>
-          <option value="new">${strings.get("importTargetNew")}</option>
-        </select>
         <button id="gedImportBtn" class="secondary">${strings.get("importButton")}</button>
       </div>
       <p class="muted" id="gedImportStatus"></p>
@@ -691,21 +687,6 @@ function renderAdmin() {
       const parsed = importGedcom(text);
       const count = Object.keys(parsed.people || {}).length;
       if (!count) { status.textContent = strings.get("gedNoPersons"); return; }
-      if (document.getElementById("gedImportTarget").value === "new") {
-        const name = prompt(strings.get("gedNewTreePrompt"), file.name.replace(/\.(ged|gedcom)$/i, ""));
-        if (!name) return;
-        const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
-        if (!slug) { status.textContent = strings.get("invalidName"); return; }
-        if ((treeIndex.trees || []).some(t => t.id === slug) || localStorage.getItem(`familyTreeDraft:${slug}`)) {
-          status.textContent = strings.get("treeExists", { slug }); return;
-        }
-        if (!confirm(strings.get("gedImportAsNewConfirm", { n: count, file: file.name, slug }))) return;
-        parsed.meta.title = name;
-        localStorage.setItem(`familyTreeDraft:${slug}`, JSON.stringify(parsed));
-        localStorage.setItem("activeTree", slug);
-        location.reload();
-        return;
-      }
       if (!confirm(strings.get("gedImportConfirm", { n: count, file: file.name, tree: activeTree }))) return;
       const result = mergeImportedPeople(data, parsed.people);
       saveDraft();

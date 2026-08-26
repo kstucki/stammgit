@@ -194,6 +194,28 @@ for (const [tid, tree] of Object.entries(trees)) {
   }
 }
 
+// --- 6b) Orphan components in full view ---
+{
+  const { computeVisible, computeGenerations } = await import("../public/assets/graph.js");
+  const fail = (msg) => check(false, msg);
+  const ppl = {
+    root: { name: "Root", children: ["kid"] },
+    kid: { name: "Kid", parents: ["root"] },
+    hidden_anc: { name: "Hidden", children: ["root"] },   // staged ancestor of root
+    isl_a: { name: "IslandA", partners: ["isl_b"], children: ["isl_c"] },
+    isl_b: { name: "IslandB", partners: ["isl_a"], children: ["isl_c"] },
+    isl_c: { name: "IslandC", parents: ["isl_a", "isl_b"] }
+  };
+  ppl.root.parents = ["hidden_anc"];
+  const vis = computeVisible(ppl, ["root"], new Set(), { includeOrphans: true });
+  if (!vis.has("isl_a") || !vis.has("isl_c")) fail("orphans: imported island must be visible in full view.");
+  if (vis.has("hidden_anc")) fail("orphans: staged ancestor must stay hidden.");
+  const visPlain = computeVisible(ppl, ["root"], new Set());
+  if (visPlain.has("isl_a")) fail("orphans: island must NOT appear without includeOrphans (descendants mode).");
+  const gen = computeGenerations(ppl, vis, "root");
+  if (gen.get("isl_c") !== gen.get("isl_a") + 1) fail("orphans: island generations must be internally consistent.");
+}
+
 // --- 7) Layout smoke test on the default dataset ---
 {
   const people = data.people;
