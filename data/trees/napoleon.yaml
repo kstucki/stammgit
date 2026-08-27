@@ -63,6 +63,9 @@ people:
     sources:
     - label: 'Wikipedia summary: Napoleon I'
       url: /sources/wikipedia-napoleon-i.pdf
+    partnerDetails:
+      josephine_de_beauharnais:
+        status: geschieden
   lucien_bonaparte:
     name: Lucien Bonaparte
     birth: '1775'
@@ -208,9 +211,16 @@ people:
     gender: f
     partners:
     - napoleon_i_bonaparte
+    - alexandre_de_beauharnais
     sources:
     - label: 'Wikipedia summary: Josephine de Beauharnais'
       url: /sources/wikipedia-josephine-de-beauharnais.pdf
+    children:
+    - eugene_de_beauharnais
+    - hortense_de_beauharnais
+    partnerDetails:
+      napoleon_i_bonaparte:
+        status: geschieden
   marie_louise_of_austria:
     name: Marie Louise of Austria
     birth: '1791'
@@ -381,6 +391,9 @@ people:
     sources:
     - label: 'Wikipedia summary: Hortense de Beauharnais'
       url: /sources/wikipedia-hortense-de-beauharnais.pdf
+    parents:
+    - alexandre_de_beauharnais
+    - josephine_de_beauharnais
   napoleon_charles_bonaparte:
     name: Napoleon Charles Bonaparte
     birth: '1802'
@@ -661,3 +674,19 @@ people:
     gender: m
     partners:
     - mathilde_bonaparte
+  alexandre_de_beauharnais:
+    name: Alexandre de Beauharnais
+    birth: '1760'
+    death: '1794'
+    partners:
+    - josephine_de_beauharnais
+    children:
+    - eugene_de_beauharnais
+    - hortense_de_beauharnais
+  eugene_de_beauharnais:
+    name: Eugene de Beauharnais
+    birth: '1781'
+    death: '1824'
+    parents:
+    - alexandre_de_beauharnais
+    - josephine_de_beauharnais
