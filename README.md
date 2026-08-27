@@ -6,6 +6,15 @@ serverless functions, built to deploy on Netlify — with a standalone
 server for local hosting included. No database, no lock-in. (*Stammbaum*
 is German for family tree.)
 
+## Why stammgit
+
+stammgit is for people who want to **own their genealogy data as files**.
+Compared to a genealogy suite or a hosted family-tree app:
+
+- your data is human-readable YAML you can open and edit anywhere
+- your history is Git commits, not an opaque database
+- the way in and out is standard GEDCOM
+
 ## Demo
 
 **[stammgit-demo.netlify.app](https://stammgit-demo.netlify.app)** –
