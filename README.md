@@ -14,7 +14,7 @@ Editing is local-first, so every visitor plays in their own browser
 sandbox and the repository stays untouched.
 
 <p align="center">
-<img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the Bonaparte tree">
+<img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the direct line of Napoleon I – the Beauharnais double connection converging on Napoleon III">
 &emsp;&emsp;
 <img src="docs/screenshots/person-dialog-iphone.jpeg" width="290" alt="Person dialog: Napoleon III with the double parentage (Louis Bonaparte and Hortense de Beauharnais), sources and view actions">
 </p>
