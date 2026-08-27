@@ -15,7 +15,7 @@ sandbox and the repository stays untouched.
 
 <p align="center">
 <img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the Bonaparte tree">
-&nbsp;
+&emsp;&emsp;
 <img src="docs/screenshots/person-dialog-iphone.jpeg" width="290" alt="Person dialog: Napoleon III with the double parentage (Louis Bonaparte and Hortense de Beauharnais), sources and view actions">
 </p>
 
