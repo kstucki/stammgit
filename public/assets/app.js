@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=8";
-import { getT } from "/assets/strings.js?v=8";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=8";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=8";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=8";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=9";
+import { getT } from "/assets/strings.js?v=9";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=9";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=9";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=9";
 
 let data = null;
 let people = {};
@@ -191,10 +191,10 @@ function measureNode(n) {
 }
 
 function nodeLines(n) {
-  const first = n.persons[0];
-  return n.persons.map((pid, i) => {
-    const isPartnerOfFirst = i > 0 && (people[first]?.partners || []).includes(pid);
-    const base = isPartnerOfFirst ? partnerLabel(first, pid) : (people[pid]?.name || pid);
+  // Names and years only – partner status (divorced etc.) stays out of the
+  // graph and is shown in the person dialog and editor instead.
+  return n.persons.map((pid) => {
+    const base = people[pid]?.name || pid;
     const yr = years(people[pid]);
     return {
       text: `${base}${yr ? `  ${yr}` : ""}`,
