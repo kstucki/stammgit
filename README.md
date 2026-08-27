@@ -3,7 +3,7 @@
 Git-native family trees. The data is plain YAML in your own repository,
 every change is a Git commit, the app is a static site plus a few
 serverless functions, built to deploy on Netlify — with a standalone
-server for local hosting included. No database, no lock-in. (*Stammbaum*
+server for local hosting included. (*Stammbaum*
 is German for family tree.)
 
 ## Why stammgit
@@ -23,7 +23,7 @@ Editing is local-first, so every visitor plays in their own browser
 sandbox and the repository stays untouched. Want to see it at scale?
 Import [royal92.ged](https://github.com/D-Jeffrey/gedcom-samples/blob/main/royal/royal92.ged)
 (3,010 persons of European royalty, public domain) as a new dataset in
-the admin tab – it renders instantly.
+the admin tab.
 
 <p align="center">
 <img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the direct line of Napoleon I – the Beauharnais double connection converging on Napoleon III">
