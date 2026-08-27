@@ -706,6 +706,7 @@ function renderAdmin() {
   });
 }
 
+let sourcesQuery = "";
 function renderSources() {
   // Document-centric view: each source document once, with the persons it documents.
   const docs = new Map(); // url -> { labels: Map(label->count), persons: [] }
@@ -723,13 +724,21 @@ function renderSources() {
     return { url, label, persons };
   }).sort((a, b) => a.label.localeCompare(b.label, "de"));
 
+  const q = sourcesQuery.trim().toLowerCase();
+  const shown = q ? entries.filter(e =>
+    e.label.toLowerCase().includes(q) || e.url.toLowerCase().includes(q) ||
+    e.persons.some(pid => (people[pid].name || pid).toLowerCase().includes(q))
+  ) : entries;
+
   app.innerHTML = `
     <section class="view-header">
       <div>
         <h2>${strings.get("sources")}</h2>
       </div>
+      <input id="sourcesSearch" type="search" autocomplete="off" placeholder="${strings.get("sourcesSearchPlaceholder")}" value="${esc(sourcesQuery)}" />
     </section>
-    ${entries.map(e => `
+    ${shown.length ? "" : `<p class="empty">${strings.get("noHits")}</p>`}
+    ${shown.map(e => `
       <section class="card source-doc">
         <div class="source-doc-head">
           <h3>${esc(e.label)}</h3>
@@ -747,6 +756,16 @@ function renderSources() {
   app.querySelectorAll("[data-open-person]").forEach(btn => {
     btn.addEventListener("click", () => openPerson(btn.dataset.openPerson));
   });
+  const searchEl = document.getElementById("sourcesSearch");
+  searchEl?.addEventListener("input", () => {
+    sourcesQuery = searchEl.value;
+    const pos = searchEl.selectionStart;
+    renderSources();
+    const again = document.getElementById("sourcesSearch");
+    again.focus();
+    again.setSelectionRange(pos, pos);
+  });
+
   app.querySelectorAll("[data-delete-source]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const url = btn.dataset.deleteSource;
@@ -810,6 +829,63 @@ function downloadText(filename, text, mime="text/plain") {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------------- Person picker (search dialog for choosing a person) ---------------- */
+let pickerDialog = null;
+function ensurePicker() {
+  if (pickerDialog) return;
+  pickerDialog = document.createElement("dialog");
+  pickerDialog.id = "pickerDialog";
+  pickerDialog.innerHTML = `
+    <div class="picker">
+      <h3 id="pickerTitle"></h3>
+      <input id="pickerInput" type="search" autocomplete="off" placeholder="${strings.get("searchPlaceholder")}" />
+      <div id="pickerResults" class="picker-list"></div>
+      <div class="toolbar"><button class="secondary" id="pickerCancel" type="button">${strings.get("cancel")}</button></div>
+    </div>`;
+  document.body.appendChild(pickerDialog);
+}
+
+// Opens the picker and resolves with a person id, or null when cancelled.
+function pickPerson({ title, exclude = [] }) {
+  ensurePicker();
+  const excluded = new Set(exclude);
+  const input = pickerDialog.querySelector("#pickerInput");
+  const results = pickerDialog.querySelector("#pickerResults");
+  pickerDialog.querySelector("#pickerTitle").textContent = title;
+  input.value = "";
+  const candidates = Object.entries(people)
+    .filter(([pid]) => !excluded.has(pid))
+    .map(([pid, pp]) => ({ pid, name: pp.name || pid, yr: years(pp) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  const renderList = () => {
+    const q = input.value.trim().toLowerCase();
+    const hits = candidates.filter(c => !q || c.name.toLowerCase().includes(q) || c.pid.includes(q)).slice(0, 60);
+    results.innerHTML = hits.length
+      ? hits.map(c => `<button type="button" data-pick="${esc(c.pid)}">${esc(c.name)}${c.yr ? ` <span class="muted">${esc(c.yr)}</span>` : ""}</button>`).join("")
+      : `<p class="empty">${strings.get("noHits")}</p>`;
+  };
+  renderList();
+  return new Promise((finish) => {
+    const done = (value) => {
+      pickerDialog.close();
+      input.removeEventListener("input", renderList);
+      results.onclick = null;
+      pickerDialog.querySelector("#pickerCancel").onclick = null;
+      pickerDialog.oncancel = null;
+      finish(value);
+    };
+    input.addEventListener("input", renderList);
+    results.onclick = (e) => {
+      const btn = e.target.closest("[data-pick]");
+      if (btn) done(btn.dataset.pick);
+    };
+    pickerDialog.querySelector("#pickerCancel").onclick = () => done(null);
+    pickerDialog.oncancel = (e) => { e.preventDefault(); done(null); };
+    if (!pickerDialog.open) pickerDialog.showModal();
+    input.focus();
+  });
 }
 
 /* ---------------- Edit dialog ---------------- */
@@ -941,15 +1017,10 @@ function openEditDialog(id) {
   `;
   if (!editDialog.open) editDialog.showModal();
 
-  editDialogContent.querySelector("#mergePersonBtn").addEventListener("click", () => {
-    const names = Object.entries(people)
-      .filter(([x]) => x !== id)
-      .map(([x, pp]) => `${pp.name} [${x}]`).join("\n");
-    const answer = prompt(strings.get("mergePrompt", { name: p.name, names: names.slice(0, 1200) }));
-    if (!answer) return;
-    const match = answer.match(/\[([^\]]+)\]$/);
-    const keepId = match ? match[1] : answer.trim();
-    if (!people[keepId]) return alert(strings.get("idUnknown"));
+  editDialogContent.querySelector("#mergePersonBtn").addEventListener("click", async () => {
+    const keepId = await pickPerson({ title: strings.get("mergePickTitle", { name: p.name }), exclude: [id] });
+    if (!keepId) return;
+    if (!confirm(strings.get("mergeConfirm", { from: p.name, to: people[keepId].name || keepId }))) return;
     const result = absorbPerson(data, keepId, id);
     if (!result.ok) return alert(strings.get("mergeFailed"));
     saveDraft();
@@ -1046,16 +1117,12 @@ function openEditDialog(id) {
     renderView(currentView);
   });
 
-  editDialogContent.querySelectorAll("[data-add-relation]").forEach(btn => btn.addEventListener("click", () => {
+  editDialogContent.querySelectorAll("[data-add-relation]").forEach(btn => btn.addEventListener("click", async () => {
     const type = btn.dataset.addRelation;
-    const names = Object.entries(people)
-      .filter(([x]) => x !== id)
-      .map(([x,pp]) => `${pp.name} [${x}]`).join("\n");
-    const answer = prompt(strings.get("relationPrompt", { names: names.slice(0, 1400) }));
-    if (!answer) return;
-    const match = answer.match(/\[([^\]]+)\]$/);
-    const otherId = match ? match[1] : answer.trim();
-    if (!people[otherId]) return alert(strings.get("idUnknown"));
+    const titleKey = type === "parents" ? "addExistingParent" : type === "children" ? "addExistingChild" : "addExistingPartner";
+    const already = unique([...(p.parents || []), ...(p.partners || []), ...(p.children || [])]);
+    const otherId = await pickPerson({ title: strings.get(titleKey), exclude: [id, ...already] });
+    if (!otherId) return;
     linkRelation(type, id, otherId);
     saveDraft();
     openEditDialog(id);

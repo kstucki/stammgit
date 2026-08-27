@@ -186,6 +186,27 @@ for (const [tid, tree] of Object.entries(trees)) {
   if ((await requireAdmin(req(`family_tree_session=${adminToken}`))) !== null) fail("auth: requireAdmin must accept admin.");
 }
 
+// --- 5b) Every writing endpoint rejects the user role ---
+{
+  const fail = (msg) => check(false, msg);
+  const { tokenFor } = await import("../netlify/functions/_auth.mjs");
+  const userToken = await tokenFor("test-admin-secret", "user");
+  const adminToken = await tokenFor("test-admin-secret", "admin");
+  const writers = ["save-family", "upload-source", "delete-source"];
+  for (const name of writers) {
+    const handler = (await import(`../netlify/functions/${name}.mjs`)).default;
+    const req = (token) => new Request("http://localhost/.netlify/functions/" + name, {
+      method: "POST",
+      headers: { cookie: `family_tree_session=${token}`, "content-type": "application/json" },
+      body: "{}"
+    });
+    const asUser = await handler(req(userToken));
+    if (asUser.status !== 403) fail(`auth: ${name} must reject the user role with 403 (got ${asUser.status}).`);
+    const asAdmin = await handler(req(adminToken));
+    if (asAdmin.status === 403) fail(`auth: ${name} must not reject the admin role.`);
+  }
+}
+
 // --- 6) Instance configuration ---
 {
   const config = YAML.parse(fs.readFileSync(path.join(root, "data", "config.yaml"), "utf8"));
