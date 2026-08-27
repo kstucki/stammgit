@@ -118,6 +118,13 @@ npm run build
 node server.mjs
 ```
 
+Layout scaling: editing, search, direct line and descendants views stay
+fast at any dataset size. The **full view** runs a heavy crossing
+minimization and is comfortable up to roughly 1,000 visible persons;
+beyond that it takes minutes (royal92.ged with 3,010 persons: the other
+views work fine, the full view does not). Tested daily with a real
+~350-person dataset.
+
 Unsynced work lives in one browser profile; clearing site data discards
 it. stammgit is designed for a **single admin editing at a time**.
 Concurrent edits are caught at sync time: a sync based on an outdated
