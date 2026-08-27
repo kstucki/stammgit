@@ -2,8 +2,9 @@
 
 Git-native family trees. The data is plain YAML in your own repository,
 every change is a Git commit, the app is a static site plus a few
-serverless functions. No database, no lock-in. (*Stammbaum* is German for
-family tree.)
+serverless functions, built to deploy on Netlify — with a standalone
+server for local hosting included. No database, no lock-in. (*Stammbaum*
+is German for family tree.)
 
 ## Demo
 
@@ -94,28 +95,12 @@ data/trees/*.yaml         datasets
 scripts/                  build + test suite (runs on every deploy and sync)
 server.mjs                standalone server (local / VPS)
 public/assets/            app, layout engine, model, GEDCOM, strings, pending store
+public/sources/           uploaded source documents (committed on sync)
 netlify/                  auth edge function + functions (login, save, upload, …)
 ```
 
-## Data schema
-
-```yaml
-meta:
-  title: "Napoleon Bonaparte"
-  focusPersonId: napoleon_i_bonaparte
-people:
-  person_id:
-    name: "First Last"
-    birth: "1769"            # year or ISO date
-    death: "1821"
-    occupation: "…"
-    parents: [id, id]        # up to 4 (adoption)
-    partners: [id]
-    children: [id]
-    partnerDetails: { id: { status: geschieden } }
-    notes: ["…"]
-    sources: [{ label: "…", url: "/sources/file.pdf" }]
-```
+The dataset format is best read from `data/trees/napoleon.yaml`; GEDCOM
+import/export covers the rest.
 
 ## Development
 
