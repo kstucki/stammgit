@@ -11,7 +11,10 @@ is German for family tree.)
 **[stammgit-demo.netlify.app](https://stammgit-demo.netlify.app)** –
 sign in with password `admin` (full access) or `user` (read-only).
 Editing is local-first, so every visitor plays in their own browser
-sandbox and the repository stays untouched.
+sandbox and the repository stays untouched. Want to see it at scale?
+Import [royal92.ged](https://github.com/D-Jeffrey/gedcom-samples/blob/main/royal/royal92.ged)
+(3,010 persons of European royalty, public domain) as a new dataset in
+the admin tab – it renders instantly.
 
 <p align="center">
 <img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the direct line of Napoleon I – the Beauharnais double connection converging on Napoleon III">
