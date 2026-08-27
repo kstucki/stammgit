@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import YAML from "yaml";
 import { COOKIE_NAME, roleFromCookieValue } from "./netlify/shared/token.mjs";
 import { requireAdmin } from "./netlify/functions/_auth.mjs";
+import { contentHash } from "./netlify/shared/content-hash.mjs";
 
 const root = process.cwd();
 
@@ -70,7 +71,12 @@ const LOCAL_FNS = {
     const filePath = path.join(root, "data", "trees", `${tree}.yaml`);
     const exists = fs.existsSync(filePath);
     if (!exists && !body?.create) return jsonResponse({ error: `Dataset '${tree}' does not exist.` }, 400);
+    if (exists && body?.create) return jsonResponse({ error: `Dataset '${tree}' already exists.` }, 409);
     const backup = exists ? fs.readFileSync(filePath, "utf8") : null;
+    const baseHash = typeof body?.baseHash === "string" && body.baseHash ? body.baseHash : null;
+    if (baseHash && backup !== null && baseHash !== contentHash(backup)) {
+      return jsonResponse({ error: "The central dataset has changed since your draft started – nothing was saved. Reload to review the current state, then redo your changes or discard the draft." }, 409);
+    }
     fs.writeFileSync(filePath, YAML.stringify(data, { lineWidth: 0 }), "utf8");
     const build = runBuild();
     if (build.status !== 0) {
@@ -81,7 +87,7 @@ const LOCAL_FNS = {
       return jsonResponse({ error: `Validation failed – nothing was saved:\n${output}` }, 422);
     }
     const git = gitCommit(`Update dataset ${tree} (local)`);
-    return jsonResponse({ ok: true, mode: "local", ...git });
+    return jsonResponse({ ok: true, mode: "local", contentHash: contentHash(YAML.stringify(data, { lineWidth: 0 })), ...git });
   },
   "upload-source": async (request) => {
     const forbidden = await requireAdmin(request);

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
+import { contentHash } from "../netlify/shared/content-hash.mjs";
 
 const root = process.cwd();
 const treesDir = path.join(root, "data", "trees");
@@ -11,12 +12,20 @@ fs.mkdirSync(outTrees, { recursive: true });
 const config = YAML.parse(fs.readFileSync(path.join(root, "data", "config.yaml"), "utf8"));
 
 const index = [];
+const sourceLinks = {}; // url -> { treeId: linkCount } across all datasets
 for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).sort()) {
   const id = file.replace(/\.yaml$/, "");
-  const data = YAML.parse(fs.readFileSync(path.join(treesDir, file), "utf8"));
+  const raw = fs.readFileSync(path.join(treesDir, file), "utf8");
+  const data = YAML.parse(raw);
   fs.writeFileSync(path.join(outTrees, `${id}.json`), JSON.stringify(data, null, 2), "utf8");
   fs.copyFileSync(path.join(treesDir, file), path.join(outTrees, `${id}.yaml`));
-  index.push({ id, title: data.meta?.title || id, people: Object.keys(data.people || {}).length });
+  index.push({ id, title: data.meta?.title || id, people: Object.keys(data.people || {}).length, contentHash: contentHash(raw) });
+  for (const p of Object.values(data.people || {})) {
+    for (const s of p.sources || []) {
+      sourceLinks[s.url] = sourceLinks[s.url] || {};
+      sourceLinks[s.url][id] = (sourceLinks[s.url][id] || 0) + 1;
+    }
+  }
 }
 const defaultTree = String(config.defaultTree || "").trim();
 if (!index.some((t) => t.id === defaultTree)) {
@@ -38,6 +47,17 @@ for (const line of config?.overview?.extraLines || []) {
   }
 }
 fs.writeFileSync(path.join(outDir, "config.json"), JSON.stringify(config, null, 2), "utf8");
+fs.writeFileSync(path.join(outDir, "source-links.json"), JSON.stringify(sourceLinks, null, 2), "utf8");
+
+// Point out source files no longer referenced by any dataset (not an error).
+const sourcesDir = path.join(root, "public", "sources");
+if (fs.existsSync(sourcesDir)) {
+  const orphans = fs.readdirSync(sourcesDir)
+    .filter((f) => !f.startsWith(".") && !sourceLinks[`/sources/${f}`]);
+  if (orphans.length) {
+    console.log(`Note: ${orphans.length} source file(s) not referenced by any dataset: ${orphans.join(", ")}`);
+  }
+}
 
 
 console.log(index.map((t) => `${t.id}: ${t.people} persons`).join(", "));

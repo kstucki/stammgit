@@ -25,6 +25,8 @@ window.addEventListener("unhandledrejection", (e) => {
 let strings = getT("de");
 let config = { overview: { extraLines: [] } };
 let treeIndex = { trees: [], defaultTree: "family" };
+let serverContentHash = null;   // hash of the central dataset this draft is based on
+let sourceLinksAll = {};        // url -> { treeId: count } across all datasets (build artifact)
 let activeTree = "family";
 let isNewLocalTree = false;
 let pendingFiles = [];      // filenames waiting for upload on sync
@@ -129,8 +131,14 @@ function partnerLabel(ownerId, partnerId) {
   return `${name}${suffix}`;
 }
 
+function draftBaseKey() { return `familyTreeDraftBase:${activeTree}`; }
+
 function saveDraft() {
   layoutCache.clear();
+  // Remember which central state this draft is based on (sync version guard).
+  if (localStorage.getItem(draftBaseKey()) === null) {
+    localStorage.setItem(draftBaseKey(), serverContentHash || "");
+  }
   localStorage.setItem(draftKey(), JSON.stringify(data));
   draftActive = true;
   updateDraftBadge();
@@ -542,11 +550,16 @@ async function saveCentral() {
     const res = await fetch(`${API_BASE}/save-family`, {
       method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify({data, tree: activeTree, create: isNewLocalTree})
+      body: JSON.stringify({
+        data, tree: activeTree, create: isNewLocalTree,
+        baseHash: localStorage.getItem(draftBaseKey()) || null
+      })
     });
     const result = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(result.error || `Save failed (${res.status})`);
     localStorage.removeItem(draftKey());
+    localStorage.removeItem(draftBaseKey());
+    if (result.contentHash) serverContentHash = result.contentHash;
     draftActive = false;
     isNewLocalTree = false;
     await refreshPending();
@@ -666,6 +679,7 @@ function renderAdmin() {
   document.getElementById("adminDiscard")?.addEventListener("click", async () => {
     if (!confirm(strings.get("discardConfirm"))) return;
     localStorage.removeItem(draftKey());
+    localStorage.removeItem(draftBaseKey());
     // A discard is a full local reset: pending file uploads and queued
     // deletions go too – otherwise the draft badge would stay on forever
     // (especially on demo deployments, where nothing can ever be synced).
@@ -778,8 +792,12 @@ function renderSources() {
       saveDraft();
       if (url.startsWith("/sources/")) {
         const name = url.replace("/sources/", "");
+        const linkedElsewhere = Object.entries(sourceLinksAll[url] || {})
+          .filter(([t, n]) => t !== activeTree && n > 0).map(([t]) => t);
         if (pendingFiles.includes(name)) {
           await pendingRemoveFile(name);          // never synced – just drop the local blob
+        } else if (linkedElsewhere.length) {
+          alert(strings.get("sourceKeptOtherTrees", { trees: linkedElsewhere.join(", ") }));
         } else if (confirm(strings.get("sourceDeleteFile"))) {
           await pendingQueueDeletion(name);       // executed on next sync
         }
@@ -1302,6 +1320,10 @@ async function loadData() {
   ]);
   if (cfgRes.ok) config = await cfgRes.json();
   if (idxRes.ok) treeIndex = await idxRes.json();
+  try {
+    const linksRes = await fetch("/data/source-links.json");
+    if (linksRes.ok) sourceLinksAll = await linksRes.json();
+  } catch { /* older builds have no source map */ }
   if (localStorage.getItem("activeTree") === (treeIndex.defaultTree || "family")) localStorage.removeItem("activeTree");
   const wanted = localStorage.getItem("activeTree") || treeIndex.defaultTree || "family";
   if ((treeIndex.trees || []).some(t => t.id === wanted)) {
@@ -1317,6 +1339,7 @@ async function loadData() {
     data = JSON.parse(localStorage.getItem(draftKey()));
     people = data.people || {};
   } else {
+    serverContentHash = (treeIndex.trees || []).find(t => t.id === activeTree)?.contentHash || null;
     const res = await fetch(`/data/trees/${activeTree}.json`, {cache:"no-store"});
     if (!res.ok) throw new Error(strings.get("loadFailed", { status: res.status }));
     data = await res.json();

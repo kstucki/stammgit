@@ -1,4 +1,5 @@
 import YAML from "yaml";
+import { contentHash } from "../shared/content-hash.mjs";
 
 function bad(message, status = 400) {
   return Response.json({ error: message }, { status });
@@ -49,13 +50,28 @@ export default async (request) => {
   };
 
   let sha = null;
+  let currentHash = null;
   const current = await fetch(api, { headers });
   if (current.ok) {
-    sha = (await current.json())?.sha;
+    if (body?.create) return bad(`Dataset '${tree}' already exists.`, 409);
+    const info = await current.json();
+    sha = info?.sha;
+    if (info?.content) currentHash = contentHash(Buffer.from(info.content, "base64").toString("utf8"));
   } else if (current.status === 404) {
     if (!body?.create) return bad(`Dataset '${tree}' does not exist.`);
   } else {
     return bad(`Current YAML file could not be read from GitHub (${current.status}).`, 502);
+  }
+
+  // Sync version guard: a sync based on an outdated central state is
+  // rejected instead of silently overwriting the changes in between.
+  const baseHash = typeof body?.baseHash === "string" && body.baseHash ? body.baseHash : null;
+  if (baseHash && currentHash && baseHash !== currentHash) {
+    return bad(
+      "The central dataset has changed since your draft started – nothing was saved. " +
+      "Reload to review the current state, then redo your changes or discard the draft.",
+      409
+    );
   }
 
   const yamlText = YAML.stringify(data, { lineWidth: 0 });
@@ -79,6 +95,7 @@ export default async (request) => {
 
   return Response.json({
     ok: true,
-    commit: result?.commit?.sha?.slice(0, 10) || null
+    commit: result?.commit?.sha?.slice(0, 10) || null,
+    contentHash: contentHash(yamlText)
   });
 };

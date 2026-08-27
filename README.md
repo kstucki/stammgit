@@ -62,7 +62,9 @@ GEDCOM import), sync it, then point `defaultTree` at it and rewrite the
 overview texts. The build validates the config, including every
 `extraLines` person id. Afterwards the demo data can go: delete
 `data/trees/napoleon.yaml` and its source sheets
-(`public/sources/wikipedia-*.pdf`) without hesitation.
+(`public/sources/wikipedia-*.pdf`) without hesitation – the build prints a
+note for source files no longer referenced by any dataset, so leftovers
+are easy to spot.
 
 ## What it does
 
@@ -117,9 +119,11 @@ node server.mjs
 ```
 
 Unsynced work lives in one browser profile; clearing site data discards
-it. stammgit assumes a **single admin editing at a time**: two admins with
-local drafts on different devices can overwrite each other on sync (last
-sync wins; every state remains recoverable via Git history). Static-only
+it. stammgit is designed for a **single admin editing at a time**.
+Concurrent edits are caught at sync time: a sync based on an outdated
+central state is rejected instead of silently overwriting it (and every
+state stays recoverable via Git history) – but there is no merge UI, so
+the later editor redoes their changes on the fresh state. Static-only
 hosts (GitHub Pages) are not supported, since auth and sync need a server
 side.
 
