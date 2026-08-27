@@ -53,8 +53,9 @@ overview:
 Typical path: create your dataset in the app (admin → New dataset, or
 GEDCOM import), sync it, then point `defaultTree` at it and rewrite the
 overview texts. The build validates the config, including every
-`extraLines` person id. Deleting `data/trees/napoleon.yaml` afterwards is
-fine.
+`extraLines` person id. Afterwards the demo data can go: delete
+`data/trees/napoleon.yaml` and its source sheets
+(`public/sources/wikipedia-*.pdf`) without hesitation.
 
 ## What it does
 

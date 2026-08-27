@@ -1,5 +1,6 @@
 # Instance configuration – the app only READS this file, it never writes it.
-# Edit it directly in GitHub (or locally); every commit deploys automatically.
+# On Netlify every Git push deploys automatically; when hosting locally,
+# run `npm run build` (or restart via `npm start`) after editing this file.
 
 language: en                # UI language: de | en
 title: "Family Tree"        # browser tab
