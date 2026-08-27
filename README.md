@@ -13,7 +13,11 @@ sign in with password `admin` (full access) or `user` (read-only).
 Editing is local-first, so every visitor plays in their own browser
 sandbox and the repository stays untouched.
 
-<p align="center"><img src="docs/screenshots/overview-iphone.jpeg" width="340" alt="Overview with starting points and the Bonaparte tree on an iPhone"></p>
+<p align="center">
+<img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the Bonaparte tree">
+&nbsp;
+<img src="docs/screenshots/person-dialog-iphone.jpeg" width="290" alt="Person dialog: Napoleon I with parents, partners, children, siblings and sources">
+</p>
 
 ## Run it locally
 
