@@ -1,8 +1,8 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=9";
-import { getT } from "/assets/strings.js?v=9";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=9";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=9";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=9";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=10";
+import { getT } from "/assets/strings.js?v=10";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
 
 let data = null;
 let people = {};
@@ -666,6 +666,13 @@ function renderAdmin() {
   document.getElementById("adminDiscard")?.addEventListener("click", async () => {
     if (!confirm(strings.get("discardConfirm"))) return;
     localStorage.removeItem(draftKey());
+    // A discard is a full local reset: pending file uploads and queued
+    // deletions go too – otherwise the draft badge would stay on forever
+    // (especially on demo deployments, where nothing can ever be synced).
+    try {
+      for (const name of await pendingListFiles()) await pendingRemoveFile(name);
+      for (const name of await pendingListDeletions()) await pendingClearDeletion(name);
+    } catch { /* best effort – reload re-reads the actual state */ }
     location.reload();
   });
   document.getElementById("exportYaml")?.addEventListener("click", () => {
