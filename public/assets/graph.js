@@ -440,6 +440,10 @@ export function layoutGraph(graph, measure, personGen = null) {
     return out;
   };
   const bigGraph = nodes.length > 150;
+  // Effort scaling: very large graphs skip the expensive optimization stages
+  // (cascade transpose, extra starts) – a few more crossings, but seconds
+  // instead of minutes. Quality is unchanged below the threshold.
+  const hugeGraph = nodes.length > 400;
   const permLimit = 6;
   const transposeIters = 8;
   const transpose = (withPerms = true) => {
@@ -506,12 +510,12 @@ export function layoutGraph(graph, measure, personGen = null) {
     });
     reindex();
   };
-  const rounds = bigGraph ? 4 : 6;
+  const rounds = hugeGraph ? 3 : bigGraph ? 4 : 6;
   const runRounds = () => {
     for (let round = 0; round < rounds; round++) {
       for (let g = maxGen - 1; g >= 0; g--) { sortUp(layers[g]); reindex(); }
       for (let g = 1; g <= maxGen; g++) { groupSortDown(layers[g]); reindex(); }
-      transpose();
+      if (!hugeGraph) transpose();
       const c = totalCrossings();
       const sp = totalSpan();
       if (c < bestC || (c === bestC && sp < bestSpan - 1e-9)) { bestC = c; bestSpan = sp; best = snapshot(); }
@@ -522,7 +526,7 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Further attempts from other start states while not crossing-free:
   // reversed order, then (for small graphs) deterministically shuffled orders.
   const totalNodes = nodes.length;
-  const extraStarts = totalNodes <= 90 ? 4 : 1;
+  const extraStarts = hugeGraph ? 0 : totalNodes <= 90 ? 4 : 1;
   let seed = 12345;
   const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   for (let attempt = 0; attempt < extraStarts && bestC > 0; attempt++) {

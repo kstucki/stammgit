@@ -118,20 +118,12 @@ npm run build
 node server.mjs
 ```
 
-Layout scaling: editing, search, direct line and descendants views stay
-fast at any dataset size. The **full view** runs a heavy crossing
-minimization and is comfortable up to roughly 1,000 visible persons;
-beyond that it takes minutes (royal92.ged with 3,010 persons: the other
-views work fine, the full view does not). Tested daily with a real
-~350-person dataset.
+## Notes
 
-Unsynced work lives in one browser profile; clearing site data discards
-it. stammgit is designed for a **single admin editing at a time**.
-Concurrent edits are caught at sync time: a sync based on an outdated
-central state is rejected instead of silently overwriting it (and every
-state stays recoverable via Git history) – but there is no merge UI, so
-the later editor redoes their changes on the fresh state. Static-only
-hosts (GitHub Pages) are not supported, since auth and sync need a server
-side.
+- Drafts (including uploaded files) live in one browser profile until synced.
+- One admin at a time: a sync based on an outdated central state is
+  rejected instead of overwriting it; every state stays recoverable via
+  Git history.
+- Static-only hosts are not supported – auth and sync need a server side.
 
 MIT.
