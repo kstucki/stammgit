@@ -117,7 +117,10 @@ node server.mjs
 ```
 
 Unsynced work lives in one browser profile; clearing site data discards
-it. Static-only hosts (GitHub Pages) are not supported, since auth and
-sync need a server side.
+it. stammgit assumes a **single admin editing at a time**: two admins with
+local drafts on different devices can overwrite each other on sync (last
+sync wins; every state remains recoverable via Git history). Static-only
+hosts (GitHub Pages) are not supported, since auth and sync need a server
+side.
 
 MIT.
