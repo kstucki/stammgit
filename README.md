@@ -13,6 +13,8 @@ sign in with password `admin` (full access) or `user` (read-only).
 Editing is local-first, so every visitor plays in their own browser
 sandbox and the repository stays untouched.
 
+<p align="center"><img src="docs/screenshots/overview-iphone.jpeg" width="340" alt="Overview with starting points and the Bonaparte tree on an iPhone"></p>
+
 ## Run it locally
 
 ```bash
