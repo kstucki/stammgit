@@ -94,8 +94,15 @@ are easy to spot.
 
 ## Deploy to Netlify
 
-Push to a **private** repo (it will hold your family data), import it in
-Netlify, set:
+No local tools required – everything works in the browser:
+
+1. Get your own **private** copy (it will hold your family data): click
+   **Use this template** on GitHub and choose *Private*. If you want to
+   merge future stammgit updates later, use
+   [github.com/new/import](https://github.com/new/import) instead – the
+   import keeps the shared Git history. (Don't fork: forks of public
+   repos are always public.)
+2. Import the repo in Netlify and set:
 
 | Variable | Purpose |
 | --- | --- |
