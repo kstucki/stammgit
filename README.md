@@ -9,7 +9,6 @@ is German for family tree.)
 ## Why stammgit
 
 stammgit is for people who want to **own their genealogy data as files**.
-Compared to a genealogy suite or a hosted family-tree app:
 
 - your data is human-readable YAML you can open and edit anywhere
 - your history is Git commits, not an opaque database
