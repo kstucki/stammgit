@@ -13,7 +13,7 @@ stammgit is for people who want to **own their genealogy data as files**.
 - your data is human-readable YAML you can open and edit anywhere
 - your history is Git commits, not an opaque database
 - the way in and out is standard GEDCOM
-- agent friendlines: Plain files plus CI validation mean an AI assistant
+- agent friendliness: Plain files plus CI validation mean an AI assistant
   with a scoped GitHub token can safely help maintain your tree – this
   project is maintained that way
 
