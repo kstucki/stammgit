@@ -108,9 +108,10 @@ overview:
       text: "Description shown next to the link."
 ```
 
-Typical path: create your dataset in the app (admin → New dataset, or
-GEDCOM import), sync it, then point `defaultTree` at it and rewrite the
-overview texts. The build validates the config. Afterwards the demo data
+Typical path: create your dataset in the app (admin → New dataset – it
+starts with one seed person), optionally import a GEDCOM into it and
+merge the seed person into your imported self, sync, then point
+`defaultTree` at it and rewrite the overview texts. The build validates the config. Afterwards the demo data
 can go: delete `data/trees/napoleon.yaml` and its source sheets
 (`public/sources/wikipedia-*.pdf`) – the build lists source files no
 longer referenced by any dataset.
@@ -126,6 +127,8 @@ people:
     death: "1821"
     parents: [charles_marie_bonaparte, maria_letizia_ramolino]
     partners: [josephine_de_beauharnais, marie_louise_of_austria]
+    notes:
+      - "Emperor of the French 1804-1814 and again 1815 (Hundred Days)."
     sources:
       - label: "Wikipedia summary: Napoleon I"
         url: /sources/wikipedia-napoleon-i.pdf

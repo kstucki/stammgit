@@ -66,6 +66,8 @@ people:
     partnerDetails:
       josephine_de_beauharnais:
         status: geschieden
+    notes:
+    - Emperor of the French 1804-1814 and again 1815 (Hundred Days).
   lucien_bonaparte:
     name: Lucien Bonaparte
     birth: '1775'
