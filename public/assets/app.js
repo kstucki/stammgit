@@ -72,25 +72,56 @@ async function releasePhotoFile(url) {
   else await pendingQueueDeletion(key);
   await refreshPending();
 }
-// Downscale an image in the browser (longest edge 1200 px, JPEG). Using an
-// <img> element keeps the EXIF orientation handling of the browser.
-function resizePhoto(file, maxEdge = 1200) {
+// Decode an image file into an <img> (keeps the browser's EXIF orientation handling).
+function loadImageFile(file) {
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.max(1, Math.round(img.naturalWidth * scale));
-      const h = Math.max(1, Math.round(img.naturalHeight * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      canvas.toBlob((blob) => blob ? res(blob) : rej(new Error("Image conversion failed.")), "image/jpeg", 0.85);
-    };
+    img.onload = () => res(img);
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Image could not be read.")); };
     img.src = url;
   });
+}
+// Square crop editor on a canvas: the image covers the square, the user pans
+// it by dragging and adjusts the zoom with a range input. cropToBlob() renders exactly the
+// visible square at `size` px as JPEG.
+function makeCropper(canvas, img, zoomInput) {
+  const S = canvas.width;
+  const base = S / Math.min(img.naturalWidth, img.naturalHeight); // cover
+  let zoom = 1, cx = img.naturalWidth / 2, cy = img.naturalHeight / 2; // image-space center of the square
+  const scale = () => base * zoom;
+  const clamp = () => {
+    const half = S / 2 / scale();
+    cx = Math.min(Math.max(cx, half), img.naturalWidth - half);
+    cy = Math.min(Math.max(cy, half), img.naturalHeight - half);
+  };
+  const draw = (ctx = canvas.getContext("2d"), size = S) => {
+    const k = size / S, sc = scale() * k;
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(img, size / 2 - cx * sc, size / 2 - cy * sc, img.naturalWidth * sc, img.naturalHeight * sc);
+  };
+  clamp(); draw();
+  let drag = null;
+  canvas.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); e.preventDefault(); });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = canvas.getBoundingClientRect(), css = S / r.width; // canvas px per CSS px
+    cx -= (e.clientX - drag.x) * css / scale();
+    cy -= (e.clientY - drag.y) * css / scale();
+    drag = { x: e.clientX, y: e.clientY };
+    clamp(); draw();
+  });
+  const end = () => { drag = null; };
+  canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
+  zoomInput?.addEventListener("input", () => { zoom = Number(zoomInput.value) || 1; clamp(); draw(); });
+  return {
+    cropToBlob(size = 800) {
+      const out = document.createElement("canvas");
+      out.width = size; out.height = size;
+      draw(out.getContext("2d"), size);
+      return new Promise((res, rej) => out.toBlob((blob) => blob ? res(blob) : rej(new Error("Image conversion failed.")), "image/jpeg", 0.85));
+    }
+  };
 }
 function hasPendingWork() { return draftActive || pendingFiles.length > 0 || pendingDeletions.length > 0; }
 const draftKey = () => `familyTreeDraft:${activeTree}`;
@@ -1044,8 +1075,12 @@ function openEditDialog(id) {
         <div class="photo-edit">
           ${p.photo ? `<img class="portrait small" src="${esc(sourceHref(p.photo))}" alt="" />` : `<span class="empty">${strings.get("none")}</span>`}
           <input id="photoFile" type="file" accept="image/*" />
-          <button type="button" class="secondary small" id="photoUpload">${strings.get("photoSet")}</button>
           ${p.photo ? `<button type="button" class="danger small" id="photoRemove">${strings.get("photoRemove")}</button>` : ""}
+        </div>
+        <div class="photo-crop" id="photoCrop" hidden>
+          <canvas id="photoCanvas" width="600" height="600"></canvas>
+          <label class="photo-zoom">${strings.get("photoZoom")} <input id="photoZoom" type="range" min="1" max="3" step="0.01" value="1" /></label>
+          <button type="button" class="secondary small" id="photoUpload">${strings.get("photoSet")}</button>
         </div>
         <p class="muted" id="photoStatus">${strings.get("photoHint")}</p>
       </div>
@@ -1115,14 +1150,31 @@ function openEditDialog(id) {
   });
 
   // --- Photo ---
-  editDialogContent.querySelector("#photoUpload")?.addEventListener("click", async () => {
+  let cropper = null;
+  editDialogContent.querySelector("#photoFile")?.addEventListener("change", async (e) => {
     const status = editDialogContent.querySelector("#photoStatus");
-    const file = editDialogContent.querySelector("#photoFile").files[0];
-    if (!file) { status.textContent = strings.get("photoNeedFile"); return; }
+    const box = editDialogContent.querySelector("#photoCrop");
+    const file = e.target.files[0];
+    cropper = null; box.hidden = true;
+    if (!file) return;
     if (!/^image\//.test(file.type) && !/\.(jpe?g|png|heic|heif|webp|gif)$/i.test(file.name)) { status.textContent = strings.get("photoBadType"); return; }
     try {
+      const img = await loadImageFile(file);
+      const zoom = editDialogContent.querySelector("#photoZoom");
+      zoom.value = "1";
+      cropper = makeCropper(editDialogContent.querySelector("#photoCanvas"), img, zoom);
+      box.hidden = false;
+      status.textContent = strings.get("photoCropHint");
+    } catch (err) {
+      status.textContent = String(err.message || err);
+    }
+  });
+  editDialogContent.querySelector("#photoUpload")?.addEventListener("click", async () => {
+    const status = editDialogContent.querySelector("#photoStatus");
+    if (!cropper) { status.textContent = strings.get("photoNeedFile"); return; }
+    try {
       status.textContent = strings.get("photoProcessing");
-      const blob = await resizePhoto(file);
+      const blob = await cropper.cropToBlob(800);
       const filename = `${id.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}-${Date.now().toString(36)}.jpg`;
       await pendingPutFile(`photos/${filename}`, blob);
       const old = p.photo;

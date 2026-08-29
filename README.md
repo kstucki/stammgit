@@ -27,9 +27,9 @@ stammgit is for people who want to **own their genealogy data as files**.
   publishes them as Git commits.
 - Sources per person: file uploads (kept in the browser until sync) and
   external links (archives, Wikipedia).
-- One portrait photo per person: uploaded in the person editor, downscaled
-  in the browser (max. 1200 px, JPEG), committed to `public/photos/` on
-  sync. The build rejects datasets that reference a missing photo.
+- One portrait photo per person: uploaded in the person editor, cropped to
+  a square in the browser (drag/zoom, 800 px JPEG), committed to
+  `public/photos/` on sync. The build rejects datasets that reference a missing photo.
 - GEDCOM import/export, multiple datasets, downloads as YAML/JSON/GEDCOM/ZIP.
 - Two roles (admin, read-only user), enforced server-side. UI in English
   and German.
