@@ -27,6 +27,9 @@ stammgit is for people who want to **own their genealogy data as files**.
   publishes them as Git commits.
 - Sources per person: file uploads (kept in the browser until sync) and
   external links (archives, Wikipedia).
+- One portrait photo per person: uploaded in the person editor, downscaled
+  in the browser (max. 1200 px, JPEG), committed to `public/photos/` on
+  sync. The build rejects datasets that reference a missing photo.
 - GEDCOM import/export, multiple datasets, downloads as YAML/JSON/GEDCOM/ZIP.
 - Two roles (admin, read-only user), enforced server-side. UI in English
   and German.
@@ -127,6 +130,7 @@ people:
     death: "1821"
     parents: [charles_marie_bonaparte, maria_letizia_ramolino]
     partners: [josephine_de_beauharnais, marie_louise_of_austria]
+    photo: /photos/napoleon_i_bonaparte-abc123.jpg   # optional portrait
     notes:
       - "Emperor of the French 1804-1814 and again 1815 (Hundred Days)."
     sources:
@@ -159,6 +163,7 @@ scripts/                  build + test suite (runs on every deploy and sync)
 server.mjs                standalone server (local / VPS)
 public/assets/            app, layout engine, model, GEDCOM, strings, pending store
 public/sources/           uploaded source documents (committed on sync)
+public/photos/            portrait photos (committed on sync)
 netlify/                  auth edge function + functions (login, save, upload, …)
 ```
 

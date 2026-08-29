@@ -47,7 +47,7 @@ function runBuild() {
 
 function gitCommit(message) {
   if (!LOCAL_GIT) return { commit: null };
-  const add = spawnSync("git", ["add", "-A", "--", "data/trees", "public/sources"], { cwd: root, encoding: "utf8" });
+  const add = spawnSync("git", ["add", "-A", "--", "data/trees", "public/sources", "public/photos"], { cwd: root, encoding: "utf8" });
   const commit = spawnSync("git", ["commit", "-m", message], { cwd: root, encoding: "utf8" });
   if (add.status !== 0 || commit.status !== 0) {
     return { commit: null, gitWarning: (commit.stderr || commit.stdout || add.stderr || "git commit failed").trim().slice(0, 300) };
@@ -95,11 +95,15 @@ const LOCAL_FNS = {
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
     const filename = String(body?.filename || "");
+    const kind = body?.kind === "photo" ? "photo" : "source";
+    const dir = kind === "photo" ? "photos" : "sources";
     if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
+    if (kind === "photo" && !/\.(png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Only PNG or JPG allowed for photos." }, 400);
     const contentBase64 = String(body?.contentBase64 || "");
     if (!contentBase64 || contentBase64.length > 6 * 1024 * 1024) return jsonResponse({ error: "File too large (max. ~4 MB)." }, 413);
-    fs.writeFileSync(path.join(root, "public", "sources", filename), Buffer.from(contentBase64, "base64"));
-    const git = gitCommit(`Upload source: ${filename}`);
+    fs.mkdirSync(path.join(root, "public", dir), { recursive: true });
+    fs.writeFileSync(path.join(root, "public", dir, filename), Buffer.from(contentBase64, "base64"));
+    const git = gitCommit(`Upload ${kind}: ${filename}`);
     return jsonResponse({ ok: true, filename, mode: "local", ...git });
   },
   "delete-source": async (request) => {
@@ -108,11 +112,13 @@ const LOCAL_FNS = {
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
     const filename = String(body?.filename || "");
+    const kind = body?.kind === "photo" ? "photo" : "source";
+    const dir = kind === "photo" ? "photos" : "sources";
     if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
-    const filePath = path.join(root, "public", "sources", filename);
+    const filePath = path.join(root, "public", dir, filename);
     if (!fs.existsSync(filePath)) return jsonResponse({ error: "File not found." }, 404);
     fs.unlinkSync(filePath);
-    const git = gitCommit(`Delete source: ${filename}`);
+    const git = gitCommit(`Delete ${kind}: ${filename}`);
     return jsonResponse({ ok: true, mode: "local", ...git });
   }
 };

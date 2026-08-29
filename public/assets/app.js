@@ -1,4 +1,4 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=10";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=11";
 import { getT } from "/assets/strings.js?v=10";
 import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
 import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
@@ -50,9 +50,47 @@ async function refreshPending() {
     } catch { /* file will fall back to the server URL */ }
   }
 }
+// Pending-store key for a repository file URL: sources are keyed by bare
+// filename, photos by "photos/<filename>" (both end up under public/ on sync).
+function pendingKeyFor(url) {
+  if (url.startsWith("/sources/")) return url.slice("/sources/".length);
+  if (url.startsWith("/photos/")) return "photos/" + url.slice("/photos/".length);
+  return null;
+}
 function sourceHref(url) {
-  const name = url.startsWith("/sources/") ? url.slice("/sources/".length) : null;
-  return (name && pendingObjectUrls.get(name)) || url;
+  const key = pendingKeyFor(url);
+  return (key && pendingObjectUrls.get(key)) || url;
+}
+// Forget a repository file (photo) that is no longer referenced: drop the
+// local blob if it was never synced, otherwise queue the deletion for sync.
+async function releasePhotoFile(url) {
+  const key = pendingKeyFor(url);
+  if (!key) return;
+  const stillUsed = Object.values(people).some((q) => q.photo === url);
+  if (stillUsed) return;
+  if (pendingFiles.includes(key)) await pendingRemoveFile(key);
+  else await pendingQueueDeletion(key);
+  await refreshPending();
+}
+// Downscale an image in the browser (longest edge 1200 px, JPEG). Using an
+// <img> element keeps the EXIF orientation handling of the browser.
+function resizePhoto(file, maxEdge = 1200) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => blob ? res(blob) : rej(new Error("Image conversion failed.")), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Image could not be read.")); };
+    img.src = url;
+  });
 }
 function hasPendingWork() { return draftActive || pendingFiles.length > 0 || pendingDeletions.length > 0; }
 const draftKey = () => `familyTreeDraft:${activeTree}`;
@@ -522,10 +560,11 @@ async function saveCentral() {
         r.onerror = rej;
         r.readAsDataURL(new Blob([entry.blob], { type: entry.type }));
       });
+      const isPhoto = name.startsWith("photos/");
       const resp = await fetch(`${API_BASE}/upload-source`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename: name, contentBase64 })
+        body: JSON.stringify({ filename: isPhoto ? name.slice("photos/".length) : name, contentBase64, kind: isPhoto ? "photo" : "source" })
       });
       const result = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(result?.error || `Upload ${name} failed (${resp.status})`);
@@ -534,10 +573,11 @@ async function saveCentral() {
     // 2) queued deletions (missing files are fine)
     for (const name of pendingDeletions) {
       setStatus(strings.get("syncDeleting", { name }));
+      const isPhoto = name.startsWith("photos/");
       const resp = await fetch(`${API_BASE}/delete-source`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename: name })
+        body: JSON.stringify({ filename: isPhoto ? name.slice("photos/".length) : name, kind: isPhoto ? "photo" : "source" })
       });
       if (!resp.ok && resp.status !== 404) {
         const result = await resp.json().catch(() => ({}));
@@ -1000,6 +1040,17 @@ function openEditDialog(id) {
       </div>
 
       <div class="relation-box">
+        <h4>${strings.get("photo")}</h4>
+        <div class="photo-edit">
+          ${p.photo ? `<img class="portrait small" src="${esc(sourceHref(p.photo))}" alt="" />` : `<span class="empty">${strings.get("none")}</span>`}
+          <input id="photoFile" type="file" accept="image/*" />
+          <button type="button" class="secondary small" id="photoUpload">${strings.get("photoSet")}</button>
+          ${p.photo ? `<button type="button" class="danger small" id="photoRemove">${strings.get("photoRemove")}</button>` : ""}
+        </div>
+        <p class="muted" id="photoStatus">${strings.get("photoHint")}</p>
+      </div>
+
+      <div class="relation-box">
         <h4>${strings.get("sources")}</h4>
         <div class="pill-list">${(p.sources || []).length ? p.sources.map((src, i) => `
           <span class="pill">${esc(src.label)}
@@ -1047,18 +1098,50 @@ function openEditDialog(id) {
     openPerson(keepId);
   });
 
-  editDialogContent.querySelector("#deletePersonBtn").addEventListener("click", () => {
+  editDialogContent.querySelector("#deletePersonBtn").addEventListener("click", async () => {
     const links = ["parents", "children", "partners"].reduce((n, k) => n + (p[k] || []).length, 0);
     if (data.meta.focusPersonId === id) {
       alert(strings.get("deleteFocus"));
       return;
     }
     if (!confirm(strings.get("deleteConfirm", { name: p.name, n: links }))) return;
+    const photo = p.photo;
     const result = removePersonFromData(data, id);
     if (!result.ok) { alert(strings.get("deleteFailed")); return; }
+    if (photo) await releasePhotoFile(photo);
     saveDraft();
     editDialog.close();
     renderView(currentView);
+  });
+
+  // --- Photo ---
+  editDialogContent.querySelector("#photoUpload")?.addEventListener("click", async () => {
+    const status = editDialogContent.querySelector("#photoStatus");
+    const file = editDialogContent.querySelector("#photoFile").files[0];
+    if (!file) { status.textContent = strings.get("photoNeedFile"); return; }
+    if (!/^image\//.test(file.type) && !/\.(jpe?g|png|heic|heif|webp|gif)$/i.test(file.name)) { status.textContent = strings.get("photoBadType"); return; }
+    try {
+      status.textContent = strings.get("photoProcessing");
+      const blob = await resizePhoto(file);
+      const filename = `${id.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}-${Date.now().toString(36)}.jpg`;
+      await pendingPutFile(`photos/${filename}`, blob);
+      const old = p.photo;
+      p.photo = `/photos/${filename}`;
+      await refreshPending();
+      if (old) await releasePhotoFile(old);
+      saveDraft();
+      openEditDialog(id);
+      editDialogContent.querySelector("#photoStatus").textContent = strings.get("photoStoredLocally");
+    } catch (err) {
+      status.textContent = String(err.message || err);
+    }
+  });
+  editDialogContent.querySelector("#photoRemove")?.addEventListener("click", async () => {
+    const old = p.photo;
+    delete p.photo;
+    if (old) await releasePhotoFile(old);
+    saveDraft();
+    openEditDialog(id);
   });
 
   // --- Manage sources ---
@@ -1194,6 +1277,7 @@ function openPerson(id) {
 
   personDialogContent.innerHTML = `
     <article class="person-detail">
+      ${p.photo ? `<img class="portrait" src="${esc(sourceHref(p.photo))}" alt="" />` : ""}
       <h2>${esc(p.name)}</h2>
       ${years(p) ? `<div class="muted">${esc(years(p))}</div>` : ""}
       ${p.occupation ? `<p>${esc(p.occupation)}</p>` : ""}

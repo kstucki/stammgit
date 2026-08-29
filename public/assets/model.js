@@ -102,7 +102,7 @@ export function absorbPerson(data, keepId, dropId) {
   if (sources.length) keep.sources = sources;
   const notes = [...new Set([...(keep.notes || []), ...(drop.notes || [])])];
   if (notes.length) keep.notes = notes;
-  for (const key of ["birth", "death", "occupation"]) {
+  for (const key of ["birth", "death", "occupation", "photo"]) {
     if (!keep[key] && drop[key]) keep[key] = drop[key];
   }
   if (drop.partnerDetails) {

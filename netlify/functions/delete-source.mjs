@@ -25,6 +25,8 @@ export default async (request) => {
   if (!filename || !/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/.test(filename)) {
     return bad("Invalid filename.");
   }
+  const kind = body?.kind === "photo" ? "photo" : "source";
+  const dir = kind === "photo" ? "photos" : "sources";
 
   const headers = {
     accept: "application/vnd.github+json",
@@ -33,7 +35,7 @@ export default async (request) => {
     "user-agent": "familienstammbaum-netlify",
     "content-type": "application/json"
   };
-  const api = `https://api.github.com/repos/${repo}/contents/public/sources/${encodeURIComponent(filename)}`;
+  const api = `https://api.github.com/repos/${repo}/contents/public/${dir}/${encodeURIComponent(filename)}`;
 
   const existing = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
   if (!existing.ok) return bad("File not found.", 404);
@@ -42,7 +44,7 @@ export default async (request) => {
   const del = await fetch(api, {
     method: "DELETE",
     headers,
-    body: JSON.stringify({ message: `Delete source: ${filename}`, sha, branch })
+    body: JSON.stringify({ message: `Delete ${kind}: ${filename}`, sha, branch })
   });
   const result = await del.json().catch(() => ({}));
   if (!del.ok) return bad(result?.message || `GitHub delete failed (${del.status}).`, 502);

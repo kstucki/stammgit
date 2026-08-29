@@ -13,6 +13,7 @@ const config = YAML.parse(fs.readFileSync(path.join(root, "data", "config.yaml")
 
 const index = [];
 const sourceLinks = {}; // url -> { treeId: linkCount } across all datasets
+const photoRefs = new Set(); // /photos/<file> referenced by any dataset
 for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).sort()) {
   const id = file.replace(/\.yaml$/, "");
   const raw = fs.readFileSync(path.join(treesDir, file), "utf8");
@@ -21,6 +22,7 @@ for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).s
   fs.copyFileSync(path.join(treesDir, file), path.join(outTrees, `${id}.yaml`));
   index.push({ id, title: data.meta?.title || id, people: Object.keys(data.people || {}).length, contentHash: contentHash(raw) });
   for (const p of Object.values(data.people || {})) {
+    if (p.photo) photoRefs.add(p.photo);
     for (const s of p.sources || []) {
       sourceLinks[s.url] = sourceLinks[s.url] || {};
       sourceLinks[s.url][id] = (sourceLinks[s.url][id] || 0) + 1;
@@ -58,6 +60,13 @@ if (fs.existsSync(sourcesDir)) {
     console.log(`Note: ${orphans.length} source file(s) not referenced by any dataset: ${orphans.join(", ")}`);
   }
 }
-
+const photosDir = path.join(root, "public", "photos");
+if (fs.existsSync(photosDir)) {
+  const orphans = fs.readdirSync(photosDir)
+    .filter((f) => !f.startsWith(".") && !photoRefs.has(`/photos/${f}`));
+  if (orphans.length) {
+    console.log(`Note: ${orphans.length} photo(s) not referenced by any dataset: ${orphans.join(", ")}`);
+  }
+}
 
 console.log(index.map((t) => `${t.id}: ${t.people} persons`).join(", "));

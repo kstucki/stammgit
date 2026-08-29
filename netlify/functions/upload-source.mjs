@@ -23,6 +23,9 @@ export default async (request) => {
 
   const rawName = String(body?.filename || "");
   const contentBase64 = String(body?.contentBase64 || "");
+  // kind: "source" (default, public/sources) or "photo" (public/photos)
+  const kind = body?.kind === "photo" ? "photo" : "source";
+  const dir = kind === "photo" ? "photos" : "sources";
   if (!rawName || !contentBase64) return bad("filename und contentBase64 sind erforderlich.");
   if (contentBase64.length > 6 * 1024 * 1024) return bad("File too large (max. ~4 MB).", 413);
 
@@ -31,7 +34,9 @@ export default async (request) => {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
-  if (!/\.(pdf|png|jpe?g)$/.test(filename)) return bad("Nur PDF, PNG oder JPG erlaubt.");
+  if (kind === "photo" ? !/\.(png|jpe?g)$/.test(filename) : !/\.(pdf|png|jpe?g)$/.test(filename)) {
+    return bad(kind === "photo" ? "Only PNG or JPG allowed for photos." : "Only PDF, PNG or JPG allowed.");
+  }
 
   const headers = {
     accept: "application/vnd.github+json",
@@ -40,7 +45,7 @@ export default async (request) => {
     "user-agent": "familienstammbaum-netlify",
     "content-type": "application/json"
   };
-  const api = `https://api.github.com/repos/${repo}/contents/public/sources/${encodeURIComponent(filename)}`;
+  const api = `https://api.github.com/repos/${repo}/contents/public/${dir}/${encodeURIComponent(filename)}`;
 
   // If the file already exists, pass its sha (overwrite).
   let sha;
@@ -51,7 +56,7 @@ export default async (request) => {
     method: "PUT",
     headers,
     body: JSON.stringify({
-      message: `Upload source: ${filename}`,
+      message: `Upload ${kind}: ${filename}`,
       content: contentBase64,
       branch,
       ...(sha ? { sha } : {})

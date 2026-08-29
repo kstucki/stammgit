@@ -42,6 +42,11 @@ for (const [tid, tree] of Object.entries(trees)) {
     for (const child of p.children || []) {
       check((tree.people[child]?.parents || []).includes(pid), `${tid}: '${child}' does not list '${pid}' as parent.`);
     }
+    if (p.photo !== undefined) {
+      const m = String(p.photo).match(/^\/photos\/([a-zA-Z0-9._-]+\.(?:png|jpe?g))$/);
+      check(m, `${tid}: '${pid}'.photo must be /photos/<file>.jpg|png, got '${p.photo}'.`);
+      if (m) check(fs.existsSync(path.join(root, "public", "photos", m[1])), `${tid}: '${pid}'.photo file public/photos/${m[1]} is missing.`);
+    }
   }
 }
 
@@ -140,7 +145,7 @@ for (const [tid, tree] of Object.entries(trees)) {
       bruno: { name: "Bruno", partners: ["anna"], children: ["carl"] },
       carl: { name: "Carl", parents: ["anna", "bruno"] },
       f: { name: "F" },
-      anna2: { name: "Anna (import)", death: "2020", partners: ["dora"], children: ["carl"], notes: ["new"] },
+      anna2: { name: "Anna (import)", death: "2020", partners: ["dora"], children: ["carl"], notes: ["new"], photo: "/photos/anna2.jpg" },
       dora: { name: "Dora", partners: ["anna2"] }
     }
   };
@@ -150,6 +155,7 @@ for (const [tid, tree] of Object.entries(trees)) {
   if (!(d2.people.anna.partners || []).includes("dora")) fail("absorb: partner dora not taken over.");
   if (d2.people.dora.partners[0] !== "anna") fail("absorb: dora's reference not rewritten.");
   if (d2.people.anna.death !== "2020") fail("absorb: missing field death not taken over.");
+  if (d2.people.anna.photo !== "/photos/anna2.jpg") fail("absorb: photo of absorbed person not taken over.");
   if (!d2.people.anna.notes.includes("new") || !d2.people.anna.notes.includes("old")) fail("absorb: notes not united.");
   // absorbing the focus person transfers the focus
   const rf = absorbPerson(d2, "anna", "f");
