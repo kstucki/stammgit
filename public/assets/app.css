@@ -143,7 +143,7 @@ dialog {
   position:relative;
 }
 dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
-.dialog-close { position:absolute; top:.35rem; right:.55rem; z-index:1; border:0; background:transparent; font-size:1.8rem; line-height:1; padding:.25rem; cursor:pointer; color:var(--muted); }
+.dialog-close { position:absolute; top:.35rem; right:.55rem; z-index:1; border:0; background:transparent; font-size:1.8rem; line-height:1; padding:.25rem; cursor:pointer; color:var(--muted); outline:none; }
 .person-detail h2 { margin:.1rem 0 .2rem; font:700 1.7rem/1.1 ui-serif, Georgia, serif; }
 .detail-section { margin:1rem 0; }
 .detail-section h3 { font-size:.8rem; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 .45rem; }

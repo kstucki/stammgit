@@ -1412,9 +1412,8 @@ function openPerson(id) {
     </article>
   `;
   if (!personDialog.open) personDialog.showModal();
-  // Same focus target on every path (fresh open and in-dialog navigation):
-  // the content, not the close button — no stray focus ring on the X.
-  personDialogContent.focus({ preventScroll: true });
+  personDialog.scrollTop = 0;
+  personDialogContent.scrollTop = 0;
 }
 
 /* ---------------- Navigation / init ---------------- */
