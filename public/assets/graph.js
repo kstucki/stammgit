@@ -88,9 +88,11 @@ export function computeHourglass(people, rootId) {
   // upwards: the parent chain without siblings – but ALWAYS with all
   // partners of each ancestor (second marriages stay visible even though
   // they are off the direct line; their own kin is not pulled in).
+  const expanded = new Set();
   const addAnc = (id) => {
     for (const parent of (people[id]?.parents || [])) {
-      if (!people[parent] || visible.has(parent)) continue;
+      if (!people[parent] || expanded.has(parent)) continue;
+      expanded.add(parent);
       visible.add(parent);
       for (const sp of people[parent].partners || []) {
         if (people[sp]) visible.add(sp);
@@ -592,6 +594,35 @@ export function layoutGraph(graph, measure, personGen = null) {
     const snap = snapshot();
     for (let g = maxGen - 1; g >= 0; g--) { sortUp(layers[g]); reindex(); }
     if (totalCrossings() > before) restore(snap);
+  }
+
+  // Ring adjacency: move ring partners next to each other in the order
+  // when it does not cost any crossings (married-in boxes move, blood
+  // boxes stay). Fixes very wide ring lines.
+  for (let ringPass = 0; ringPass < 2 && rings.length; ringPass++) {
+    let cur = totalCrossings(), curS = totalSpan();
+    for (const r of rings) {
+      const a = byId.get(r.na), b = byId.get(r.nb);
+      if (!a || !b) continue;
+      const g = gen.get(a.id);
+      if (gen.get(b.id) !== g) continue;
+      if (Math.abs(idx.get(a.id) - idx.get(b.id)) <= 1) continue;
+      const aBlood = (parentsOf.get(a.id) || []).length > 0;
+      const bBlood = (parentsOf.get(b.id) || []).length > 0;
+      const mover = aBlood && !bBlood ? b : !aBlood && bBlood ? a : b;
+      const anchor = mover === a ? b : a;
+      for (const side of [1, 0]) {
+        const snap = snapshotLayers();
+        const rest = layers[g].filter((n) => n !== mover);
+        rest.splice(rest.indexOf(anchor) + side, 0, mover);
+        layers[g] = rest;
+        reindex();
+        cascadeBelow(g);
+        const c = totalCrossings(), sp = totalSpan();
+        if (c < cur || (c === cur && sp < curS - 1e-9)) { cur = c; curS = sp; break; }
+        restoreLayers(snap);
+      }
+    }
   }
 
   // --- Phase 2: x positions (order stays fixed) ---

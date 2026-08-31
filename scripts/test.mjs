@@ -255,11 +255,14 @@ for (const [tid, tree] of Object.entries(trees)) {
     mom: { name: "Mom", parents: ["oma"], partners: [] },
     oma: { name: "Oma", partners: ["opa", "second"], children: ["mom"] },
     opa: { name: "Opa", partners: ["oma"], children: ["mom"] },
-    second: { name: "Second", partners: ["oma"] }
+    second: { name: "Second", partners: ["oma"] },
+    uropa: { name: "Uropa", children: ["opa"] }
   };
   ppl.mom.parents = ["oma", "opa"];
+  ppl.opa.parents = ["uropa"];
   const vis = computeHourglass(ppl, "me");
   check(vis.has("second"), "hourglass: an ancestor's further partner must be visible.");
+  check(vis.has("uropa"), "hourglass: the second parent's own ancestor line must stay visible even though that parent was first seen as a partner.");
 }
 
 // --- 6c) Marriage boxes: pairing, rings, descent anchors ---
