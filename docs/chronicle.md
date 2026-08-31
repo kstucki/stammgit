@@ -1,42 +1,43 @@
 # Writing a chronicle
 
 The chronicle is a set of ordered Markdown chapters per dataset — the
-narrative layer on top of your data and sources. There is no editor yet:
-you add chapters as files, in your editor or directly on GitHub.
+narrative layer on top of your data and sources. The Chronik tab opens
+on the first chapter; the table of contents is one tap away.
 
-## Setup
+## In the app (recommended)
 
-Create a folder for your dataset and an index with the chapter order:
+As admin, the Chronik tab offers **New chapter** (on the table of
+contents) and **Edit chapter** (on a chapter). The editor has a title, an
+optional date (clearable), insert buttons for persons, sources and
+photos (downscaled in the browser), and a preview. Saving validates the
+chapter and keeps it on your device; **Sync** publishes it as Git
+commits, like everything else.
+
+## As files
+
+Chapters are plain files — you can also add or edit them in your editor
+or directly on GitHub:
 
 ```
-public/chronicle/<tree>/index.yaml
-public/chronicle/<tree>/my-first-chapter.md
+public/chronicle/<tree>/index.yaml   # chapter order
+public/chronicle/<tree>/my-chapter.md
 ```
-
-```yaml
-# index.yaml
-chapters:
-  - my-first-chapter.md
-```
-
-The Chronicle tab appears as soon as the index exists for the active
-dataset.
-
-## Chapter format
 
 ```markdown
 ---
-title: My first chapter
+title: My chapter
 date: 2026-08-31        # optional
 ---
 
 Prose in Markdown. Link persons as [[p:person_id]] — rendered as the
 person's name, opening their dialog. Cite sources as
-[[s:/sources/file.pdf]] or [[s:https://…]] — rendered as the source's
-label. Images work as normal Markdown images on /photos/… paths.
+[[s:/sources/file.pdf]] or [[s:https://…]]. Images are normal Markdown
+images on /photos/… paths.
 ```
 
-## Rules (enforced on every sync/build)
+Reordering or deleting chapters is done by editing `index.yaml`.
+
+## Rules (enforced at save and on every sync/build)
 
 - Every `[[p:…]]` must be an existing person id, every internal
   `[[s:/sources/…]]` an existing file.
@@ -45,5 +46,6 @@ label. Images work as normal Markdown images on /photos/… paths.
 - Persons mentioned in a chapter cannot be deleted until the mention is
   removed.
 
-Run `npm run build` locally to validate before pushing; the person
-dialog shows "mentioned in the chronicle" automatically.
+When editing files by hand, run `npm run build` before pushing — a
+chapter that breaks these rules fails the site build. The person dialog
+shows "mentioned in the chronicle" automatically.
