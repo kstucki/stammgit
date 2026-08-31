@@ -1,6 +1,6 @@
 # stammgit
 
-Git-native family trees. The data is plain YAML in your own repository,
+Lightweight, Git-native family trees. The data is plain YAML in your own repository,
 every change is a Git commit, the app is a static site plus a few
 serverless functions, built to deploy on Netlify — with a standalone
 server for local hosting included. (*Stammbaum* is German for family
@@ -30,6 +30,20 @@ stammgit is for people who want to **own their genealogy data as files**.
 - GEDCOM import/export, multiple datasets, downloads as YAML/JSON/GEDCOM/ZIP.
 - Two roles (admin, read-only user), enforced server-side. UI in English
   and German.
+
+## Non-goals
+
+Things stammgit deliberately does not do. If you need them, use
+[Gramps](https://gramps-project.org) — it's excellent.
+
+- No database, no application server. Static files plus a few
+  serverless functions is the ceiling.
+- No build step, no frontend framework, no layout library.
+- No user accounts or per-person permissions. One admin; Git is the
+  collaboration model.
+- No WYSIWYG or rich text. Data is YAML, prose is Markdown.
+- No social features: comments, feeds, notifications.
+- No media management beyond portraits and plain image files.
 
 ## Demo
 
