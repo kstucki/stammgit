@@ -266,10 +266,9 @@ for (const [tid, tree] of Object.entries(trees)) {
 {
   const fail = (msg) => check(false, msg);
   const ppl = {
-    // Data order decides the pairing: eli takes her first-listed free
-    // partner (greg); uli then pairs with carla; both leftover marriages
-    // become rings. kid1 descends from the carla+smith ring, kid2 from
-    // the uli+carla box.
+    // Mutual first choice: eli+greg and carla+smith box up; uli's first
+    // choices are both taken, he stays single with two rings. kid1
+    // descends from the carla+smith box, kid2 from the carla+uli ring.
     eli:   { name: "Eli",   partners: ["greg", "uli"] },
     greg:  { name: "Greg",  partners: ["eli"] },
     uli:   { name: "Uli",   partners: ["carla", "eli"], children: ["kid2"] },
@@ -283,19 +282,20 @@ for (const [tid, tree] of Object.entries(trees)) {
   const sizes = g.nodes.map((n) => n.persons.length);
   if (Math.max(...sizes) > 2) fail("marriage boxes: a box must hold at most one couple.");
   if (g.homeOf.get("eli") !== g.homeOf.get("greg")) fail("marriage boxes: eli+greg must share a box (first-listed partnership).");
-  if (g.homeOf.get("uli") !== g.homeOf.get("carla")) fail("marriage boxes: uli+carla must share a box.");
+  if (g.homeOf.get("carla") !== g.homeOf.get("smith")) fail("marriage boxes: carla+smith must share a box (mutual first choice).");
+  if (g.nodes.find((n) => n.persons.includes("uli")).persons.length !== 1) fail("marriage boxes: uli must stay single.");
   const ringKey = (a, b) => `ring:${[a, b].sort().join("|")}`;
   const ringIds = new Set(g.rings.map((r) => r.id));
-  if (!ringIds.has(ringKey("eli", "uli")) || !ringIds.has(ringKey("carla", "smith")) || g.rings.length !== 2) {
+  if (!ringIds.has(ringKey("eli", "uli")) || !ringIds.has(ringKey("carla", "uli")) || g.rings.length !== 2) {
     fail("marriage boxes: exactly the two leftover marriages must become rings.");
   }
   const drawn = g.edges.filter((e) => !e.layoutOnly);
   const toKid1 = drawn.filter((e) => e.to === g.homeOf.get("kid1"));
-  if (toKid1.length !== 1 || toKid1[0].ring !== ringKey("carla", "smith")) {
-    fail("marriage boxes: kid1 must descend from the carla+smith ring (one edge).");
-  }
+  if (toKid1.length !== 1 || toKid1[0].ring) fail("marriage boxes: kid1 must descend from the carla+smith box (one edge).");
   const toKid2 = drawn.filter((e) => e.to === g.homeOf.get("kid2"));
-  if (toKid2.length !== 1 || toKid2[0].ring) fail("marriage boxes: kid2 must descend from the uli+carla box.");
+  if (toKid2.length !== 1 || toKid2[0].ring !== ringKey("carla", "uli")) {
+    fail("marriage boxes: kid2 must descend from the carla+uli ring (one edge).");
+  }
   const count = new Map();
   for (const n of g.nodes) for (const pid of n.persons) count.set(pid, (count.get(pid) || 0) + 1);
   if ([...count.values()].some((c) => c !== 1)) fail("marriage boxes: every person appears in exactly one box.");

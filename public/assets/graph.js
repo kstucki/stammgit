@@ -165,20 +165,31 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
   const nodeById = new Map();
   const homeOf = new Map(); // personId -> nodeId
 
-  // One box per partnership, at most two persons. Persons are walked in
-  // data (YAML) order; each still-unpaired person takes its FIRST-listed
-  // still-unpaired visible partner into the box. Every further marriage
-  // becomes a ring link between two boxes.
+  // One box per partnership, at most two persons. Boxes are formed by
+  // mutual first choice on the YAML partner order (iterated); every
+  // further marriage becomes a ring link between two boxes.
   const orderedVisible = Object.keys(people).filter((id) => visible.has(id));
   const mate = new Map(); // personId -> boxed partner or null
-  for (const id of orderedVisible) {
-    if (mate.has(id)) continue;
-    const partner = (people[id]?.partners || []).find(
-      (x) => x !== id && visible.has(x) && people[x] && !mate.has(x)
-    );
-    if (partner) { mate.set(id, partner); mate.set(partner, id); }
-    else mate.set(id, null);
+  const topFree = (id) => (people[id]?.partners || []).find(
+    (x) => x !== id && visible.has(x) && people[x] && !mate.has(x)
+  );
+  // Mutual first choice, iterated to a fixpoint: a couple shares a box only
+  // if each is the other's first-listed still-free partnership. Whoever is
+  // left over stays single and keeps all marriages as rings.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const id of orderedVisible) {
+      if (mate.has(id)) continue;
+      const top = topFree(id);
+      if (top && topFree(top) === id) {
+        mate.set(id, top);
+        mate.set(top, id);
+        changed = true;
+      }
+    }
   }
+  for (const id of orderedVisible) if (!mate.has(id)) mate.set(id, null);
   const seen = new Set();
   for (const id of orderedVisible) {
     if (seen.has(id)) continue;
