@@ -332,6 +332,46 @@ for (const [tid, tree] of Object.entries(trees)) {
   }
 }
 
+// --- 6f) Chronicle: chapters parse, tokens resolve, every chapter cites ---
+{
+  const { parseChapter, extractTokens } = await import("../public/assets/chronik.js");
+  // unit fixtures
+  const c = parseChapter("---\ntitle: T\ndate: 2020-01-01\n---\nA [[p:x]] B [[s:/sources/a.pdf]] [[p:x]]");
+  check(c.frontmatter.title === "T" && c.frontmatter.date === "2020-01-01", "chronik: frontmatter must parse.");
+  const tok = extractTokens(c.body);
+  check(tok.persons.length === 1 && tok.persons[0] === "x" && tok.sources.length === 1, "chronik: tokens must extract deduplicated.");
+  // real chronicle dirs: index files exist, tokens resolve, chapters cite
+  for (const [treeId, data] of Object.entries(trees)) {
+    const dir = path.join(root, "public", "chronik", treeId);
+    const idxFile = path.join(dir, "index.yaml");
+    if (!fs.existsSync(idxFile)) continue;
+    const order = YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [];
+    check(order.length > 0, `chronik ${treeId}: index.yaml lists no chapters.`);
+    const listed = new Set(order);
+    for (const f of fs.readdirSync(dir)) {
+      if (f.endsWith(".md") && !listed.has(f)) console.log(`Note: chronik ${treeId}: '${f}' is not listed in index.yaml.`);
+    }
+    for (const file of order) {
+      const full = path.join(dir, file);
+      check(fs.existsSync(full), `chronik ${treeId}: chapter '${file}' from index.yaml is missing.`);
+      if (!fs.existsSync(full)) continue;
+      const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
+      check(!!frontmatter.title, `chronik ${treeId}/${file}: frontmatter needs a title.`);
+      const t = extractTokens(body);
+      for (const pid of t.persons) {
+        check(!!data.people?.[pid], `chronik ${treeId}/${file}: [[p:${pid}]] is not a person in the dataset.`);
+      }
+      for (const u of t.sources) {
+        if (u.startsWith("/sources/")) {
+          check(fs.existsSync(path.join(root, "public", "sources", u.slice("/sources/".length))),
+            `chronik ${treeId}/${file}: [[s:${u}]] file does not exist.`);
+        }
+      }
+      check(t.sources.length > 0, `chronik ${treeId}/${file}: every chapter must cite at least one source.`);
+    }
+  }
+}
+
 // --- 7) Layout smoke test on the default dataset ---
 {
   const people = data.people;

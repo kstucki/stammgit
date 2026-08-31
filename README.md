@@ -27,6 +27,8 @@ stammgit is for people who want to **own their genealogy data as files**.
   publishes them as Git commits.
 - Sources per person: file uploads (kept in the browser until sync) and
   external links (archives, Wikipedia).
+- A chronicle per dataset: ordered Markdown chapters with `[[p:id]]` /
+  `[[s:url]]` links into the tree; every chapter must cite a source.
 - GEDCOM import/export, multiple datasets, downloads as YAML/JSON/GEDCOM/ZIP.
 - Two roles (admin, read-only user), enforced server-side. UI in English
   and German.

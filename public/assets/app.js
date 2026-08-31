@@ -2,6 +2,7 @@ import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pe
 import { getT } from "/assets/strings.js?v=10";
 import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
 import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
+import { parseChapter, renderChapter } from "/assets/chronik.js?v=1";
 import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
 
 let data = null;
@@ -1186,6 +1187,10 @@ function openEditDialog(id) {
       return;
     }
     if (!confirm(strings.get("deleteConfirm", { name: p.name, n: links }))) return;
+    if (chronikChaptersFor(id).length) {
+      alert(strings.get("chronikDeleteBlocked", { n: chronikChaptersFor(id).length }));
+      return;
+    }
     const photo = p.photo;
     const result = removePersonFromData(data, id);
     if (!result.ok) { alert(strings.get("deleteFailed")); return; }
@@ -1409,6 +1414,11 @@ function openPerson(id) {
         <button class="secondary" data-show-in-tree="${esc(id)}">${strings.get("showInTree")}</button>
       <button class="secondary" data-descendants="${esc(id)}">${strings.get("onlyDescendants")}</button>
       </div>
+          ${chronikChaptersFor(id).length ? `
+        <h3>${strings.get("chronikMentioned")}</h3>
+        <ul class="chronik-mentions">
+          ${chronikChaptersFor(id).map((c) => `<li><a href="#" data-chapter="${esc(c.file)}">${esc(c.title)}</a></li>`).join("")}
+        </ul>` : ""}
     </article>
   `;
   if (!personDialog.open) personDialog.showModal();
@@ -1418,12 +1428,88 @@ function openPerson(id) {
 
 /* ---------------- Navigation / init ---------------- */
 
+let chronikIndex = null;   // { chapters: [...] } for the active tree, or null
+let chronikChapter = null; // currently open chapter file, or null for the TOC
+
+async function loadChronikIndex() {
+  chronikIndex = null;
+  document.querySelector('[data-view="chronik"]').hidden = true;
+  try {
+    const resp = await fetch(`/data/chronik-${activeTree}.json`, { cache: "no-cache" });
+    if (!resp.ok) return;
+    const idx = await resp.json();
+    if (idx?.chapters?.length) {
+      chronikIndex = idx;
+      document.querySelector('[data-view="chronik"]').hidden = false;
+    }
+  } catch { /* no chronicle for this tree */ }
+}
+
+function chronikChaptersFor(personId) {
+  return (chronikIndex?.chapters || []).filter((c) => c.persons.includes(personId));
+}
+
+async function renderChronik() {
+  const app = document.getElementById("app");
+  if (!chronikIndex) { app.innerHTML = ""; return; }
+  if (!chronikChapter) {
+    app.innerHTML = `
+      <section class="chronik">
+        <h2>${strings.get("chronikTitle")}</h2>
+        <ol class="chronik-toc">
+          ${chronikIndex.chapters.map((c) => `
+            <li><a href="#" data-chapter="${esc(c.file)}">${esc(c.title)}</a>
+              ${c.date ? `<span class="muted"> ${esc(c.date)}</span>` : ""}</li>`).join("")}
+        </ol>
+      </section>`;
+    return;
+  }
+  const i = chronikIndex.chapters.findIndex((c) => c.file === chronikChapter);
+  const meta = chronikIndex.chapters[i];
+  app.innerHTML = `<section class="chronik"><p class="muted">${strings.get("chronikLoading")}</p></section>`;
+  let text;
+  try {
+    const resp = await fetch(`/chronik/${activeTree}/${chronikChapter}`, { cache: "no-cache" });
+    if (!resp.ok) throw new Error(resp.status);
+    text = await resp.text();
+  } catch {
+    app.innerHTML = `<section class="chronik"><p class="muted">${strings.get("chronikLoadFailed")}</p></section>`;
+    return;
+  }
+  const { frontmatter, body } = parseChapter(text);
+  const html = renderChapter(body, {
+    personLabel: (id) => people[id]?.name ?? null,
+    sourceLabel: (url) => {
+      for (const q of Object.values(people)) {
+        const hit = (q.sources || []).find((x) => x.url === url);
+        if (hit) return hit.label;
+      }
+      return null;
+    }
+  });
+  const prev = chronikIndex.chapters[i - 1], next = chronikIndex.chapters[i + 1];
+  app.innerHTML = `
+    <section class="chronik">
+      <p><a href="#" data-chapter="">&larr; ${strings.get("chronikToc")}</a></p>
+      <article class="chronik-chapter">
+        <h2>${esc(frontmatter.title || meta?.title || chronikChapter)}</h2>
+        ${frontmatter.date ? `<p class="muted">${esc(frontmatter.date)}</p>` : ""}
+        ${html}
+      </article>
+      <p class="chronik-nav">
+        ${prev ? `<a href="#" data-chapter="${esc(prev.file)}">&larr; ${esc(prev.title)}</a>` : "<span></span>"}
+        ${next ? `<a href="#" data-chapter="${esc(next.file)}">${esc(next.title)} &rarr;</a>` : ""}
+      </p>
+    </section>`;
+}
+
 function renderView(view) {
   if (!isAdmin && view === "admin") view = "overview";
   currentView = view;
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === view));
   if (view === "overview") renderOverview();
   if (view === "sources") renderSources();
+  if (view === "chronik") renderChronik();
   if (view === "admin") renderAdmin();
 }
 
@@ -1433,6 +1519,15 @@ document.addEventListener("click", (e) => {
   if (ext) {
     e.preventDefault();
     window.open(ext.href, "_blank", "noopener");
+    return;
+  }
+  const chapterEl = e.target.closest("[data-chapter]");
+  if (chapterEl) {
+    e.preventDefault();
+    chronikChapter = chapterEl.dataset.chapter || null;
+    if (currentView !== "chronik") renderView("chronik");
+    else renderChronik();
+    window.scrollTo(0, 0);
     return;
   }
   const personEl = e.target.closest("[data-person]");
@@ -1536,6 +1631,7 @@ async function loadData() {
   const chrome = [
     ['[data-view="overview"]', "tabOverview"],
     ['[data-view="sources"]', "tabSources"],
+    ['[data-view="chronik"]', "tabChronik"],
     ['[data-view="admin"]', "tabAdmin"],
     ['.header-actions .button-link', "logout"],
     ['.draft-badge', "draftBadge"]
@@ -1548,6 +1644,8 @@ async function loadData() {
   if (logoutLink) logoutLink.href = `${API_BASE}/logout`;
   const searchInputEl = document.getElementById("searchInput");
   if (searchInputEl) searchInputEl.placeholder = strings.get("searchDialog");
+  chronikChapter = null;
+  await loadChronikIndex();
 }
 
 async function init() {

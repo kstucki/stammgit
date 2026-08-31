@@ -303,3 +303,14 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 .danger:hover { background:#33201e; }
 .danger.small { padding:.38rem .58rem; font-size:.82rem; }
 .toolbar.compact { gap:.4rem; margin:0; }
+
+/* Chronicle */
+.chronik { max-width: 640px; margin: 0 auto; }
+.chronik-toc { line-height: 1.9; }
+.chronik-chapter { line-height: 1.65; }
+.chronik-chapter h2 { margin-bottom: .2rem; }
+.chronik-chapter img { max-width: 100%; border-radius: 10px; }
+.chronik-chapter a[data-person] { text-decoration: none; border-bottom: 1px dotted var(--accent); }
+.chronik-broken { background: #ffe3e3; border-radius: 4px; padding: 0 .2rem; }
+.chronik-nav { display: flex; justify-content: space-between; margin-top: 1.5rem; }
+.chronik-mentions { margin: .2rem 0 0 1.1rem; }

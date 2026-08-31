@@ -28,3 +28,8 @@
   for = "/data/*"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/chronik/*"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"

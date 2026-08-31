@@ -103,6 +103,22 @@ One meaning per visual dimension:
   crossings, but seconds instead of minutes. Below these thresholds the
   quality is unchanged.
 
+## Chronicle
+
+The chronicle is the narrative layer on top of data (YAML) and evidence
+(sources): per dataset a folder `public/chronik/<tree>/` with an
+`index.yaml` (chapter order) and chapters as Markdown files. Frontmatter
+carries only `title` and optional `date`; person and source links live in
+the text as `[[p:person_id]]` and `[[s:source_url]]` tokens — the build
+extracts them into `public/data/chronik-<tree>.json`, so there is one
+source of truth. The tab only appears when an index exists; without an
+index order the tab would sort by date (blog behaviour as a fallback, not
+a mode). The person dialog lists "mentioned in" chapters from the same
+index. The validator enforces: every token resolves, internal source
+files exist, every chapter cites at least one source, and persons
+mentioned in chapters cannot be deleted. Deliberately not included:
+comments, feeds, WYSIWYG (see the README non-goals).
+
 ## Measuring changes
 
 `npm run metrics` (manual only, never wired into build/test/CI) reports
