@@ -85,11 +85,18 @@ export function computeHourglass(people, rootId) {
     for (const child of people[id].children || []) addDown(child);
   };
   addDown(rootId);
-  // upwards: only the parent chain, no siblings, no partners outside the line
+  // upwards: the parent chain without siblings – but ALWAYS with all
+  // partners of each ancestor (second marriages stay visible even though
+  // they are off the direct line; their own kin is not pulled in).
+  const expanded = new Set();
   const addAnc = (id) => {
     for (const parent of (people[id]?.parents || [])) {
-      if (!people[parent] || visible.has(parent)) continue;
+      if (!people[parent] || expanded.has(parent)) continue;
+      expanded.add(parent);
       visible.add(parent);
+      for (const sp of people[parent].partners || []) {
+        if (people[sp]) visible.add(sp);
+      }
       addAnc(parent);
     }
   };
@@ -154,36 +161,42 @@ export function computeGenerations(people, visible, focusId) {
   return gen;
 }
 
-// Build family nodes (couples or single persons) and edges.
+// Build family nodes (couples or single persons), ring links and edges.
 export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
   const nodes = [];
   const nodeById = new Map();
   const homeOf = new Map(); // personId -> nodeId
 
-  // Partnership components: each person appears exactly once.
-  // Remarriage yields ONE node with all partners
-  // (e.g. A + B (divorced) + C (partner)).
-  const compRoot = new Map();
-  const find = (x) => {
-    let r = x;
-    while (compRoot.get(r) !== r) r = compRoot.get(r);
-    let c = x;
-    while (compRoot.get(c) !== c) { const n = compRoot.get(c); compRoot.set(c, r); c = n; }
-    return r;
-  };
-  for (const id of visible) compRoot.set(id, id);
-  for (const id of visible) {
-    for (const partner of people[id]?.partners || []) {
-      if (visible.has(partner)) compRoot.set(find(partner), find(id));
+  // One box per partnership, at most two persons. Boxes are formed by
+  // mutual first choice on the YAML partner order (iterated); every
+  // further marriage becomes a ring link between two boxes.
+  const orderedVisible = Object.keys(people).filter((id) => visible.has(id));
+  const mate = new Map(); // personId -> boxed partner or null
+  const topFree = (id) => (people[id]?.partners || []).find(
+    (x) => x !== id && visible.has(x) && people[x] && !mate.has(x)
+  );
+  // Mutual first choice, iterated to a fixpoint: a couple shares a box only
+  // if each is the other's first-listed still-free partnership. Whoever is
+  // left over stays single and keeps all marriages as rings.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const id of orderedVisible) {
+      if (mate.has(id)) continue;
+      const top = topFree(id);
+      if (top && topFree(top) === id) {
+        mate.set(id, top);
+        mate.set(top, id);
+        changed = true;
+      }
     }
   }
-  const comps = new Map();
-  for (const id of visible) {
-    const r = find(id);
-    if (!comps.has(r)) comps.set(r, []);
-    comps.get(r).push(id);
-  }
-  for (const members of comps.values()) {
+  for (const id of orderedVisible) if (!mate.has(id)) mate.set(id, null);
+  const seen = new Set();
+  for (const id of orderedVisible) {
+    if (seen.has(id)) continue;
+    const members = mate.get(id) ? [id, mate.get(id)] : [id];
+    members.forEach((m) => seen.add(m));
     // Bloodline first (person with visible parents), then by name
     members.sort((a, b) => {
       const av = (people[a]?.parents || []).some((x) => visible.has(x)) ? 0 : 1;
@@ -197,28 +210,48 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
     for (const m of members) homeOf.set(m, key);
   }
 
-  // Parent→child edges (attach all of a person's families so that
-  // second partnerships sit next to the first family)
-  const famsOfPerson = new Map();
-  for (const n of nodes) {
-    for (const pid of n.persons) {
-      if (!famsOfPerson.has(pid)) famsOfPerson.set(pid, []);
-      famsOfPerson.get(pid).push(n.id);
+  // Ring links: every partnership whose two persons do not share a box.
+  const ringIdOf = (a, b) => `ring:${[a, b].sort().join("|")}`;
+  const rings = [];
+  const ringSeen = new Set();
+  for (const id of orderedVisible) {
+    for (const partner of people[id]?.partners || []) {
+      if (!visible.has(partner) || !people[partner]) continue;
+      if (homeOf.get(partner) === homeOf.get(id)) continue;
+      const rid = ringIdOf(id, partner);
+      if (ringSeen.has(rid)) continue;
+      ringSeen.add(rid);
+      rings.push({ id: rid, a: id, b: partner, na: homeOf.get(id), nb: homeOf.get(partner) });
     }
   }
+
+  // Parent -> child edges, anchored at the parents' marriage:
+  // both parents in one box -> from that box; parents in two boxes but
+  // married (ring) -> ONE drawn edge from the ring (plus a layout-only
+  // edge keeping the attraction to the second box); otherwise one edge
+  // per parent box, as before.
   const edges = [];
   const edgeSeen = new Set();
+  const pushEdge = (e) => {
+    const key = `${e.from}->${e.to}:${e.ring || ""}${e.layoutOnly ? ":L" : ""}`;
+    if (edgeSeen.has(key)) return;
+    edgeSeen.add(key);
+    edges.push(e);
+  };
   for (const id of visible) {
-    const parents = (people[id]?.parents || []).filter((p) => visible.has(p));
+    const parents = (people[id]?.parents || []).filter((p) => visible.has(p) && people[p]);
     if (!parents.length) continue;
-    const fromFams = [...new Set(parents.map((par) => homeOf.get(par)))];
-    for (const from of fromFams) {
-      for (const to of famsOfPerson.get(id) || [homeOf.get(id)]) {
-        if (!from || !to || from === to) continue;
-        const ekey = `${from}->${to}`;
-        if (edgeSeen.has(ekey)) continue;
-        edgeSeen.add(ekey);
-        edges.push({ from, to, dashed: false });
+    const to = homeOf.get(id);
+    if (!to) continue;
+    const homes = [...new Set(parents.map((par) => homeOf.get(par)))].filter(Boolean);
+    const rid = parents.length === 2 ? ringIdOf(parents[0], parents[1]) : null;
+    if (homes.length === 2 && rid && ringSeen.has(rid)) {
+      pushEdge({ from: homes[0], to, dashed: false, ring: rid });
+      pushEdge({ from: homes[1], to, dashed: false, layoutOnly: true });
+    } else {
+      for (const from of homes) {
+        if (from === to) continue;
+        pushEdge({ from, to, dashed: false });
       }
     }
   }
@@ -236,12 +269,13 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
     edges.push({ from: gp.id, to: homeOf.get(rootPerson), dashed: true });
   }
 
-  return { nodes, edges, homeOf };
+  return { nodes, edges, rings, homeOf };
 }
 
 // Layers from fixed generations (relative to the focus person), then barycenter ordering.
 export function layoutGraph(graph, measure, personGen = null) {
   const { nodes, edges } = graph;
+  const rings = graph.rings || [];
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const parentsOf = new Map(nodes.map((n) => [n.id, []]));
   const childrenOf = new Map(nodes.map((n) => [n.id, []]));
@@ -324,11 +358,23 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Downwards: arrange the layer as a sequence of sibling blocks under the parents
   const groupSortDown = (layer) => {
     const blockKey = new Map();  // nodeId -> [primary parent idx, secondary]
+    // Parentless nodes have no key on the parent-index scale (idx*1000);
+    // a raw own-index key would sort them all to the far left of the
+    // layer. They anchor to their current left neighbour instead and only
+    // order among themselves by their children (or stay put).
+    let prev = [-1e9, 0], tie = 0;
     for (const n of layer) {
       const pp = primaryParent(n.id);
       const kids = (childrenOf.get(n.id) || []).map((c) => idx.get(c)).filter((x) => x !== undefined);
       const sec = median(kids);
-      blockKey.set(n.id, [pp === null ? idx.get(n.id) - 0.5 : idx.get(pp) * 1000, sec === null ? idx.get(n.id) : sec]);
+      if (pp === null) {
+        tie += 1;
+        blockKey.set(n.id, [prev[0], sec === null ? prev[1] + tie * 1e-6 : sec]);
+        continue;
+      }
+      const key = [idx.get(pp) * 1000, sec === null ? idx.get(n.id) : sec];
+      blockKey.set(n.id, key);
+      prev = key; tie = 0;
     }
     layer.sort((a, b) => {
       const ka = blockKey.get(a.id), kb = blockKey.get(b.id);
@@ -406,6 +452,12 @@ export function layoutGraph(graph, measure, personGen = null) {
     for (const e of edges) {
       if (!pos.has(e.from) || !pos.has(e.to)) continue;
       s += Math.abs(pos.get(e.from) - pos.get(e.to));
+    }
+    // Ring-linked boxes prefer to be close: counts once in the tie-breaker
+    // (ordering only, no positional pull – that distorted the layout).
+    for (const r of rings) {
+      if (!pos.has(r.na) || !pos.has(r.nb)) continue;
+      s += Math.abs(pos.get(r.na) - pos.get(r.nb));
     }
     return s;
   };
@@ -556,6 +608,52 @@ export function layoutGraph(graph, measure, personGen = null) {
     if (totalCrossings() > before) restore(snap);
   }
 
+  // Ring adjacency: move ring partners next to each other in the order
+  // when it does not cost any crossings (married-in boxes move, blood
+  // boxes stay). Fixes very wide ring lines.
+  for (let ringPass = 0; ringPass < 2 && rings.length; ringPass++) {
+    let cur = totalCrossings(), curS = totalSpan();
+    for (const r of rings) {
+      const a = byId.get(r.na), b = byId.get(r.nb);
+      if (!a || !b) continue;
+      const g = gen.get(a.id);
+      if (gen.get(b.id) !== g) continue;
+      if (Math.abs(idx.get(a.id) - idx.get(b.id)) <= 1) continue;
+      const degree = (nid) => (parentsOf.get(nid) || []).length + (childrenOf.get(nid) || []).length;
+      // A node whose only connection is the ring (married in, no kin, no
+      // children) cannot cause a crossing: move it next to its partner
+      // unconditionally, no cascade needed.
+      const freeMover = degree(a.id) === 0 ? a : degree(b.id) === 0 ? b : null;
+      if (freeMover) {
+        const anchor = freeMover === a ? b : a;
+        const rest = layers[g].filter((n) => n !== freeMover);
+        rest.splice(rest.indexOf(anchor) + 1, 0, freeMover);
+        layers[g] = rest;
+        reindex();
+        continue;
+      }
+      const aBlood = (parentsOf.get(a.id) || []).length > 0;
+      const bBlood = (parentsOf.get(b.id) || []).length > 0;
+      const mover = aBlood && !bBlood ? b : !aBlood && bBlood ? a : b;
+      const anchor = mover === a ? b : a;
+      // Small branches may pay up to 2 crossings for adjacency — a short
+      // local crossing beats a layer-wide ring line.
+      const moverEdges = (parentsOf.get(mover.id) || []).length + (childrenOf.get(mover.id) || []).length;
+      const tolerance = moverEdges <= 3 ? 2 : 0;
+      for (const side of [1, 0]) {
+        const snap = snapshotLayers();
+        const rest = layers[g].filter((n) => n !== mover);
+        rest.splice(rest.indexOf(anchor) + side, 0, mover);
+        layers[g] = rest;
+        reindex();
+        cascadeBelow(g);
+        const c = totalCrossings(), sp = totalSpan();
+        if (c < cur || (c <= cur + tolerance && sp < curS - 1e-9)) { cur = c; curS = sp; break; }
+        restoreLayers(snap);
+      }
+    }
+  }
+
   // --- Phase 2: x positions (order stays fixed) ---
   layers.forEach((layer) => {
     let cursor = 0;
@@ -594,6 +692,13 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Compaction: attract all neighbours (parents + children) jointly,
   // pulls loose, overly wide sections together.
   const bothMap = new Map(nodes.map((n) => [n.id, [...(parentsOf.get(n.id) || []), ...(childrenOf.get(n.id) || [])]]));
+  // Nodes without any own edges follow their ring partner in x — only
+  // those, so the ring exerts no pull on the rest of the layout.
+  for (const r of rings) {
+    if (!byId.has(r.na) || !byId.has(r.nb)) continue;
+    if (!bothMap.get(r.na).length) bothMap.get(r.na).push(r.nb);
+    if (!bothMap.get(r.nb).length) bothMap.get(r.nb).push(r.na);
+  }
   for (let pass = 0; pass < 3; pass++) {
     for (let g = 0; g <= maxGen; g++) pull(layers[g], bothMap);
   }
@@ -613,6 +718,7 @@ export function layoutGraph(graph, measure, personGen = null) {
   return {
     nodes,
     edges: edges.filter((e) => byId.has(e.from) && byId.has(e.to)),
+    rings: rings.filter((r) => byId.has(r.na) && byId.has(r.nb)),
     width: maxX - minX + 40,
     height: (maxGen + 1) * ROW + 40
   };

@@ -217,6 +217,8 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 .gnode text.gname:hover { fill: #005ac8; text-decoration: underline; }
 .gnode text.gmuted { fill: #8a8a92; font-style: italic; }
 .gedge { fill: none; stroke: #b6b6bc; stroke-width: 1.4; }
+.gring path, .gring line { stroke: #d4537e; stroke-width: 1.4; fill: none; }
+.gring circle { fill: #fff; stroke: #d4537e; stroke-width: 1.4; }
 .ganchor circle { fill: #005ac8; cursor: pointer; }
 .ganchor text { fill: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
 .draft-badge { background: #fff3cd; color: #7a5b00; }

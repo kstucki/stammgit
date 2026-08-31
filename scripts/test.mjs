@@ -247,6 +247,91 @@ for (const [tid, tree] of Object.entries(trees)) {
   if (gen.get("isl_c") !== gen.get("isl_a") + 1) fail("orphans: island generations must be internally consistent.");
 }
 
+// --- 6b2) Hourglass: partners of ancestors stay visible ---
+{
+  const { computeHourglass } = await import("../public/assets/graph.js");
+  const ppl = {
+    me: { name: "Me", parents: ["mom"] },
+    mom: { name: "Mom", parents: ["oma"], partners: [] },
+    oma: { name: "Oma", partners: ["opa", "second"], children: ["mom"] },
+    opa: { name: "Opa", partners: ["oma"], children: ["mom"] },
+    second: { name: "Second", partners: ["oma"] },
+    uropa: { name: "Uropa", children: ["opa"] }
+  };
+  ppl.mom.parents = ["oma", "opa"];
+  ppl.opa.parents = ["uropa"];
+  const vis = computeHourglass(ppl, "me");
+  check(vis.has("second"), "hourglass: an ancestor's further partner must be visible.");
+  check(vis.has("uropa"), "hourglass: the second parent's own ancestor line must stay visible even though that parent was first seen as a partner.");
+}
+
+// --- 6c) Marriage boxes: pairing, rings, descent anchors ---
+{
+  const fail = (msg) => check(false, msg);
+  const ppl = {
+    // Mutual first choice: eli+greg and carla+smith box up; uli's first
+    // choices are both taken, he stays single with two rings. kid1
+    // descends from the carla+smith box, kid2 from the carla+uli ring.
+    eli:   { name: "Eli",   partners: ["greg", "uli"] },
+    greg:  { name: "Greg",  partners: ["eli"] },
+    uli:   { name: "Uli",   partners: ["carla", "eli"], children: ["kid2"] },
+    carla: { name: "Carla", partners: ["smith", "uli"], children: ["kid1", "kid2"] },
+    smith: { name: "Smith", partners: ["carla"], children: ["kid1"] },
+    kid1:  { name: "Kid1", parents: ["carla", "smith"] },
+    kid2:  { name: "Kid2", parents: ["carla", "uli"] }
+  };
+  const vis = new Set(Object.keys(ppl));
+  const g = buildFamGraph(ppl, vis, {});
+  const sizes = g.nodes.map((n) => n.persons.length);
+  if (Math.max(...sizes) > 2) fail("marriage boxes: a box must hold at most one couple.");
+  if (g.homeOf.get("eli") !== g.homeOf.get("greg")) fail("marriage boxes: eli+greg must share a box (first-listed partnership).");
+  if (g.homeOf.get("carla") !== g.homeOf.get("smith")) fail("marriage boxes: carla+smith must share a box (mutual first choice).");
+  if (g.nodes.find((n) => n.persons.includes("uli")).persons.length !== 1) fail("marriage boxes: uli must stay single.");
+  const ringKey = (a, b) => `ring:${[a, b].sort().join("|")}`;
+  const ringIds = new Set(g.rings.map((r) => r.id));
+  if (!ringIds.has(ringKey("eli", "uli")) || !ringIds.has(ringKey("carla", "uli")) || g.rings.length !== 2) {
+    fail("marriage boxes: exactly the two leftover marriages must become rings.");
+  }
+  const drawn = g.edges.filter((e) => !e.layoutOnly);
+  const toKid1 = drawn.filter((e) => e.to === g.homeOf.get("kid1"));
+  if (toKid1.length !== 1 || toKid1[0].ring) fail("marriage boxes: kid1 must descend from the carla+smith box (one edge).");
+  const toKid2 = drawn.filter((e) => e.to === g.homeOf.get("kid2"));
+  if (toKid2.length !== 1 || toKid2[0].ring !== ringKey("carla", "uli")) {
+    fail("marriage boxes: kid2 must descend from the carla+uli ring (one edge).");
+  }
+  const count = new Map();
+  for (const n of g.nodes) for (const pid of n.persons) count.set(pid, (count.get(pid) || 0) + 1);
+  if ([...count.values()].some((c) => c !== 1)) fail("marriage boxes: every person appears in exactly one box.");
+}
+
+// --- 6d) Layout: a kinless ring partner sits next to its partner box ---
+{
+  const fail = (msg) => check(false, msg);
+  const ppl = {
+    pa: { name: "Pa", partners: ["ma"], children: ["k1", "k2", "k3"] },
+    ma: { name: "Ma", partners: ["pa"], children: ["k1", "k2", "k3"] },
+    k1: { name: "K1", parents: ["pa", "ma"], partners: ["s1"] },
+    s1: { name: "S1", partners: ["k1"] },
+    k2: { name: "K2", parents: ["pa", "ma"] },
+    k3: { name: "K3", parents: ["pa", "ma"], partners: ["s3", "late"] },
+    s3: { name: "S3", partners: ["k3"] },
+    late: { name: "Late", partners: ["k3"] }
+  };
+  const vis = new Set(Object.keys(ppl));
+  const g = buildFamGraph(ppl, vis, {});
+  const personGen = computeGenerations(ppl, vis, "k2");
+  const measure = (n) => ({ w: 100 + 40 * Math.max(0, n.persons.length - 1), h: 40 });
+  const laid = layoutGraph(g, measure, personGen);
+  const byId = new Map(laid.nodes.map((n) => [n.id, n]));
+  const ring = laid.rings.find((r) => r.id.includes("late"));
+  if (!ring) fail("layout: ring for the kinless partner missing.");
+  else {
+    const A = byId.get(ring.na), B = byId.get(ring.nb);
+    const gapPx = Math.max(0, Math.max(A.x - A.w / 2, B.x - B.w / 2) - Math.min(A.x + A.w / 2, B.x + B.w / 2));
+    if (gapPx > 60) fail(`layout: kinless ring partner must sit next to its partner box (gap ${Math.round(gapPx)}px).`);
+  }
+}
+
 // --- 7) Layout smoke test on the default dataset ---
 {
   const people = data.people;
@@ -258,6 +343,7 @@ for (const [tid, tree] of Object.entries(trees)) {
   check(laid.nodes.length === graph.nodes.length, "layout: node count mismatch.");
   check(Number.isFinite(laid.width) && laid.width > 0, "layout: invalid width.");
   check(laid.nodes.every(n => Number.isFinite(n.x) && Number.isFinite(n.y)), "layout: non-finite coordinates.");
+  check(Array.isArray(laid.rings) && laid.rings.every(r => laid.nodes.some(n => n.id === r.na) && laid.nodes.some(n => n.id === r.nb)), "layout: rings must reference laid nodes.");
 }
 
 if (failures) {
