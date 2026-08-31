@@ -611,6 +611,13 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Ring adjacency: move ring partners next to each other in the order
   // when it does not cost any crossings (married-in boxes move, blood
   // boxes stay). Fixes very wide ring lines.
+  // Nodes without any DRAWN edge have no visible footprint: their descent
+  // (if any) starts at the ring midpoint, which moves along with them.
+  const hasDrawnEdge = new Set();
+  for (const e of edges) {
+    if (e.layoutOnly) continue;
+    hasDrawnEdge.add(e.from); hasDrawnEdge.add(e.to);
+  }
   for (let ringPass = 0; ringPass < 2 && rings.length; ringPass++) {
     let cur = totalCrossings(), curS = totalSpan();
     for (const r of rings) {
@@ -619,11 +626,9 @@ export function layoutGraph(graph, measure, personGen = null) {
       const g = gen.get(a.id);
       if (gen.get(b.id) !== g) continue;
       if (Math.abs(idx.get(a.id) - idx.get(b.id)) <= 1) continue;
-      const degree = (nid) => (parentsOf.get(nid) || []).length + (childrenOf.get(nid) || []).length;
-      // A node whose only connection is the ring (married in, no kin, no
-      // children) cannot cause a crossing: move it next to its partner
-      // unconditionally, no cascade needed.
-      const freeMover = degree(a.id) === 0 ? a : degree(b.id) === 0 ? b : null;
+      // A node without drawn edges cannot cause a visible crossing: move it
+      // next to its partner unconditionally, no cascade needed.
+      const freeMover = !hasDrawnEdge.has(a.id) ? a : !hasDrawnEdge.has(b.id) ? b : null;
       if (freeMover) {
         const anchor = freeMover === a ? b : a;
         const rest = layers[g].filter((n) => n !== freeMover);
@@ -696,8 +701,8 @@ export function layoutGraph(graph, measure, personGen = null) {
   // those, so the ring exerts no pull on the rest of the layout.
   for (const r of rings) {
     if (!byId.has(r.na) || !byId.has(r.nb)) continue;
-    if (!bothMap.get(r.na).length) bothMap.get(r.na).push(r.nb);
-    if (!bothMap.get(r.nb).length) bothMap.get(r.nb).push(r.na);
+    if (!hasDrawnEdge.has(r.na)) bothMap.get(r.na).push(r.nb);
+    if (!hasDrawnEdge.has(r.nb)) bothMap.get(r.nb).push(r.na);
   }
   for (let pass = 0; pass < 3; pass++) {
     for (let g = 0; g <= maxGen; g++) pull(layers[g], bothMap);
