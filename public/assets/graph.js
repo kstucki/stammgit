@@ -358,11 +358,23 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Downwards: arrange the layer as a sequence of sibling blocks under the parents
   const groupSortDown = (layer) => {
     const blockKey = new Map();  // nodeId -> [primary parent idx, secondary]
+    // Parentless nodes have no key on the parent-index scale (idx*1000);
+    // a raw own-index key would sort them all to the far left of the
+    // layer. They anchor to their current left neighbour instead and only
+    // order among themselves by their children (or stay put).
+    let prev = [-1e9, 0], tie = 0;
     for (const n of layer) {
       const pp = primaryParent(n.id);
       const kids = (childrenOf.get(n.id) || []).map((c) => idx.get(c)).filter((x) => x !== undefined);
       const sec = median(kids);
-      blockKey.set(n.id, [pp === null ? idx.get(n.id) - 0.5 : idx.get(pp) * 1000, sec === null ? idx.get(n.id) : sec]);
+      if (pp === null) {
+        tie += 1;
+        blockKey.set(n.id, [prev[0], sec === null ? prev[1] + tie * 1e-6 : sec]);
+        continue;
+      }
+      const key = [idx.get(pp) * 1000, sec === null ? idx.get(n.id) : sec];
+      blockKey.set(n.id, key);
+      prev = key; tie = 0;
     }
     layer.sort((a, b) => {
       const ka = blockKey.get(a.id), kb = blockKey.get(b.id);
@@ -624,6 +636,10 @@ export function layoutGraph(graph, measure, personGen = null) {
       const bBlood = (parentsOf.get(b.id) || []).length > 0;
       const mover = aBlood && !bBlood ? b : !aBlood && bBlood ? a : b;
       const anchor = mover === a ? b : a;
+      // Small branches may pay up to 2 crossings for adjacency — a short
+      // local crossing beats a layer-wide ring line.
+      const moverEdges = (parentsOf.get(mover.id) || []).length + (childrenOf.get(mover.id) || []).length;
+      const tolerance = moverEdges <= 3 ? 2 : 0;
       for (const side of [1, 0]) {
         const snap = snapshotLayers();
         const rest = layers[g].filter((n) => n !== mover);
@@ -632,7 +648,7 @@ export function layoutGraph(graph, measure, personGen = null) {
         reindex();
         cascadeBelow(g);
         const c = totalCrossings(), sp = totalSpan();
-        if (c < cur || (c === cur && sp < curS - 1e-9)) { cur = c; curS = sp; break; }
+        if (c < cur || (c <= cur + tolerance && sp < curS - 1e-9)) { cur = c; curS = sp; break; }
         restoreLayers(snap);
       }
     }
