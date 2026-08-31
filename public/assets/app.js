@@ -1643,12 +1643,17 @@ async function renderChronicleEditor(app) {
     if (!newTitle) { status.textContent = strings.get("chapterNeedTitle"); return; }
     const newDate = document.getElementById("chDate").value;
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}---\n\n${ta.value.trim()}\n`;
+    // Validate BEFORE anything reaches the sync: an invalid chapter would
+    // pass the unchecked upload, fail the site build and freeze the deploy.
+    const check = (await import(`/assets/chronicle.js?v=2`)).extractTokens(text);
+    const unknown = check.persons.filter((pid) => !people[pid]);
+    if (unknown.length) { status.textContent = strings.get("chapterBadPersons", { ids: unknown.join(", ") }); return; }
+    if (!check.sources.length) { status.textContent = strings.get("chapterNeedSource"); return; }
     const slug = file || `${newTitle.toLowerCase().replace(/[äöü]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue" }[c])).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "kapitel"}.md`;
     await pendingPutFile(`chronicle/${activeTree}/${slug}`, new Blob([text], { type: "text/markdown" }));
     const chapters = chronicleIndex?.chapters ? [...chronicleIndex.chapters] : [];
     const existing = chapters.findIndex((c) => c.file === slug);
-    const tokens = (await import(`/assets/chronicle.js?v=2`)).extractTokens(text);
-    const entry = { file: slug, title: newTitle, date: newDate || null, persons: tokens.persons, sources: tokens.sources };
+    const entry = { file: slug, title: newTitle, date: newDate || null, persons: check.persons, sources: check.sources };
     if (existing >= 0) chapters[existing] = entry; else chapters.push(entry);
     const indexYaml = `# Kapitelreihenfolge der Familienchronik.\nchapters:\n${chapters.map((c) => `  - ${c.file}`).join("\n")}\n`;
     await pendingPutFile(`chronicle/${activeTree}/index.yaml`, new Blob([indexYaml], { type: "text/yaml" }));

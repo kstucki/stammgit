@@ -72,6 +72,7 @@ for (const tree of index.map((t) => t.id)) {
     const full = path.join(dir, file);
     if (!fs.existsSync(full)) continue; // test.mjs turns this into a failure
     const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
+    for (const m of body.matchAll(/\/photos\/[a-zA-Z0-9._-]+/g)) photoRefs.add(m[0]);
     const tokens = extractTokens(body);
     chapters.push({ file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources });
   }
