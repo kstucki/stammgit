@@ -1579,6 +1579,8 @@ async function renderChronicleEditor(app) {
           ${sourceOptions.map((src) => `<option value="${esc(src.url)}">${esc(src.label || src.url)}</option>`).join("")}
         </select>
         <button type="button" class="secondary small" id="chInsSource">${strings.get("chapterInsSource")}</button>
+      </div>
+      <div class="chronicle-insert">
         <input id="chPhoto" type="file" accept="image/*" />
         <button type="button" class="secondary small" id="chInsPhoto">${strings.get("chapterInsPhoto")}</button>
       </div>
@@ -1640,15 +1642,15 @@ async function renderChronicleEditor(app) {
   document.getElementById("chSave").addEventListener("click", async () => {
     const status = document.getElementById("chStatus");
     const newTitle = document.getElementById("chTitle").value.trim();
-    if (!newTitle) { status.textContent = strings.get("chapterNeedTitle"); return; }
+    if (!newTitle) { alert(strings.get("chapterNeedTitle")); return; }
     const newDate = document.getElementById("chDate").value;
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
     const check = (await import(`/assets/chronicle.js?v=2`)).extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
-    if (unknown.length) { status.textContent = strings.get("chapterBadPersons", { ids: unknown.join(", ") }); return; }
-    if (!check.sources.length) { status.textContent = strings.get("chapterNeedSource"); return; }
+    if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }
+    if (!check.sources.length) { alert(strings.get("chapterNeedSource")); return; }
     const slug = file || `${newTitle.toLowerCase().replace(/[äöü]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue" }[c])).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "kapitel"}.md`;
     await pendingPutFile(`chronicle/${activeTree}/${slug}`, new Blob([text], { type: "text/markdown" }));
     const chapters = chronicleIndex?.chapters ? [...chronicleIndex.chapters] : [];
