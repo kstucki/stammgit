@@ -607,6 +607,19 @@ export function layoutGraph(graph, measure, personGen = null) {
       const g = gen.get(a.id);
       if (gen.get(b.id) !== g) continue;
       if (Math.abs(idx.get(a.id) - idx.get(b.id)) <= 1) continue;
+      const degree = (nid) => (parentsOf.get(nid) || []).length + (childrenOf.get(nid) || []).length;
+      // A node whose only connection is the ring (married in, no kin, no
+      // children) cannot cause a crossing: move it next to its partner
+      // unconditionally, no cascade needed.
+      const freeMover = degree(a.id) === 0 ? a : degree(b.id) === 0 ? b : null;
+      if (freeMover) {
+        const anchor = freeMover === a ? b : a;
+        const rest = layers[g].filter((n) => n !== freeMover);
+        rest.splice(rest.indexOf(anchor) + 1, 0, freeMover);
+        layers[g] = rest;
+        reindex();
+        continue;
+      }
       const aBlood = (parentsOf.get(a.id) || []).length > 0;
       const bBlood = (parentsOf.get(b.id) || []).length > 0;
       const mover = aBlood && !bBlood ? b : !aBlood && bBlood ? a : b;
@@ -663,6 +676,13 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Compaction: attract all neighbours (parents + children) jointly,
   // pulls loose, overly wide sections together.
   const bothMap = new Map(nodes.map((n) => [n.id, [...(parentsOf.get(n.id) || []), ...(childrenOf.get(n.id) || [])]]));
+  // Nodes without any own edges follow their ring partner in x — only
+  // those, so the ring exerts no pull on the rest of the layout.
+  for (const r of rings) {
+    if (!byId.has(r.na) || !byId.has(r.nb)) continue;
+    if (!bothMap.get(r.na).length) bothMap.get(r.na).push(r.nb);
+    if (!bothMap.get(r.nb).length) bothMap.get(r.nb).push(r.na);
+  }
   for (let pass = 0; pass < 3; pass++) {
     for (let g = 0; g <= maxGen; g++) pull(layers[g], bothMap);
   }

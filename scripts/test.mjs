@@ -304,6 +304,34 @@ for (const [tid, tree] of Object.entries(trees)) {
   if ([...count.values()].some((c) => c !== 1)) fail("marriage boxes: every person appears in exactly one box.");
 }
 
+// --- 6d) Layout: a kinless ring partner sits next to its partner box ---
+{
+  const fail = (msg) => check(false, msg);
+  const ppl = {
+    pa: { name: "Pa", partners: ["ma"], children: ["k1", "k2", "k3"] },
+    ma: { name: "Ma", partners: ["pa"], children: ["k1", "k2", "k3"] },
+    k1: { name: "K1", parents: ["pa", "ma"], partners: ["s1"] },
+    s1: { name: "S1", partners: ["k1"] },
+    k2: { name: "K2", parents: ["pa", "ma"] },
+    k3: { name: "K3", parents: ["pa", "ma"], partners: ["s3", "late"] },
+    s3: { name: "S3", partners: ["k3"] },
+    late: { name: "Late", partners: ["k3"] }
+  };
+  const vis = new Set(Object.keys(ppl));
+  const g = buildFamGraph(ppl, vis, {});
+  const personGen = computeGenerations(ppl, vis, "k2");
+  const measure = (n) => ({ w: 100 + 40 * Math.max(0, n.persons.length - 1), h: 40 });
+  const laid = layoutGraph(g, measure, personGen);
+  const byId = new Map(laid.nodes.map((n) => [n.id, n]));
+  const ring = laid.rings.find((r) => r.id.includes("late"));
+  if (!ring) fail("layout: ring for the kinless partner missing.");
+  else {
+    const A = byId.get(ring.na), B = byId.get(ring.nb);
+    const gapPx = Math.max(0, Math.max(A.x - A.w / 2, B.x - B.w / 2) - Math.min(A.x + A.w / 2, B.x + B.w / 2));
+    if (gapPx > 60) fail(`layout: kinless ring partner must sit next to its partner box (gap ${Math.round(gapPx)}px).`);
+  }
+}
+
 // --- 7) Layout smoke test on the default dataset ---
 {
   const people = data.people;
