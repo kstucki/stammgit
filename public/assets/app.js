@@ -1450,8 +1450,9 @@ function openPerson(id) {
 
 /* ---------------- Navigation / init ---------------- */
 
-let chronicleIndex = null;   // { chapters: [...] } for the active tree, or null
-let chronicleChapter = null; // currently open chapter file, or null for the TOC
+let chronicleIndex = null;      // { chapters: [...] } for the active tree, or null
+let chronicleChapter = undefined; // undefined = not opened yet (defaults to
+                                  // chapter 1), null = TOC, "<file>" = chapter
 
 async function loadChronicleIndex() {
   chronicleIndex = null;
@@ -1475,6 +1476,9 @@ async function renderChronicle() {
   const app = document.getElementById("app");
   if (!chronicleIndex) { app.innerHTML = ""; return; }
   if (chronicleEditing !== null) { renderChronicleEditor(app); return; }
+  // The chronicle opens on its first chapter; the table of contents is one
+  // tap away from there.
+  if (chronicleChapter === undefined) chronicleChapter = chronicleIndex.chapters[0]?.file ?? null;
   if (!chronicleChapter) {
     app.innerHTML = `
       <section class="chronicle">
@@ -1799,7 +1803,7 @@ async function loadData() {
   if (logoutLink) logoutLink.href = `${API_BASE}/logout`;
   const searchInputEl = document.getElementById("searchInput");
   if (searchInputEl) searchInputEl.placeholder = strings.get("searchDialog");
-  chronicleChapter = null;
+  chronicleChapter = undefined;
   await loadChronicleIndex();
 }
 
