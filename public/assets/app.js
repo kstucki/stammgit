@@ -321,9 +321,55 @@ function renderOverview() {
   }).join("");
 
   const nodeById = new Map(laid.nodes.map(n => [n.id, n]));
-  const edgeSvg = laid.edges.map(e => {
-    const a = nodeById.get(e.from), b = nodeById.get(e.to);
-    const x1 = a.x, y1 = a.y + a.h, x2 = b.x, y2 = b.y;
+
+  // Ring links (second marriages): pink line between the two person rows,
+  // split around a double-ring symbol at the midpoint.
+  const personRowY = (n, pid) => {
+    const i = Math.max(0, n.persons.indexOf(pid));
+    return n.y + 15 + i * 17 - 5;
+  };
+  // Deepest box bottom per layer – long ring lines sag into the free
+  // corridor below the layer instead of cutting through the boxes.
+  const layerBottom = new Map();
+  for (const n of laid.nodes) layerBottom.set(n.gen, Math.max(layerBottom.get(n.gen) ?? 0, n.y + n.h));
+  const ringGeo = new Map(); // ringId -> symbol point (anchor for descent edges)
+  const ringSvg = (laid.rings || []).map(r => {
+    const A = nodeById.get(r.na), B = nodeById.get(r.nb);
+    const left = A.x <= B.x ? A : B, right = left === A ? B : A;
+    const pLeft = left === A ? r.a : r.b, pRight = left === A ? r.b : r.a;
+    const x1 = left.x + left.w / 2, y1 = personRowY(left, pLeft);
+    const x2 = right.x - right.w / 2, y2 = personRowY(right, pRight);
+    const mx = (x1 + x2) / 2;
+    const boxGap = x2 - x1;
+    let path, sy;
+    if (boxGap <= 80) {
+      sy = (y1 + y2) / 2;
+      path = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    } else {
+      const ySag = Math.min((layerBottom.get(A.gen) ?? Math.max(y1, y2)) + 16, A.y + 114);
+      const cx1 = x1 + boxGap * 0.2, cx2 = x2 - boxGap * 0.2;
+      sy = 0.125 * (y1 + y2) + 0.75 * ySag;
+      path = `<path fill="none" d="M ${x1} ${y1} C ${cx1} ${ySag}, ${cx2} ${ySag}, ${x2} ${y2}"/>`;
+    }
+    ringGeo.set(r.id, { x: mx, y: sy });
+    return `<g class="gring">
+      ${path}
+      <circle cx="${mx - 3.5}" cy="${sy}" r="5"/>
+      <circle cx="${mx + 3.5}" cy="${sy}" r="5"/>
+    </g>`;
+  }).join("");
+
+  const edgeSvg = laid.edges.filter(e => !e.layoutOnly).map(e => {
+    const b = nodeById.get(e.to);
+    const x2 = b.x, y2 = b.y;
+    let x1, y1;
+    if (e.ring && ringGeo.has(e.ring)) {
+      const g = ringGeo.get(e.ring);
+      x1 = g.x; y1 = g.y + 9;
+    } else {
+      const a = nodeById.get(e.from);
+      x1 = a.x; y1 = a.y + a.h;
+    }
     const my = (y1 + y2) / 2;
     return `<path class="gedge" ${e.dashed ? 'stroke-dasharray="5,4"' : ""}
       d="M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}"/>`;
@@ -385,7 +431,7 @@ function renderOverview() {
     ${legendSvg}
     <div class="graph-wrap" id="graphWrap">
       <svg id="graphSvg" preserveAspectRatio="xMidYMid meet">
-        <g>${genLabelSvg}${edgeSvg}${nodeSvg}</g>
+        <g>${genLabelSvg}${edgeSvg}${nodeSvg}${ringSvg}</g>
       </svg>
     </div>
   `;

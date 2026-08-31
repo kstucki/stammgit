@@ -27,6 +27,9 @@ stammgit is for people who want to **own their genealogy data as files**.
   publishes them as Git commits.
 - Sources per person: file uploads (kept in the browser until sync) and
   external links (archives, Wikipedia).
+- One box per marriage (the first-listed partnership in the YAML); every
+  further marriage is drawn as a ring link between the person rows, and
+  children descend from their parents' marriage anchor (box or ring).
 - One portrait photo per person: uploaded in the person editor, downscaled
   in the browser (max. 1200 px, JPEG), committed to `public/photos/` on
   sync. The build rejects datasets that reference a missing photo.
