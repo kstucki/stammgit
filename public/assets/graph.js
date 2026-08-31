@@ -85,11 +85,16 @@ export function computeHourglass(people, rootId) {
     for (const child of people[id].children || []) addDown(child);
   };
   addDown(rootId);
-  // upwards: only the parent chain, no siblings, no partners outside the line
+  // upwards: the parent chain without siblings – but ALWAYS with all
+  // partners of each ancestor (second marriages stay visible even though
+  // they are off the direct line; their own kin is not pulled in).
   const addAnc = (id) => {
     for (const parent of (people[id]?.parents || [])) {
       if (!people[parent] || visible.has(parent)) continue;
       visible.add(parent);
+      for (const sp of people[parent].partners || []) {
+        if (people[sp]) visible.add(sp);
+      }
       addAnc(parent);
     }
   };
@@ -423,11 +428,11 @@ export function layoutGraph(graph, measure, personGen = null) {
       if (!pos.has(e.from) || !pos.has(e.to)) continue;
       s += Math.abs(pos.get(e.from) - pos.get(e.to));
     }
-    // Ring-linked boxes want to be neighbours: their distance counts
-    // double in the tie-breaker.
+    // Ring-linked boxes prefer to be close: counts once in the tie-breaker
+    // (ordering only, no positional pull – that distorted the layout).
     for (const r of rings) {
       if (!pos.has(r.na) || !pos.has(r.nb)) continue;
-      s += 2 * Math.abs(pos.get(r.na) - pos.get(r.nb));
+      s += Math.abs(pos.get(r.na) - pos.get(r.nb));
     }
     return s;
   };
@@ -616,12 +621,6 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Compaction: attract all neighbours (parents + children) jointly,
   // pulls loose, overly wide sections together.
   const bothMap = new Map(nodes.map((n) => [n.id, [...(parentsOf.get(n.id) || []), ...(childrenOf.get(n.id) || [])]]));
-  for (const r of rings) {
-    if (byId.has(r.na) && byId.has(r.nb)) {
-      bothMap.get(r.na).push(r.nb);
-      bothMap.get(r.nb).push(r.na);
-    }
-  }
   for (let pass = 0; pass < 3; pass++) {
     for (let g = 0; g <= maxGen; g++) pull(layers[g], bothMap);
   }

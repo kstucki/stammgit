@@ -247,6 +247,21 @@ for (const [tid, tree] of Object.entries(trees)) {
   if (gen.get("isl_c") !== gen.get("isl_a") + 1) fail("orphans: island generations must be internally consistent.");
 }
 
+// --- 6b2) Hourglass: partners of ancestors stay visible ---
+{
+  const { computeHourglass } = await import("../public/assets/graph.js");
+  const ppl = {
+    me: { name: "Me", parents: ["mom"] },
+    mom: { name: "Mom", parents: ["oma"], partners: [] },
+    oma: { name: "Oma", partners: ["opa", "second"], children: ["mom"] },
+    opa: { name: "Opa", partners: ["oma"], children: ["mom"] },
+    second: { name: "Second", partners: ["oma"] }
+  };
+  ppl.mom.parents = ["oma", "opa"];
+  const vis = computeHourglass(ppl, "me");
+  check(vis.has("second"), "hourglass: an ancestor's further partner must be visible.");
+}
+
 // --- 6c) Marriage boxes: pairing, rings, descent anchors ---
 {
   const fail = (msg) => check(false, msg);
