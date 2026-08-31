@@ -47,7 +47,7 @@ function runBuild() {
 
 function gitCommit(message) {
   if (!LOCAL_GIT) return { commit: null };
-  const add = spawnSync("git", ["add", "-A", "--", "data/trees", "public/sources", "public/photos"], { cwd: root, encoding: "utf8" });
+  const add = spawnSync("git", ["add", "-A", "--", "data/trees", "public/sources", "public/photos", "public/chronicle"], { cwd: root, encoding: "utf8" });
   const commit = spawnSync("git", ["commit", "-m", message], { cwd: root, encoding: "utf8" });
   if (add.status !== 0 || commit.status !== 0) {
     return { commit: null, gitWarning: (commit.stderr || commit.stdout || add.stderr || "git commit failed").trim().slice(0, 300) };
@@ -95,10 +95,13 @@ const LOCAL_FNS = {
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
     const filename = String(body?.filename || "");
-    const kind = body?.kind === "photo" ? "photo" : "source";
-    const dir = kind === "photo" ? "photos" : "sources";
-    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
+    const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
+    const tree = String(body?.tree || "");
+    if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return jsonResponse({ error: "Invalid tree." }, 400);
+    const dir = kind === "photo" ? "photos" : kind === "chronicle" ? path.join("chronicle", tree) : "sources";
+    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g|md|ya?ml)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
     if (kind === "photo" && !/\.(png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Only PNG or JPG allowed for photos." }, 400);
+    if (kind === "chronicle" && !/\.(md|ya?ml)$/i.test(filename)) return jsonResponse({ error: "Only Markdown or YAML allowed for the chronicle." }, 400);
     const contentBase64 = String(body?.contentBase64 || "");
     if (!contentBase64 || contentBase64.length > 6 * 1024 * 1024) return jsonResponse({ error: "File too large (max. ~4 MB)." }, 413);
     fs.mkdirSync(path.join(root, "public", dir), { recursive: true });
@@ -112,9 +115,11 @@ const LOCAL_FNS = {
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
     const filename = String(body?.filename || "");
-    const kind = body?.kind === "photo" ? "photo" : "source";
-    const dir = kind === "photo" ? "photos" : "sources";
-    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
+    const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
+    const tree = String(body?.tree || "");
+    if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return jsonResponse({ error: "Invalid tree." }, 400);
+    const dir = kind === "photo" ? "photos" : kind === "chronicle" ? path.join("chronicle", tree) : "sources";
+    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g|md|ya?ml)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
     const filePath = path.join(root, "public", dir, filename);
     if (!fs.existsSync(filePath)) return jsonResponse({ error: "File not found." }, 404);
     fs.unlinkSync(filePath);

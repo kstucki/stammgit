@@ -46,12 +46,12 @@ export function renderChapter(body, { personLabel, sourceLabel } = {}) {
     if (kind === "p") {
       const label = personLabel ? personLabel(value) : value;
       if (label === null || label === undefined) {
-        return `<span class="chronik-broken">${escapeHtml(value)}</span>`;
+        return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
       }
       return `<a href="#" data-person="${escapeHtml(value)}">${escapeHtml(label)}</a>`;
     }
     const label = (sourceLabel && sourceLabel(value)) || value.split("/").pop();
-    return `<a href="${escapeHtml(value)}" target="_blank" class="chronik-source">${escapeHtml(label)}</a>`;
+    return `<a href="${escapeHtml(value)}" target="_blank" class="chronicle-source">${escapeHtml(label)}</a>`;
   });
   return marked.parse(withLinks, { async: false });
 }

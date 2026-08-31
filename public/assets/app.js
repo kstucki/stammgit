@@ -2,7 +2,7 @@ import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pe
 import { getT } from "/assets/strings.js?v=10";
 import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
 import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
-import { parseChapter, renderChapter } from "/assets/chronik.js?v=1";
+import { parseChapter, renderChapter } from "/assets/chronicle.js?v=1";
 import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
 
 let data = null;
@@ -53,6 +53,17 @@ async function refreshPending() {
 }
 // Pending-store key for a repository file URL: sources are keyed by bare
 // filename, photos by "photos/<filename>" (both end up under public/ on sync).
+// Split a pending-store key into the upload API payload:
+// "photos/<file>" -> kind photo, "chronicle/<tree>/<file>" -> kind
+// chronicle with tree, everything else -> source.
+function uploadTarget(name) {
+  if (name.startsWith("photos/")) return { filename: name.slice("photos/".length), kind: "photo" };
+  if (name.startsWith("chronicle/")) {
+    const [, tree, ...rest] = name.split("/");
+    return { filename: rest.join("/"), kind: "chronicle", tree };
+  }
+  return { filename: name, kind: "source" };
+}
 function pendingKeyFor(url) {
   if (url.startsWith("/sources/")) return url.slice("/sources/".length);
   if (url.startsWith("/photos/")) return "photos/" + url.slice("/photos/".length);
@@ -83,6 +94,19 @@ function loadImageFile(file) {
     img.src = url;
   });
 }
+// Downscale without cropping (chapter images): longest edge maxEdge, JPEG.
+function freeResize(file, maxEdge = 1200) {
+  return loadImageFile(file).then((img) => new Promise((res, rej) => {
+    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    canvas.toBlob((blob) => blob ? res(blob) : rej(new Error("Image conversion failed.")), "image/jpeg", 0.85);
+  }));
+}
+
 // Square crop editor on a canvas: the image covers the square, the user pans
 // it by dragging and adjusts the zoom with a range input. cropToBlob() renders exactly the
 // visible square at `size` px as JPEG.
@@ -638,11 +662,10 @@ async function saveCentral() {
         r.onerror = rej;
         r.readAsDataURL(new Blob([entry.blob], { type: entry.type }));
       });
-      const isPhoto = name.startsWith("photos/");
       const resp = await fetch(`${API_BASE}/upload-source`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename: isPhoto ? name.slice("photos/".length) : name, contentBase64, kind: isPhoto ? "photo" : "source" })
+        body: JSON.stringify({ ...uploadTarget(name), contentBase64 })
       });
       const result = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(result?.error || `Upload ${name} failed (${resp.status})`);
@@ -651,11 +674,10 @@ async function saveCentral() {
     // 2) queued deletions (missing files are fine)
     for (const name of pendingDeletions) {
       setStatus(strings.get("syncDeleting", { name }));
-      const isPhoto = name.startsWith("photos/");
       const resp = await fetch(`${API_BASE}/delete-source`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename: isPhoto ? name.slice("photos/".length) : name, kind: isPhoto ? "photo" : "source" })
+        body: JSON.stringify(uploadTarget(name))
       });
       if (!resp.ok && resp.status !== 404) {
         const result = await resp.json().catch(() => ({}));
@@ -1187,8 +1209,8 @@ function openEditDialog(id) {
       return;
     }
     if (!confirm(strings.get("deleteConfirm", { name: p.name, n: links }))) return;
-    if (chronikChaptersFor(id).length) {
-      alert(strings.get("chronikDeleteBlocked", { n: chronikChaptersFor(id).length }));
+    if (chronicleChaptersFor(id).length) {
+      alert(strings.get("chronicleDeleteBlocked", { n: chronicleChaptersFor(id).length }));
       return;
     }
     const photo = p.photo;
@@ -1414,10 +1436,10 @@ function openPerson(id) {
         <button class="secondary" data-show-in-tree="${esc(id)}">${strings.get("showInTree")}</button>
       <button class="secondary" data-descendants="${esc(id)}">${strings.get("onlyDescendants")}</button>
       </div>
-          ${chronikChaptersFor(id).length ? `
-        <h3>${strings.get("chronikMentioned")}</h3>
-        <ul class="chronik-mentions">
-          ${chronikChaptersFor(id).map((c) => `<li><a href="#" data-chapter="${esc(c.file)}">${esc(c.title)}</a></li>`).join("")}
+          ${chronicleChaptersFor(id).length ? `
+        <h3>${strings.get("chronicleMentioned")}</h3>
+        <ul class="chronicle-mentions">
+          ${chronicleChaptersFor(id).map((c) => `<li><a href="#" data-chapter="${esc(c.file)}">${esc(c.title)}</a></li>`).join("")}
         </ul>` : ""}
     </article>
   `;
@@ -1428,52 +1450,56 @@ function openPerson(id) {
 
 /* ---------------- Navigation / init ---------------- */
 
-let chronikIndex = null;   // { chapters: [...] } for the active tree, or null
-let chronikChapter = null; // currently open chapter file, or null for the TOC
+let chronicleIndex = null;   // { chapters: [...] } for the active tree, or null
+let chronicleChapter = null; // currently open chapter file, or null for the TOC
 
-async function loadChronikIndex() {
-  chronikIndex = null;
-  document.querySelector('[data-view="chronik"]').hidden = true;
+async function loadChronicleIndex() {
+  chronicleIndex = null;
+  document.querySelector('[data-view="chronicle"]').hidden = true;
   try {
-    const resp = await fetch(`/data/chronik-${activeTree}.json`, { cache: "no-cache" });
+    const resp = await fetch(`/data/chronicle-${activeTree}.json`, { cache: "no-cache" });
     if (!resp.ok) return;
     const idx = await resp.json();
     if (idx?.chapters?.length) {
-      chronikIndex = idx;
-      document.querySelector('[data-view="chronik"]').hidden = false;
+      chronicleIndex = idx;
+      document.querySelector('[data-view="chronicle"]').hidden = false;
     }
   } catch { /* no chronicle for this tree */ }
 }
 
-function chronikChaptersFor(personId) {
-  return (chronikIndex?.chapters || []).filter((c) => c.persons.includes(personId));
+function chronicleChaptersFor(personId) {
+  return (chronicleIndex?.chapters || []).filter((c) => c.persons.includes(personId));
 }
 
-async function renderChronik() {
+async function renderChronicle() {
   const app = document.getElementById("app");
-  if (!chronikIndex) { app.innerHTML = ""; return; }
-  if (!chronikChapter) {
+  if (!chronicleIndex) { app.innerHTML = ""; return; }
+  if (chronicleEditing !== null) { renderChronicleEditor(app); return; }
+  if (!chronicleChapter) {
     app.innerHTML = `
-      <section class="chronik">
-        <h2>${strings.get("chronikTitle")}</h2>
-        <ol class="chronik-toc">
-          ${chronikIndex.chapters.map((c) => `
+      <section class="chronicle">
+        <h2>${strings.get("chronicleTitle")}</h2>
+        <ol class="chronicle-toc">
+          ${chronicleIndex.chapters.map((c) => `
             <li><a href="#" data-chapter="${esc(c.file)}">${esc(c.title)}</a>
               ${c.date ? `<span class="muted"> ${esc(c.date)}</span>` : ""}</li>`).join("")}
         </ol>
+        ${isAdmin ? `<p><button class="secondary small" id="chapterNew">${strings.get("chapterNew")}</button></p>` : ""}
       </section>`;
+    app.querySelector("#chapterNew")?.addEventListener("click", () => { chronicleEditing = ""; renderChronicle(); });
     return;
   }
-  const i = chronikIndex.chapters.findIndex((c) => c.file === chronikChapter);
-  const meta = chronikIndex.chapters[i];
-  app.innerHTML = `<section class="chronik"><p class="muted">${strings.get("chronikLoading")}</p></section>`;
+  const i = chronicleIndex.chapters.findIndex((c) => c.file === chronicleChapter);
+  const meta = chronicleIndex.chapters[i];
+  app.innerHTML = `<section class="chronicle"><p class="muted">${strings.get("chronicleLoading")}</p></section>`;
   let text;
   try {
-    const resp = await fetch(`/chronik/${activeTree}/${chronikChapter}`, { cache: "no-cache" });
+    const pendingUrl = pendingObjectUrls.get(`chronicle/${activeTree}/${chronicleChapter}`);
+    const resp = await fetch(pendingUrl || `/chronicle/${activeTree}/${chronicleChapter}`, { cache: "no-cache" });
     if (!resp.ok) throw new Error(resp.status);
     text = await resp.text();
   } catch {
-    app.innerHTML = `<section class="chronik"><p class="muted">${strings.get("chronikLoadFailed")}</p></section>`;
+    app.innerHTML = `<section class="chronicle"><p class="muted">${strings.get("chronicleLoadFailed")}</p></section>`;
     return;
   }
   const { frontmatter, body } = parseChapter(text);
@@ -1487,20 +1513,145 @@ async function renderChronik() {
       return null;
     }
   });
-  const prev = chronikIndex.chapters[i - 1], next = chronikIndex.chapters[i + 1];
+  const prev = chronicleIndex.chapters[i - 1], next = chronicleIndex.chapters[i + 1];
   app.innerHTML = `
-    <section class="chronik">
-      <p><a href="#" data-chapter="">&larr; ${strings.get("chronikToc")}</a></p>
-      <article class="chronik-chapter">
-        <h2>${esc(frontmatter.title || meta?.title || chronikChapter)}</h2>
+    <section class="chronicle">
+      <p><a href="#" data-chapter="">&larr; ${strings.get("chronicleToc")}</a></p>
+      <article class="chronicle-chapter">
+        <h2>${esc(frontmatter.title || meta?.title || chronicleChapter)}</h2>
         ${frontmatter.date ? `<p class="muted">${esc(frontmatter.date)}</p>` : ""}
         ${html}
       </article>
-      <p class="chronik-nav">
+      <p class="chronicle-nav">
         ${prev ? `<a href="#" data-chapter="${esc(prev.file)}">&larr; ${esc(prev.title)}</a>` : "<span></span>"}
         ${next ? `<a href="#" data-chapter="${esc(next.file)}">${esc(next.title)} &rarr;</a>` : ""}
       </p>
+      ${isAdmin ? `<p><button class="secondary small" id="chapterEdit">${strings.get("chapterEdit")}</button></p>` : ""}
     </section>`;
+  document.getElementById("chapterEdit")?.addEventListener("click", () => { chronicleEditing = chronicleChapter; renderChronicle(); });
+}
+
+let chronicleEditing = null; // null = closed, "" = new chapter, "<file>" = editing
+
+async function renderChronicleEditor(app) {
+  const file = chronicleEditing;
+  let title = "", date = new Date().toISOString().slice(0, 10), body = "";
+  if (file) {
+    try {
+      const pendingUrl = pendingObjectUrls.get(`chronicle/${activeTree}/${file}`);
+      const resp = await fetch(pendingUrl || `/chronicle/${activeTree}/${file}`, { cache: "no-cache" });
+      const parsed = parseChapter(await resp.text());
+      title = parsed.frontmatter.title || "";
+      date = parsed.frontmatter.date || "";
+      body = parsed.body.trim();
+    } catch { /* start empty */ }
+  }
+  const names = Object.entries(people).map(([id, q]) => ({ id, name: q.name || id }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const sourceOptions = [];
+  const seenUrl = new Set();
+  for (const q of Object.values(people)) {
+    for (const src of q.sources || []) {
+      if (seenUrl.has(src.url)) continue;
+      seenUrl.add(src.url);
+      sourceOptions.push(src);
+    }
+  }
+  sourceOptions.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+  app.innerHTML = `
+    <section class="chronicle">
+      <h2>${file ? strings.get("chapterEdit") : strings.get("chapterNew")}</h2>
+      <label class="field">${strings.get("chapterTitle")}<input id="chTitle" type="text" value="${esc(title)}" /></label>
+      <label class="field">${strings.get("chapterDate")}<input id="chDate" type="date" value="${esc(date)}" /></label>
+      <div class="chronicle-insert">
+        <input id="chPerson" list="chPersonList" placeholder="${strings.get("chapterPersonPh")}" />
+        <datalist id="chPersonList">${names.map((n) => `<option value="${esc(n.name)}"></option>`).join("")}</datalist>
+        <button type="button" class="secondary small" id="chInsPerson">${strings.get("chapterInsPerson")}</button>
+        <select id="chSource">
+          <option value="">${strings.get("chapterSourcePh")}</option>
+          ${sourceOptions.map((src) => `<option value="${esc(src.url)}">${esc(src.label || src.url)}</option>`).join("")}
+        </select>
+        <button type="button" class="secondary small" id="chInsSource">${strings.get("chapterInsSource")}</button>
+        <input id="chPhoto" type="file" accept="image/*" />
+        <button type="button" class="secondary small" id="chInsPhoto">${strings.get("chapterInsPhoto")}</button>
+      </div>
+      <textarea id="chBody" rows="16">${esc(body)}</textarea>
+      <div class="chronicle-preview" id="chPreview" hidden></div>
+      <p class="chronicle-actions">
+        <button class="secondary small" id="chPreviewBtn">${strings.get("chapterPreview")}</button>
+        <button class="small" id="chSave">${strings.get("chapterSave")}</button>
+        <button class="ghost small" id="chCancel">${strings.get("cancel")}</button>
+      </p>
+      <p class="muted" id="chStatus">${strings.get("chapterHint")}</p>
+    </section>`;
+  const ta = document.getElementById("chBody");
+  const insert = (token) => {
+    const start = ta.selectionStart ?? ta.value.length;
+    ta.value = ta.value.slice(0, start) + token + ta.value.slice(ta.selectionEnd ?? start);
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = start + token.length;
+  };
+  document.getElementById("chInsPerson").addEventListener("click", () => {
+    const wanted = document.getElementById("chPerson").value.trim();
+    const hit = names.find((n) => n.name === wanted);
+    const status = document.getElementById("chStatus");
+    if (!hit) { status.textContent = strings.get("chapterPersonMiss"); return; }
+    insert(`[[p:${hit.id}]]`);
+  });
+  document.getElementById("chInsSource").addEventListener("click", () => {
+    const url = document.getElementById("chSource").value;
+    if (url) insert(`[[s:${url}]]`);
+  });
+  document.getElementById("chInsPhoto").addEventListener("click", async () => {
+    const status = document.getElementById("chStatus");
+    const photoFile = document.getElementById("chPhoto").files[0];
+    if (!photoFile) { status.textContent = strings.get("photoNeedFile"); return; }
+    try {
+      status.textContent = strings.get("photoProcessing");
+      const blob = await freeResize(photoFile);
+      const name = `chronicle-${Date.now().toString(36)}.jpg`;
+      await pendingPutFile(`photos/${name}`, blob);
+      await refreshPending();
+      insert(`![](/photos/${name})`);
+      status.textContent = strings.get("photoStoredLocally");
+    } catch (err) {
+      status.textContent = String(err.message || err);
+    }
+  });
+  document.getElementById("chPreviewBtn").addEventListener("click", () => {
+    const prev = document.getElementById("chPreview");
+    prev.hidden = !prev.hidden;
+    if (!prev.hidden) {
+      prev.innerHTML = renderChapter(ta.value, {
+        personLabel: (id) => people[id]?.name ?? null,
+        sourceLabel: (url) => sourceOptions.find((src) => src.url === url)?.label || null
+      });
+    }
+  });
+  document.getElementById("chCancel").addEventListener("click", () => { chronicleEditing = null; renderChronicle(); });
+  document.getElementById("chSave").addEventListener("click", async () => {
+    const status = document.getElementById("chStatus");
+    const newTitle = document.getElementById("chTitle").value.trim();
+    if (!newTitle) { status.textContent = strings.get("chapterNeedTitle"); return; }
+    const newDate = document.getElementById("chDate").value;
+    const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}---\n\n${ta.value.trim()}\n`;
+    const slug = file || `${newTitle.toLowerCase().replace(/[äöü]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue" }[c])).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "kapitel"}.md`;
+    await pendingPutFile(`chronicle/${activeTree}/${slug}`, new Blob([text], { type: "text/markdown" }));
+    const chapters = chronicleIndex?.chapters ? [...chronicleIndex.chapters] : [];
+    const existing = chapters.findIndex((c) => c.file === slug);
+    const tokens = (await import(`/assets/chronicle.js?v=2`)).extractTokens(text);
+    const entry = { file: slug, title: newTitle, date: newDate || null, persons: tokens.persons, sources: tokens.sources };
+    if (existing >= 0) chapters[existing] = entry; else chapters.push(entry);
+    const indexYaml = `# Kapitelreihenfolge der Familienchronik.\nchapters:\n${chapters.map((c) => `  - ${c.file}`).join("\n")}\n`;
+    await pendingPutFile(`chronicle/${activeTree}/index.yaml`, new Blob([indexYaml], { type: "text/yaml" }));
+    await refreshPending();
+    chronicleIndex = { chapters };
+    document.querySelector('[data-view="chronicle"]').hidden = false;
+    saveDraft();
+    chronicleEditing = null;
+    chronicleChapter = slug;
+    renderChronicle();
+  });
 }
 
 function renderView(view) {
@@ -1509,7 +1660,7 @@ function renderView(view) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === view));
   if (view === "overview") renderOverview();
   if (view === "sources") renderSources();
-  if (view === "chronik") renderChronik();
+  if (view === "chronicle") renderChronicle();
   if (view === "admin") renderAdmin();
 }
 
@@ -1524,9 +1675,9 @@ document.addEventListener("click", (e) => {
   const chapterEl = e.target.closest("[data-chapter]");
   if (chapterEl) {
     e.preventDefault();
-    chronikChapter = chapterEl.dataset.chapter || null;
-    if (currentView !== "chronik") renderView("chronik");
-    else renderChronik();
+    chronicleChapter = chapterEl.dataset.chapter || null;
+    if (currentView !== "chronicle") renderView("chronicle");
+    else renderChronicle();
     window.scrollTo(0, 0);
     return;
   }
@@ -1631,7 +1782,7 @@ async function loadData() {
   const chrome = [
     ['[data-view="overview"]', "tabOverview"],
     ['[data-view="sources"]', "tabSources"],
-    ['[data-view="chronik"]', "tabChronik"],
+    ['[data-view="chronicle"]', "tabChronicle"],
     ['[data-view="admin"]', "tabAdmin"],
     ['.header-actions .button-link', "logout"],
     ['.draft-badge', "draftBadge"]
@@ -1644,8 +1795,8 @@ async function loadData() {
   if (logoutLink) logoutLink.href = `${API_BASE}/logout`;
   const searchInputEl = document.getElementById("searchInput");
   if (searchInputEl) searchInputEl.placeholder = strings.get("searchDialog");
-  chronikChapter = null;
-  await loadChronikIndex();
+  chronicleChapter = null;
+  await loadChronicleIndex();
 }
 
 async function init() {

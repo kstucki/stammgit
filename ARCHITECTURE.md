@@ -106,11 +106,11 @@ One meaning per visual dimension:
 ## Chronicle
 
 The chronicle is the narrative layer on top of data (YAML) and evidence
-(sources): per dataset a folder `public/chronik/<tree>/` with an
+(sources): per dataset a folder `public/chronicle/<tree>/` with an
 `index.yaml` (chapter order) and chapters as Markdown files. Frontmatter
 carries only `title` and optional `date`; person and source links live in
 the text as `[[p:person_id]]` and `[[s:source_url]]` tokens — the build
-extracts them into `public/data/chronik-<tree>.json`, so there is one
+extracts them into `public/data/chronicle-<tree>.json`, so there is one
 source of truth. The tab only appears when an index exists; without an
 index order the tab would sort by date (blog behaviour as a fallback, not
 a mode). The person dialog lists "mentioned in" chapters from the same

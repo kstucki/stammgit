@@ -24,8 +24,10 @@ export default async (request) => {
   const rawName = String(body?.filename || "");
   const contentBase64 = String(body?.contentBase64 || "");
   // kind: "source" (default, public/sources) or "photo" (public/photos)
-  const kind = body?.kind === "photo" ? "photo" : "source";
-  const dir = kind === "photo" ? "photos" : "sources";
+  const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
+  const tree = String(body?.tree || "");
+  if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid tree.");
+  const dir = kind === "photo" ? "photos" : kind === "chronicle" ? `chronicle/${tree}` : "sources";
   if (!rawName || !contentBase64) return bad("filename und contentBase64 sind erforderlich.");
   if (contentBase64.length > 6 * 1024 * 1024) return bad("File too large (max. ~4 MB).", 413);
 
@@ -34,8 +36,11 @@ export default async (request) => {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
-  if (kind === "photo" ? !/\.(png|jpe?g)$/.test(filename) : !/\.(pdf|png|jpe?g)$/.test(filename)) {
-    return bad(kind === "photo" ? "Only PNG or JPG allowed for photos." : "Only PDF, PNG or JPG allowed.");
+  const allowed = kind === "photo" ? /\.(png|jpe?g)$/ : kind === "chronicle" ? /\.(md|ya?ml)$/ : /\.(pdf|png|jpe?g)$/;
+  if (!allowed.test(filename)) {
+    return bad(kind === "photo" ? "Only PNG or JPG allowed for photos."
+      : kind === "chronicle" ? "Only Markdown or YAML allowed for the chronicle."
+      : "Only PDF, PNG or JPG allowed.");
   }
 
   const headers = {

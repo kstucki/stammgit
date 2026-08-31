@@ -107,7 +107,7 @@ everyone gets the admin experience, nothing can be written.
 Napoleon is just the demo dataset. Everything instance-specific lives in
 `data/config.yaml` — edit it in your editor or directly on GitHub, it is
 never written by the app. How to add chronicle chapters:
-[docs/chronik.md](docs/chronik.md).
+[docs/chronicle.md](docs/chronicle.md).
 
 ```yaml
 language: en                # UI language: de | en

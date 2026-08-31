@@ -60,12 +60,12 @@ if (fs.existsSync(sourcesDir)) {
     console.log(`Note: ${orphans.length} source file(s) not referenced by any dataset: ${orphans.join(", ")}`);
   }
 }
-// Chronicle: emit public/data/chronik-<tree>.json for trees with chapters.
+// Chronicle: emit public/data/chronicle-<tree>.json for trees with chapters.
 for (const tree of index.map((t) => t.id)) {
-  const dir = path.join(root, "public", "chronik", tree);
+  const dir = path.join(root, "public", "chronicle", tree);
   const idxFile = path.join(dir, "index.yaml");
   if (!fs.existsSync(idxFile)) continue;
-  const { parseChapter, extractTokens } = await import("../public/assets/chronik.js");
+  const { parseChapter, extractTokens } = await import("../public/assets/chronicle.js");
   const order = YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [];
   const chapters = [];
   for (const file of order) {
@@ -75,8 +75,8 @@ for (const tree of index.map((t) => t.id)) {
     const tokens = extractTokens(body);
     chapters.push({ file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources });
   }
-  fs.writeFileSync(path.join(root, "public", "data", `chronik-${tree}.json`), JSON.stringify({ chapters }, null, 2));
-  console.log(`chronik ${tree}: ${chapters.length} chapter(s)`);
+  fs.writeFileSync(path.join(root, "public", "data", `chronicle-${tree}.json`), JSON.stringify({ chapters }, null, 2));
+  console.log(`chronicle ${tree}: ${chapters.length} chapter(s)`);
 }
 
 const photosDir = path.join(root, "public", "photos");

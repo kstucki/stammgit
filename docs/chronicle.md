@@ -9,8 +9,8 @@ you add chapters as files, in your editor or directly on GitHub.
 Create a folder for your dataset and an index with the chapter order:
 
 ```
-public/chronik/<tree>/index.yaml
-public/chronik/<tree>/my-first-chapter.md
+public/chronicle/<tree>/index.yaml
+public/chronicle/<tree>/my-first-chapter.md
 ```
 
 ```yaml
@@ -19,7 +19,7 @@ chapters:
   - my-first-chapter.md
 ```
 
-The Chronik tab appears as soon as the index exists for the active
+The Chronicle tab appears as soon as the index exists for the active
 dataset.
 
 ## Chapter format
