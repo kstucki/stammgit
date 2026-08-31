@@ -140,9 +140,10 @@ h3, .section-title { margin:.9rem 0 .3rem; font:700 var(--fs-title)/1.25 ui-seri
 dialog {
   width:min(92vw,700px); max-height:85vh; border:1px solid var(--line); border-radius:16px;
   padding:1.2rem; background:var(--paper); color:var(--ink); box-shadow:0 25px 80px rgba(0,0,0,.2);
+  position:relative;
 }
 dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
-.dialog-close { float:right; border:0; background:transparent; font-size:1.8rem; cursor:pointer; color:var(--muted); }
+.dialog-close { position:absolute; top:.35rem; right:.55rem; z-index:1; border:0; background:transparent; font-size:1.8rem; line-height:1; padding:.25rem; cursor:pointer; color:var(--muted); }
 .person-detail h2 { margin:.1rem 0 .2rem; font:700 1.7rem/1.1 ui-serif, Georgia, serif; }
 .detail-section { margin:1rem 0; }
 .detail-section h3 { font-size:.8rem; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 .45rem; }
@@ -283,7 +284,7 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .card, .person-card { border-radius: 14px; }
 
-.portrait { width:140px; height:140px; object-fit:cover; border-radius:10px; float:right; margin:0 0 .6rem .8rem; border:1px solid var(--line); background:var(--paper); }
+.portrait { width:140px; height:140px; object-fit:cover; border-radius:10px; float:right; margin:1.3rem 0 .6rem .8rem; border:1px solid var(--line); background:var(--paper); }
 .portrait.small { width:72px; height:72px; float:none; margin:0; }
 .photo-edit { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
 .photo-edit input[type=file] { font-size:.8rem; max-width:230px; }

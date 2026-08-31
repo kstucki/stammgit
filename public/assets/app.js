@@ -1375,7 +1375,7 @@ function openPerson(id) {
 
   personDialogContent.innerHTML = `
     <article class="person-detail">
-      ${p.photo ? `<img class="portrait" src="${esc(sourceHref(p.photo))}" alt="" />` : ""}
+      ${p.photo ? `<img class="portrait" src="${esc(sourceHref(p.photo))}" alt="" decoding="async" />` : ""}
       <h2>${esc(p.name)}</h2>
       ${years(p) ? `<div class="muted">${esc(years(p))}</div>` : ""}
       ${p.occupation ? `<p>${esc(p.occupation)}</p>` : ""}
@@ -1412,6 +1412,9 @@ function openPerson(id) {
     </article>
   `;
   if (!personDialog.open) personDialog.showModal();
+  // Same focus target on every path (fresh open and in-dialog navigation):
+  // the content, not the close button — no stray focus ring on the X.
+  personDialogContent.focus({ preventScroll: true });
 }
 
 /* ---------------- Navigation / init ---------------- */
