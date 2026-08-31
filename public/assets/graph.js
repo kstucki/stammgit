@@ -230,6 +230,25 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
   // married (ring) -> ONE drawn edge from the ring (plus a layout-only
   // edge keeping the attraction to the second box); otherwise one edge
   // per parent box, as before.
+  // Unions: one invisible layout anchor per distinct set of parent boxes
+  // (marriage box, ring partnership, or single parent). They are NOT layer
+  // nodes and are never rendered — sibling blocks are keyed by union, so
+  // half-siblings from different partnerships form separate blocks.
+  const unions = new Map(); // unionId -> { id, parentNodes: [...] }
+  const unionKeyFor = (parents) => {
+    const homes = [...new Set(parents.map((p) => homeOf.get(p)))].filter(Boolean).sort();
+    if (!homes.length) return null;
+    const id = `u:${homes.join("|")}`;
+    if (!unions.has(id)) unions.set(id, { id, parentNodes: homes });
+    return id;
+  };
+  // The block membership of a box follows its bloodline person (persons[0]).
+  for (const n of nodes) {
+    const p0 = n.persons[0];
+    const parents = (people[p0]?.parents || []).filter((p) => visible.has(p) && people[p]);
+    n.unionId = parents.length ? unionKeyFor(parents) : null;
+  }
+
   const edges = [];
   const edgeSeen = new Set();
   const pushEdge = (e) => {
@@ -269,7 +288,7 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
     edges.push({ from: gp.id, to: homeOf.get(rootPerson), dashed: true });
   }
 
-  return { nodes, edges, rings, homeOf };
+  return { nodes, edges, rings, homeOf, unions: [...unions.values()] };
 }
 
 // Layers from fixed generations (relative to the focus person), then barycenter ordering.
@@ -348,11 +367,15 @@ export function layoutGraph(graph, measure, personGen = null) {
     return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
   };
 
-  // Primary parent node = the leftmost one
-  const primaryParent = (id) => {
-    const ps = (parentsOf.get(id) || []).filter((p) => idx.has(p));
+  // Union anchoring: the block key of a node is its parents' union (stable
+  // in the data), positioned by the leftmost parent box of that union.
+  // Half-siblings from different partnerships therefore form separate
+  // blocks even when they share a parent.
+  const unionParents = new Map((graph.unions || []).map((u) => [u.id, u.parentNodes]));
+  const unionPrimaryIdx = (uid) => {
+    const ps = (unionParents.get(uid) || []).filter((p) => idx.has(p));
     if (!ps.length) return null;
-    return ps.reduce((a, b) => (idx.get(a) <= idx.get(b) ? a : b));
+    return Math.min(...ps.map((p) => idx.get(p)));
   };
 
   // Downwards: arrange the layer as a sequence of sibling blocks under the parents
@@ -362,23 +385,39 @@ export function layoutGraph(graph, measure, personGen = null) {
     // a raw own-index key would sort them all to the far left of the
     // layer. They anchor to their current left neighbour instead and only
     // order among themselves by their children (or stay put).
-    let prev = [-1e9, 0], tie = 0;
+    // Unions sharing the same leftmost parent are ordered by the median
+    // position of their members (dynamic, like the rest of the ordering) —
+    // a static order would fight the crossing minimizer.
+    const secOf = new Map();
+    const unionMembers = new Map();
     for (const n of layer) {
-      const pp = primaryParent(n.id);
       const kids = (childrenOf.get(n.id) || []).map((c) => idx.get(c)).filter((x) => x !== undefined);
       const sec = median(kids);
-      if (pp === null) {
+      secOf.set(n.id, sec === null ? idx.get(n.id) : sec);
+      if (n.unionId) {
+        if (!unionMembers.has(n.unionId)) unionMembers.set(n.unionId, []);
+        unionMembers.get(n.unionId).push(idx.get(n.id));
+      }
+    }
+    const unionMed = new Map();
+    for (const [uid, xs] of unionMembers) unionMed.set(uid, median(xs));
+    let prev = [-1e9, 0, 0], tie = 0;
+    for (const n of layer) {
+      const pIdx = n.unionId ? unionPrimaryIdx(n.unionId) : null;
+      const kids = (childrenOf.get(n.id) || []).map((c) => idx.get(c)).filter((x) => x !== undefined);
+      const sec = median(kids);
+      if (pIdx === null) {
         tie += 1;
-        blockKey.set(n.id, [prev[0], sec === null ? prev[1] + tie * 1e-6 : sec]);
+        blockKey.set(n.id, [prev[0], prev[1], (sec === null ? prev[2] + tie * 1e-6 : sec)]);
         continue;
       }
-      const key = [idx.get(pp) * 1000, sec === null ? idx.get(n.id) : sec];
+      const key = [pIdx * 1000, unionMed.get(n.unionId) ?? 0, secOf.get(n.id)];
       blockKey.set(n.id, key);
       prev = key; tie = 0;
     }
     layer.sort((a, b) => {
       const ka = blockKey.get(a.id), kb = blockKey.get(b.id);
-      return ka[0] - kb[0] || ka[1] - kb[1];
+      return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
     });
   };
   // Upwards: sort parents by the barycenter of their children (brings in-law families together)
@@ -466,8 +505,7 @@ export function layoutGraph(graph, measure, personGen = null) {
   const blocksOf = (layer) => {
     const blocks = [];
     for (const n of layer) {
-      const pp = primaryParent(n.id);
-      const key = pp === null ? `solo:${n.id}` : `p:${pp}`;
+      const key = n.unionId === null || n.unionId === undefined ? `solo:${n.id}` : n.unionId;
       if (blocks.length && blocks[blocks.length - 1].key === key) blocks[blocks.length - 1].nodes.push(n);
       else blocks.push({ key, nodes: [n] });
     }

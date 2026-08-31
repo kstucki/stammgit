@@ -332,6 +332,34 @@ for (const [tid, tree] of Object.entries(trees)) {
   }
 }
 
+// --- 6e) Union blocks: half-siblings form separate, indivisible blocks ---
+{
+  const fail = (msg) => check(false, msg);
+  const ppl = {
+    hans: { name: "Hans", partners: ["anna", "beatrice"], children: ["eva", "peter", "karl", "maria"] },
+    anna: { name: "Anna", partners: ["hans"], children: ["eva", "peter"] },
+    beatrice: { name: "Beatrice", partners: ["hans"], children: ["karl", "maria"] },
+    eva: { name: "Eva", parents: ["hans", "anna"] },
+    peter: { name: "Peter", parents: ["hans", "anna"] },
+    karl: { name: "Karl", parents: ["hans", "beatrice"] },
+    maria: { name: "Maria", parents: ["hans", "beatrice"] }
+  };
+  const vis = new Set(Object.keys(ppl));
+  const g = buildFamGraph(ppl, vis, {});
+  const uOf = (pid) => g.nodes.find((n) => n.persons.includes(pid)).unionId;
+  if (uOf("eva") !== uOf("peter")) fail("unions: full siblings must share a union.");
+  if (uOf("karl") !== uOf("maria")) fail("unions: full siblings must share a union (2nd marriage).");
+  if (uOf("eva") === uOf("karl")) fail("unions: half-siblings must be in different unions.");
+  const personGen = computeGenerations(ppl, vis, "eva");
+  const measure = (n) => ({ w: 100 + 40 * Math.max(0, n.persons.length - 1), h: 40 });
+  const laid = layoutGraph(g, measure, personGen);
+  const xOf = (pid) => laid.nodes.find((n) => n.persons.includes(pid)).x;
+  const [e, pP, k, m] = ["eva", "peter", "karl", "maria"].map(xOf);
+  const fullPair = [Math.min(e, pP), Math.max(e, pP)], halfPair = [Math.min(k, m), Math.max(k, m)];
+  const interleaved = (fullPair[0] < halfPair[0] && halfPair[0] < fullPair[1]) || (halfPair[0] < fullPair[0] && fullPair[0] < halfPair[1]);
+  if (interleaved) fail("unions: half-sibling blocks must not interleave.");
+}
+
 // --- 7) Layout smoke test on the default dataset ---
 {
   const people = data.people;

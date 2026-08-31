@@ -78,11 +78,16 @@ One meaning per visual dimension:
 
 ## Layout rules
 
-- **Sibling blocks**: children of the same parents form an indivisible
-  block ordered under their parents; crossing minimization swaps blocks and
-  neighbours, evaluated by total crossings with total horizontal span as
-  the tie-breaker (rings count in the span, so ring-linked boxes prefer to
-  be close).
+- **Sibling blocks are keyed by union**: every distinct set of parent
+  boxes (marriage box, ring partnership, or single parent) forms an
+  invisible union — not a layer node, never rendered, purely a layout
+  anchor. Children of the same union form an indivisible block positioned
+  by the union's leftmost parent box; half-siblings from different
+  partnerships form separate blocks even when they share a parent. A box
+  follows the union of its bloodline person. Crossing minimization swaps
+  blocks and neighbours, evaluated by total crossings with total
+  horizontal span as the tie-breaker (rings count in the span, so
+  ring-linked boxes prefer to be close).
 - **Key scales** (`groupSortDown`): nodes with parents sort on the parent
   index scale (×1000). Parentless nodes have no key on that scale — they
   anchor to their current left neighbour and only order among themselves by
