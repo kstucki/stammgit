@@ -5,6 +5,17 @@ deliberately (see the git history for the discussions behind them); change
 them here first, then in code. The layout lives in `public/assets/graph.js`
 (pure, testable in Node), the rendering in `public/assets/app.js`.
 
+## Foundations
+
+The layout engine is written from scratch — there is no Graphviz, dagre,
+ELK or d3 underneath (the only runtime dependencies of the project are
+`yaml` and `jszip`, neither of which touches the layout). The algorithm
+follows the classic Sugiyama framework — layer assignment, crossing
+minimization by ordering, then coordinate assignment — the same family of
+methods as Graphviz `dot`, but implemented directly in
+`public/assets/graph.js` as a pure, DOM-free module so it runs in the
+browser and in the Node test suite alike.
+
 ## Pipeline
 
 1. **Visibility** (`computeVisible`, `computeHourglass`): which persons the
@@ -86,6 +97,11 @@ One meaning per visual dimension:
 - **X positions**: iterative relaxation toward the average of parents and
   children, with symmetric overlap resolution; the order never changes in
   this phase.
+- **Effort scales with graph size**: above 150 nodes the ordering runs
+  fewer optimization rounds, and above 400 nodes the expensive stages
+  (cascade transpose, extra restarts) are skipped entirely — a few more
+  crossings, but seconds instead of minutes. Below these thresholds the
+  quality is unchanged.
 
 ## Known limitations
 
