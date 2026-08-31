@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node scripts/test.mjs && node scripts/build-data.mjs",
     "test": "node scripts/test.mjs",
-    "start": "npm run build && node server.mjs"
+    "start": "npm run build && node server.mjs",
+    "metrics": "node scripts/layout-metrics.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",

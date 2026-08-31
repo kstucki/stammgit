@@ -103,6 +103,14 @@ One meaning per visual dimension:
   crossings, but seconds instead of minutes. Below these thresholds the
   quality is unchanged.
 
+## Measuring changes
+
+`npm run metrics` (manual only, never wired into build/test/CI) reports
+drawn crossings, ring gaps, the widest in-layer hole and the total width
+for a dataset, and `--check <file>` evaluates thresholds against it — see
+`scripts/layout-checks.example.yaml`. Run it before and after touching
+`graph.js`; keep a dataset-specific checks file next to private data.
+
 ## Known limitations
 
 - A ring between two boxes that are both anchored in distant family blocks

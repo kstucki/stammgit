@@ -1,0 +1,10 @@
+# Example layout smoke thresholds (napoleon demo). Run manually:
+#   node scripts/layout-metrics.mjs data/trees/napoleon.yaml --check scripts/layout-checks.example.yaml
+# Keep a dataset-specific copy next to your private data and re-run it
+# whenever graph.js changes.
+checks:
+  - { metric: crossings, max: 3 }
+  - { metric: ringMax, max: 200 }
+  - { metric: ringSum, max: 600 }
+  - { metric: maxHole, max: 1500 }
+  - { metric: width, max: 9000 }
