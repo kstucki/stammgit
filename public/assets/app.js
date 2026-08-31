@@ -1535,7 +1535,7 @@ let chronicleEditing = null; // null = closed, "" = new chapter, "<file>" = edit
 
 async function renderChronicleEditor(app) {
   const file = chronicleEditing;
-  let title = "", date = new Date().toISOString().slice(0, 10), body = "";
+  let title = "", date = "", body = "";
   if (file) {
     try {
       const pendingUrl = pendingObjectUrls.get(`chronicle/${activeTree}/${file}`);
@@ -1562,7 +1562,10 @@ async function renderChronicleEditor(app) {
     <section class="chronicle">
       <h2>${file ? strings.get("chapterEdit") : strings.get("chapterNew")}</h2>
       <label class="field">${strings.get("chapterTitle")}<input id="chTitle" type="text" value="${esc(title)}" /></label>
-      <label class="field">${strings.get("chapterDate")}<input id="chDate" type="date" value="${esc(date)}" /></label>
+      <label class="field">${strings.get("chapterDate")}
+        <span class="date-row"><input id="chDate" type="date" value="${esc(date)}" />
+        <button type="button" class="ghost small" id="chDateClear">${strings.get("chapterDateClear")}</button></span>
+      </label>
       <div class="chronicle-insert">
         <input id="chPerson" list="chPersonList" placeholder="${strings.get("chapterPersonPh")}" />
         <datalist id="chPersonList">${names.map((n) => `<option value="${esc(n.name)}"></option>`).join("")}</datalist>
@@ -1628,6 +1631,7 @@ async function renderChronicleEditor(app) {
       });
     }
   });
+  document.getElementById("chDateClear").addEventListener("click", () => { document.getElementById("chDate").value = ""; });
   document.getElementById("chCancel").addEventListener("click", () => { chronicleEditing = null; renderChronicle(); });
   document.getElementById("chSave").addEventListener("click", async () => {
     const status = document.getElementById("chStatus");

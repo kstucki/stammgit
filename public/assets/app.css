@@ -316,6 +316,8 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 .chronicle-mentions { margin: .2rem 0 0 1.1rem; }
 .chronicle .field { display:block; margin:.4rem 0; }
 .chronicle .field input { width:100%; max-width:420px; display:block; margin-top:.15rem; }
+.chronicle .date-row { display:flex; gap:.4rem; align-items:center; margin-top:.15rem; }
+.chronicle .date-row input { width:auto; margin-top:0; }
 .chronicle-insert { display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; margin:.6rem 0; }
 .chronicle-insert input[type=file] { font-size:.8rem; max-width:210px; }
 .chronicle textarea { width:100%; font: .9rem/1.5 ui-monospace, monospace; }
