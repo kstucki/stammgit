@@ -1620,8 +1620,21 @@ async function renderChronicleEditor(app) {
   };
   document.getElementById("chInsPerson").addEventListener("click", () => {
     const wanted = document.getElementById("chPerson").value.trim();
-    const hit = names.find((n) => n.name === wanted);
     const status = document.getElementById("chStatus");
+    if (!wanted) { status.textContent = strings.get("chapterPersonMiss"); return; }
+    // Exact match first; otherwise a unique case-insensitive substring is
+    // good enough ("dieter" finds the one Dieter). Ambiguity is reported
+    // with the candidates so the person can be narrowed down.
+    let hit = names.find((n) => n.name === wanted);
+    if (!hit) {
+      const needle = wanted.toLowerCase();
+      const matches = names.filter((n) => n.name.toLowerCase().includes(needle));
+      if (matches.length === 1) hit = matches[0];
+      else if (matches.length > 1 && matches.length <= 6) {
+        status.textContent = strings.get("chapterPersonAmbiguous", { names: matches.map((n) => n.name).join(" · ") });
+        return;
+      }
+    }
     if (!hit) { status.textContent = strings.get("chapterPersonMiss"); return; }
     insert(`[[p:${hit.id}]]`);
   });
