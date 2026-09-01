@@ -65,7 +65,7 @@ for (const tree of index.map((t) => t.id)) {
   const dir = path.join(root, "public", "chronicle", tree);
   const idxFile = path.join(dir, "index.yaml");
   if (!fs.existsSync(idxFile)) continue;
-  const { parseChapter, extractTokens } = await import("../public/assets/chronicle.js");
+  const { parseChapter, extractTokens, extractHeadings } = await import("../public/assets/chronicle.js");
   const order = YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [];
   const chapters = [];
   for (const file of order) {
@@ -74,7 +74,7 @@ for (const tree of index.map((t) => t.id)) {
     const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
     for (const m of body.matchAll(/\/photos\/[a-zA-Z0-9._-]+/g)) photoRefs.add(m[0]);
     const tokens = extractTokens(body);
-    chapters.push({ file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources });
+    chapters.push({ file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources, sections: extractHeadings(body).map((h) => ({ id: h.id, text: h.text })) });
   }
   fs.writeFileSync(path.join(root, "public", "data", `chronicle-${tree}.json`), JSON.stringify({ chapters }, null, 2));
   console.log(`chronicle ${tree}: ${chapters.length} chapter(s)`);

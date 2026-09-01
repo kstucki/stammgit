@@ -33,6 +33,30 @@ export function extractTokens(body) {
   return { persons, sources };
 }
 
+function slugify(text) {
+  return String(text).toLowerCase()
+    .replace(/[äöüß]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss" }[c]))
+    .replace(/\[\[[ps]:[^\]]+\]\]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "abschnitt";
+}
+
+const HEADING = /^(#{2,4})\s+(.+?)\s*$/gm;
+
+// Section headings (## to ####) with slugs, in document order. The slugs
+// are deterministic and identical to the ids renderChapter emits, so the
+// table of contents can deep-link into a chapter.
+export function extractHeadings(body) {
+  const out = [];
+  const used = new Set();
+  for (const m of String(body).matchAll(HEADING)) {
+    let slug = slugify(m[2]);
+    while (used.has(slug)) slug += "-2";
+    used.add(slug);
+    out.push({ level: m[1].length, text: m[2], id: slug });
+  }
+  return out;
+}
+
 const escapeHtml = (s) => String(s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;");
@@ -41,7 +65,16 @@ const escapeHtml = (s) => String(s)
 //   personLabel(id) -> string | null (null marks a broken link)
 //   sourceLabel(url) -> string
 export function renderChapter(body, { personLabel, sourceLabel } = {}) {
-  const withLinks = String(body).replace(TOKEN, (_, kind, raw) => {
+  // Headings become HTML with stable ids BEFORE token replacement, so the
+  // slugs match extractHeadings on the raw body. marked passes the inline
+  // HTML through; tokens inside headings are still replaced afterwards.
+  const headings = extractHeadings(body);
+  let hi = 0;
+  const withIds = String(body).replace(HEADING, (m, hashes, text) => {
+    const h = headings[hi++];
+    return `<h${hashes.length} id="${h.id}">${text}</h${hashes.length}>`;
+  });
+  const withLinks = withIds.replace(TOKEN, (_, kind, raw) => {
     const value = raw.trim();
     if (kind === "p") {
       const label = personLabel ? personLabel(value) : value;
