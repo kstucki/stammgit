@@ -1,4 +1,4 @@
 # Chapter order of the chronicle for the 'napoleon' dataset.
-# The Chronik tab appears only when this file exists for the active tree.
+# The Chronicle tab appears only when this file exists for the active tree.
 chapters:
-  - zwei-kaiserinnen.md
+  - two-empresses.md
