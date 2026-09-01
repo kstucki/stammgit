@@ -1589,8 +1589,10 @@ async function renderChronicleEditor(app) {
         <button type="button" class="ghost small" id="chDateClear">${strings.get("chapterDateClear")}</button></span>
       </label>
       <div class="chronicle-insert">
-        <input id="chPerson" list="chPersonList" placeholder="${strings.get("chapterPersonPh")}" />
-        <datalist id="chPersonList">${names.map((n) => `<option value="${esc(n.name)}"></option>`).join("")}</datalist>
+        <span class="search-holder">
+          <input id="chPerson" placeholder="${strings.get("chapterPersonPh")}" autocomplete="off" />
+          <div id="chPersonResults" class="search-suggest" hidden></div>
+        </span>
         <button type="button" class="secondary small" id="chInsPerson">${strings.get("chapterInsPerson")}</button>
         <select id="chSource">
           <option value="">${strings.get("chapterSourcePh")}</option>
@@ -1618,6 +1620,28 @@ async function renderChronicleEditor(app) {
     ta.focus();
     ta.selectionStart = ta.selectionEnd = start + token.length;
   };
+  // Same suggestion mechanics as the graph search in the overview — the
+  // native datalist proved unreliable on mobile. Tapping a hit inserts the
+  // person token directly.
+  const pInput = document.getElementById("chPerson");
+  const pResults = document.getElementById("chPersonResults");
+  pInput.addEventListener("input", () => {
+    const q = pInput.value.trim().toLowerCase();
+    if (!q) { pResults.hidden = true; pResults.innerHTML = ""; return; }
+    const hits = names.filter((n) => n.name.toLowerCase().includes(q)).slice(0, 8);
+    pResults.innerHTML = hits.map((n) => {
+      const p = people[n.id];
+      return `<button type="button" class="search-suggest-item" data-suggest="${esc(n.id)}">${esc(n.name)}${years(p) ? ` <span class="meta">${esc(years(p))}</span>` : ""}</button>`;
+    }).join("") || `<div class="search-suggest-empty">${strings.get("noHits")}</div>`;
+    pResults.hidden = false;
+  });
+  pResults.addEventListener("click", (e) => {
+    const item = e.target.closest("[data-suggest]");
+    if (!item) return;
+    pInput.value = "";
+    pResults.hidden = true;
+    insert(`[[p:${item.dataset.suggest}]]`);
+  });
   document.getElementById("chInsPerson").addEventListener("click", () => {
     const wanted = document.getElementById("chPerson").value.trim();
     const status = document.getElementById("chStatus");
