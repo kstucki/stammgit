@@ -340,6 +340,10 @@ for (const [tid, tree] of Object.entries(trees)) {
   check(c.frontmatter.title === "T" && c.frontmatter.date === "2020-01-01", "chronicle: frontmatter must parse.");
   const tok = extractTokens(c.body);
   check(tok.persons.length === 1 && tok.persons[0] === "x" && tok.sources.length === 1, "chronicle: tokens must extract deduplicated.");
+  const { extractHeadings, renderChapter } = await import("../public/assets/chronicle.js");
+  const hs = extractHeadings("### A B\ntext\n### A B\n#### Tief");
+  check(hs.length === 3 && hs[0].id === "a-b" && hs[1].id === "a-b-2" && hs[2].level === 4, "chronicle: headings must extract with deduplicated slugs.");
+  check(renderChapter("### Ort\nx").includes('<h3 id="ort">'), "chronicle: rendered headings must carry the slug id.");
   // real chronicle dirs: index files exist, tokens resolve, chapters cite
   for (const [treeId, data] of Object.entries(trees)) {
     const dir = path.join(root, "public", "chronicle", treeId);

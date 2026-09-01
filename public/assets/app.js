@@ -2,7 +2,7 @@ import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pe
 import { getT } from "/assets/strings.js?v=10";
 import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
 import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
-import { parseChapter, renderChapter } from "/assets/chronicle.js?v=1";
+import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=3";
 import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
 
 let data = null;
@@ -1486,7 +1486,10 @@ async function renderChronicle() {
         <ol class="chronicle-toc">
           ${chronicleIndex.chapters.map((c) => `
             <li><a href="#" data-chapter="${esc(c.file)}">${esc(c.title)}</a>
-              ${c.date ? `<span class="muted"> ${esc(c.date)}</span>` : ""}</li>`).join("")}
+              ${c.date ? `<span class="muted"> ${esc(c.date)}</span>` : ""}
+              ${c.sections?.length ? `<ul class="chronicle-toc-sections">
+                ${c.sections.map((sec) => `<li><a href="#" data-chapter="${esc(c.file)}" data-section="${esc(sec.id)}">${esc(sec.text)}</a></li>`).join("")}
+              </ul>` : ""}</li>`).join("")}
         </ol>
         ${isAdmin ? `<p><button class="secondary small" id="chapterNew">${strings.get("chapterNew")}</button></p>` : ""}
       </section>`;
@@ -1533,9 +1536,14 @@ async function renderChronicle() {
       ${isAdmin ? `<p><button class="secondary small" id="chapterEdit">${strings.get("chapterEdit")}</button></p>` : ""}
     </section>`;
   document.getElementById("chapterEdit")?.addEventListener("click", () => { chronicleEditing = chronicleChapter; renderChronicle(); });
+  if (chronicleSection) {
+    document.getElementById(chronicleSection)?.scrollIntoView({ block: "start" });
+    chronicleSection = null;
+  }
 }
 
 let chronicleEditing = null; // null = closed, "" = new chapter, "<file>" = editing
+let chronicleSection = null; // section slug to scroll to after rendering a chapter
 
 async function renderChronicleEditor(app) {
   const file = chronicleEditing;
@@ -1647,7 +1655,7 @@ async function renderChronicleEditor(app) {
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
-    const check = (await import(`/assets/chronicle.js?v=2`)).extractTokens(text);
+    const check = (await import(`/assets/chronicle.js?v=3`)).extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
     if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }
     if (!check.sources.length) { alert(strings.get("chapterNeedSource")); return; }
@@ -1655,7 +1663,8 @@ async function renderChronicleEditor(app) {
     await pendingPutFile(`chronicle/${activeTree}/${slug}`, new Blob([text], { type: "text/markdown" }));
     const chapters = chronicleIndex?.chapters ? [...chronicleIndex.chapters] : [];
     const existing = chapters.findIndex((c) => c.file === slug);
-    const entry = { file: slug, title: newTitle, date: newDate || null, persons: check.persons, sources: check.sources };
+    const entry = { file: slug, title: newTitle, date: newDate || null, persons: check.persons, sources: check.sources,
+      sections: extractHeadings(text).map((h) => ({ id: h.id, text: h.text })) };
     if (existing >= 0) chapters[existing] = entry; else chapters.push(entry);
     const indexYaml = `# Kapitelreihenfolge der Familienchronik.\nchapters:\n${chapters.map((c) => `  - ${c.file}`).join("\n")}\n`;
     await pendingPutFile(`chronicle/${activeTree}/index.yaml`, new Blob([indexYaml], { type: "text/yaml" }));
@@ -1691,9 +1700,10 @@ document.addEventListener("click", (e) => {
   if (chapterEl) {
     e.preventDefault();
     chronicleChapter = chapterEl.dataset.chapter || null;
+    chronicleSection = chapterEl.dataset.section || null;
     if (currentView !== "chronicle") renderView("chronicle");
     else renderChronicle();
-    window.scrollTo(0, 0);
+    if (!chronicleSection) window.scrollTo(0, 0);
     return;
   }
   const personEl = e.target.closest("[data-person]");

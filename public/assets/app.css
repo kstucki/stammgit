@@ -307,6 +307,7 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 /* Chronicle */
 .chronicle { max-width: 640px; margin: 0 auto; }
 .chronicle-toc { line-height: 1.9; }
+.chronicle-toc-sections { list-style: none; margin: .1rem 0 .4rem .2rem; padding-left: .8rem; border-left: 2px solid var(--line); font-size: .9rem; line-height: 1.7; }
 .chronicle-chapter { line-height: 1.65; }
 .chronicle-chapter h2 { margin-bottom: .2rem; }
 .chronicle-chapter img { max-width: 100%; border-radius: 10px; }
