@@ -31,8 +31,10 @@ date: 2026-08-31        # optional
 
 Prose in Markdown. Link persons as [[p:person_id]] — rendered as the
 person's name, opening their dialog. Cite sources as
-[[s:/sources/file.pdf]] or [[s:https://…]]. Images are normal Markdown
-images on /photos/… paths.
+[[s:/sources/file.pdf]] or [[s:https://…]]. Link other chapters or their
+sections as [[c:other.md]] or [[c:other.md#section-slug]] — the slug is
+the heading in lowercase with dashes. Images are normal Markdown images
+on /photos/… paths.
 ```
 
 Reordering or deleting chapters is done by editing `index.yaml`.

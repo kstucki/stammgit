@@ -66,7 +66,7 @@ for (const tree of index.map((t) => t.id)) {
   const idxFile = path.join(dir, "index.yaml");
   if (!fs.existsSync(idxFile)) continue;
   const { parseChapter, extractTokens, extractHeadings } = await import("../public/assets/chronicle.js");
-  const order = YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [];
+  const order = [...new Set(YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [])];
   const chapters = [];
   for (const file of order) {
     const full = path.join(dir, file);

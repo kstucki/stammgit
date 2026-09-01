@@ -2,7 +2,7 @@ import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pe
 import { getT } from "/assets/strings.js?v=10";
 import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
 import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
-import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=3";
+import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=4";
 import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
 
 let data = null;
@@ -1510,6 +1510,14 @@ async function renderChronicle() {
     return;
   }
   const { frontmatter, body } = parseChapter(text);
+  const chapterLabel = (ref) => {
+    const [file, section] = ref.split("#");
+    const ch = chronicleIndex?.chapters.find((c) => c.file === file);
+    if (!ch) return null;
+    if (!section) return ch.title;
+    const sec = (ch.sections || []).find((x) => x.id === section);
+    return sec ? sec.text : null;
+  };
   const html = renderChapter(body, {
     personLabel: (id) => people[id]?.name ?? null,
     sourceLabel: (url) => {
@@ -1518,7 +1526,8 @@ async function renderChronicle() {
         if (hit) return hit.label;
       }
       return null;
-    }
+    },
+    chapterLabel
   });
   const prev = chronicleIndex.chapters[i - 1], next = chronicleIndex.chapters[i + 1];
   app.innerHTML = `
@@ -1655,13 +1664,21 @@ async function renderChronicleEditor(app) {
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
-    const check = (await import(`/assets/chronicle.js?v=3`)).extractTokens(text);
+    const check = (await import(`/assets/chronicle.js?v=4`)).extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
     if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }
     if (!check.sources.length) { alert(strings.get("chapterNeedSource")); return; }
+    const badRefs = (check.chapters || []).filter((ref) => {
+      const [file, section] = ref.split("#");
+      const ch = chronicleIndex?.chapters.find((c) => c.file === file);
+      if (!ch) return file !== slug; // a chapter may reference itself before first sync
+      return section ? !(ch.sections || []).some((x) => x.id === section) : false;
+    });
+    if (badRefs.length) { alert(strings.get("chapterBadRefs", { refs: badRefs.join(", ") })); return; }
     const slug = file || `${newTitle.toLowerCase().replace(/[äöü]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue" }[c])).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "kapitel"}.md`;
     await pendingPutFile(`chronicle/${activeTree}/${slug}`, new Blob([text], { type: "text/markdown" }));
-    const chapters = chronicleIndex?.chapters ? [...chronicleIndex.chapters] : [];
+    const seenFiles = new Set();
+    const chapters = (chronicleIndex?.chapters || []).filter((c) => !seenFiles.has(c.file) && seenFiles.add(c.file));
     const existing = chapters.findIndex((c) => c.file === slug);
     const entry = { file: slug, title: newTitle, date: newDate || null, persons: check.persons, sources: check.sources,
       sections: extractHeadings(text).map((h) => ({ id: h.id, text: h.text })) };

@@ -351,6 +351,7 @@ for (const [tid, tree] of Object.entries(trees)) {
     if (!fs.existsSync(idxFile)) continue;
     const order = YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [];
     check(order.length > 0, `chronicle ${treeId}: index.yaml lists no chapters.`);
+    check(new Set(order).size === order.length, `chronicle ${treeId}: index.yaml lists a chapter twice.`);
     const listed = new Set(order);
     for (const f of fs.readdirSync(dir)) {
       if (f.endsWith(".md") && !listed.has(f)) console.log(`Note: chronicle ${treeId}: '${f}' is not listed in index.yaml.`);
@@ -372,6 +373,27 @@ for (const [tid, tree] of Object.entries(trees)) {
         }
       }
       check(t.sources.length > 0, `chronicle ${treeId}/${file}: every chapter must cite at least one source.`);
+    }
+    // chapter cross references ([[c:file#slug]]) resolve — second pass
+    const headingsOf = new Map();
+    for (const file of order) {
+      const full = path.join(dir, file);
+      if (!fs.existsSync(full)) continue;
+      const { body } = parseChapter(fs.readFileSync(full, "utf8"));
+      const { extractHeadings } = await import("../public/assets/chronicle.js");
+      headingsOf.set(file, new Set(extractHeadings(body).map((h) => h.id)));
+    }
+    for (const file of order) {
+      const full = path.join(dir, file);
+      if (!fs.existsSync(full)) continue;
+      const { body } = parseChapter(fs.readFileSync(full, "utf8"));
+      for (const ref of extractTokens(body).chapters || []) {
+        const [target, section] = ref.split("#");
+        check(headingsOf.has(target), `chronicle ${treeId}/${file}: [[c:${ref}]] points to unknown chapter '${target}'.`);
+        if (section && headingsOf.has(target)) {
+          check(headingsOf.get(target).has(section), `chronicle ${treeId}/${file}: [[c:${ref}]] points to unknown section '${section}'.`);
+        }
+      }
     }
   }
 }

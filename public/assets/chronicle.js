@@ -20,17 +20,18 @@ export function parseChapter(text) {
   return { frontmatter, body };
 }
 
-const TOKEN = /\[\[([ps]):([^\]\n]+)\]\]/g;
+const TOKEN = /\[\[([psc]):([^\]\n]+)\]\]/g;
 
 // All person ids and source urls referenced in a chapter body.
 export function extractTokens(body) {
-  const persons = [], sources = [];
+  const persons = [], sources = [], chapters = [];
   for (const m of String(body).matchAll(TOKEN)) {
     const value = m[2].trim();
     if (m[1] === "p" && !persons.includes(value)) persons.push(value);
     if (m[1] === "s" && !sources.includes(value)) sources.push(value);
+    if (m[1] === "c" && !chapters.includes(value)) chapters.push(value);
   }
-  return { persons, sources };
+  return { persons, sources, chapters };
 }
 
 function slugify(text) {
@@ -64,7 +65,8 @@ const escapeHtml = (s) => String(s)
 // Render a chapter body to HTML. Resolvers supply display labels:
 //   personLabel(id) -> string | null (null marks a broken link)
 //   sourceLabel(url) -> string
-export function renderChapter(body, { personLabel, sourceLabel } = {}) {
+//   chapterLabel(ref) -> string | null for [[c:file.md]] or [[c:file.md#slug]]
+export function renderChapter(body, { personLabel, sourceLabel, chapterLabel } = {}) {
   // Headings become HTML with stable ids BEFORE token replacement, so the
   // slugs match extractHeadings on the raw body. marked passes the inline
   // HTML through; tokens inside headings are still replaced afterwards.
@@ -82,6 +84,14 @@ export function renderChapter(body, { personLabel, sourceLabel } = {}) {
         return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
       }
       return `<a href="#" data-person="${escapeHtml(value)}">${escapeHtml(label)}</a>`;
+    }
+    if (kind === "c") {
+      const [file, section] = value.split("#");
+      const label = chapterLabel ? chapterLabel(value) : null;
+      if (label === null || label === undefined) {
+        return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
+      }
+      return `<a href="#" data-chapter="${escapeHtml(file)}"${section ? ` data-section="${escapeHtml(section)}"` : ""}>${escapeHtml(label)}</a>`;
     }
     const label = (sourceLabel && sourceLabel(value)) || value.split("/").pop();
     return `<a href="${escapeHtml(value)}" target="_blank" class="chronicle-source">${escapeHtml(label)}</a>`;
