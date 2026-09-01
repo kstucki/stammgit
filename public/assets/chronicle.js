@@ -26,7 +26,7 @@ const TOKEN = /\[\[([psc]):([^\]\n]+)\]\]/g;
 export function extractTokens(body) {
   const persons = [], sources = [], chapters = [];
   for (const m of String(body).matchAll(TOKEN)) {
-    const value = m[2].trim();
+    const value = m[2].split("|")[0].trim(); // optional |Label is display-only
     if (m[1] === "p" && !persons.includes(value)) persons.push(value);
     if (m[1] === "s" && !sources.includes(value)) sources.push(value);
     if (m[1] === "c" && !chapters.includes(value)) chapters.push(value);
@@ -77,23 +77,25 @@ export function renderChapter(body, { personLabel, sourceLabel, chapterLabel } =
     return `<h${hashes.length} id="${h.id}">${text}</h${hashes.length}>`;
   });
   const withLinks = withIds.replace(TOKEN, (_, kind, raw) => {
-    const value = raw.trim();
+    const [rawValue, ...labelParts] = raw.split("|");
+    const value = rawValue.trim();
+    const custom = labelParts.join("|").trim() || null; // [[p:id|Label]]
     if (kind === "p") {
-      const label = personLabel ? personLabel(value) : value;
-      if (label === null || label === undefined) {
+      const label = custom ?? (personLabel ? personLabel(value) : value);
+      if ((label === null || label === undefined) || (custom && personLabel && personLabel(value) === null)) {
         return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
       }
       return `<a href="#" data-person="${escapeHtml(value)}">${escapeHtml(label)}</a>`;
     }
     if (kind === "c") {
       const [file, section] = value.split("#");
-      const label = chapterLabel ? chapterLabel(value) : null;
-      if (label === null || label === undefined) {
+      const label = custom ?? (chapterLabel ? chapterLabel(value) : null);
+      if ((label === null || label === undefined) || (custom && chapterLabel && chapterLabel(value) === null)) {
         return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
       }
       return `<a href="#" data-chapter="${escapeHtml(file)}"${section ? ` data-section="${escapeHtml(section)}"` : ""}>${escapeHtml(label)}</a>`;
     }
-    const label = (sourceLabel && sourceLabel(value)) || value.split("/").pop();
+    const label = custom || (sourceLabel && sourceLabel(value)) || value.split("/").pop();
     return `<a href="${escapeHtml(value)}" target="_blank" class="chronicle-source">${escapeHtml(label)}</a>`;
   });
   return marked.parse(withLinks, { async: false });

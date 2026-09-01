@@ -2,7 +2,7 @@ import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pe
 import { getT } from "/assets/strings.js?v=10";
 import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
 import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
-import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=4";
+import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=5";
 import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
 
 let data = null;
@@ -1556,7 +1556,7 @@ let chronicleSection = null; // section slug to scroll to after rendering a chap
 
 async function renderChronicleEditor(app) {
   const file = chronicleEditing;
-  let title = "", date = "", body = "";
+  let title = "", date = "", body = "", unsourced = false;
   if (file) {
     try {
       const pendingUrl = pendingObjectUrls.get(`chronicle/${activeTree}/${file}`);
@@ -1564,6 +1564,7 @@ async function renderChronicleEditor(app) {
       const parsed = parseChapter(await resp.text());
       title = parsed.frontmatter.title || "";
       date = parsed.frontmatter.date || "";
+      unsourced = parsed.frontmatter.unsourced === "true";
       body = parsed.body.trim();
     } catch { /* start empty */ }
   }
@@ -1661,13 +1662,13 @@ async function renderChronicleEditor(app) {
     const newTitle = document.getElementById("chTitle").value.trim();
     if (!newTitle) { alert(strings.get("chapterNeedTitle")); return; }
     const newDate = document.getElementById("chDate").value;
-    const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}---\n\n${ta.value.trim()}\n`;
+    const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}${unsourced ? "unsourced: true\n" : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
-    const check = (await import(`/assets/chronicle.js?v=4`)).extractTokens(text);
+    const check = (await import(`/assets/chronicle.js?v=5`)).extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
     if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }
-    if (!check.sources.length) { alert(strings.get("chapterNeedSource")); return; }
+    if (!check.sources.length && !unsourced) { alert(strings.get("chapterNeedSource")); return; }
     const badRefs = (check.chapters || []).filter((ref) => {
       const [file, section] = ref.split("#");
       const ch = chronicleIndex?.chapters.find((c) => c.file === file);

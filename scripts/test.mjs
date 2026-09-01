@@ -338,6 +338,8 @@ for (const [tid, tree] of Object.entries(trees)) {
   // unit fixtures
   const c = parseChapter("---\ntitle: T\ndate: 2020-01-01\n---\nA [[p:x]] B [[s:/sources/a.pdf]] [[p:x]]");
   check(c.frontmatter.title === "T" && c.frontmatter.date === "2020-01-01", "chronicle: frontmatter must parse.");
+  const lab = extractTokens("A [[p:x|Kurzname]] [[s:/sources/a.pdf|Beleg]]");
+  check(lab.persons[0] === "x" && lab.sources[0] === "/sources/a.pdf", "chronicle: |labels must not leak into token values.");
   const tok = extractTokens(c.body);
   check(tok.persons.length === 1 && tok.persons[0] === "x" && tok.sources.length === 1, "chronicle: tokens must extract deduplicated.");
   const { extractHeadings, renderChapter } = await import("../public/assets/chronicle.js");
@@ -372,7 +374,9 @@ for (const [tid, tree] of Object.entries(trees)) {
             `chronicle ${treeId}/${file}: [[s:${u}]] file does not exist.`);
         }
       }
-      check(t.sources.length > 0, `chronicle ${treeId}/${file}: every chapter must cite at least one source.`);
+      if (frontmatter.unsourced !== "true") {
+        check(t.sources.length > 0, `chronicle ${treeId}/${file}: every chapter must cite at least one source (or set 'unsourced: true' deliberately).`);
+      }
     }
     // chapter cross references ([[c:file#slug]]) resolve — second pass
     const headingsOf = new Map();
