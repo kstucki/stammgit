@@ -42,6 +42,14 @@ for (const [tid, tree] of Object.entries(trees)) {
     for (const child of p.children || []) {
       check((tree.people[child]?.parents || []).includes(pid), `${tid}: '${child}' does not list '${pid}' as parent.`);
     }
+    if (p.notes !== undefined) {
+      check(Array.isArray(p.notes) && p.notes.every((n) => typeof n === "string"),
+        `${tid}: '${pid}'.notes must be a list of strings.`);
+    }
+    if (p.sources !== undefined) {
+      check(Array.isArray(p.sources) && p.sources.every((x) => x && typeof x.url === "string" && (x.label === undefined || typeof x.label === "string")),
+        `${tid}: '${pid}'.sources must be a list of { label, url }.`);
+    }
     if (p.photo !== undefined) {
       const m = String(p.photo).match(/^\/photos\/([a-zA-Z0-9._-]+\.(?:png|jpe?g))$/);
       check(m, `${tid}: '${pid}'.photo must be /photos/<file>.jpg|png, got '${p.photo}'.`);

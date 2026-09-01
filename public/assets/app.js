@@ -64,6 +64,10 @@ function uploadTarget(name) {
   }
   return { filename: name, kind: "source" };
 }
+// notes is a list by convention; tolerate a lone string defensively so a
+// malformed entry degrades instead of crashing the person dialog.
+const notesOf = (p) => Array.isArray(p?.notes) ? p.notes : p?.notes ? [String(p.notes)] : [];
+
 function pendingKeyFor(url) {
   if (url.startsWith("/sources/")) return url.slice("/sources/".length);
   if (url.startsWith("/photos/")) return "photos/" + url.slice("/photos/".length);
@@ -1107,7 +1111,7 @@ function openEditDialog(id) {
         <input name="occupation" value="${esc(p.occupation || "")}" />
       </label>
       <label>${strings.get("fieldNotes")}
-        <textarea name="notes">${esc((p.notes || []).join("\n"))}</textarea>
+        <textarea name="notes">${esc(notesOf(p).join("\n"))}</textarea>
       </label>
 
       <div class="edit-relations">
@@ -1416,10 +1420,10 @@ function openPerson(id) {
         </div>` : ""}
       ${rel(strings.get("relChildren"), p.children)}
       ${rel(strings.get("relSiblings"), getSiblingIds(id))}
-      ${(p.notes || []).length ? `
+      ${notesOf(p).length ? `
         <div class="detail-section">
           <h3>${strings.get("notes")}</h3>
-          ${(p.notes || []).map(n => `<p>${esc(n)}</p>`).join("")}
+          ${notesOf(p).map(n => `<p>${esc(n)}</p>`).join("")}
         </div>` : ""}
       ${(p.locations || []).length ? `
         <div class="detail-section">

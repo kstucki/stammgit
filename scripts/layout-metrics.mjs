@@ -26,7 +26,7 @@ const root = path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const checkIdx = args.indexOf("--check");
 const checkFile = checkIdx >= 0 ? args[checkIdx + 1] : null;
-const fileArgs = args.filter((a, i) => a !== "--check" && i !== checkIdx + 1);
+const fileArgs = args.filter((a, i) => a !== "--check" && (checkIdx < 0 || i !== checkIdx + 1));
 const config = YAML.parse(fs.readFileSync(path.join(root, "data", "config.yaml"), "utf8"));
 const treeFile = fileArgs[0] || path.join("data", "trees", `${config.defaultTree}.yaml`);
 
