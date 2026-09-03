@@ -3,6 +3,7 @@ function bad(message, status = 400) {
 }
 
 import { requireAdmin } from "./_auth.mjs";
+import { resolveTarget } from "../shared/upload-rules.mjs";
 
 export default async (request) => {
   if (request.method !== "POST") return bad("Method Not Allowed", 405);
@@ -21,27 +22,15 @@ export default async (request) => {
     return bad("Invalid JSON.");
   }
 
-  const rawName = String(body?.filename || "");
   const contentBase64 = String(body?.contentBase64 || "");
-  // kind: "source" (default, public/sources) or "photo" (public/photos)
-  const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
-  const tree = String(body?.tree || "");
-  if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid tree.");
-  const dir = kind === "photo" ? "photos" : kind === "chronicle" ? `chronicle/${tree}` : "sources";
-  if (!rawName || !contentBase64) return bad("filename und contentBase64 sind erforderlich.");
+  if (!body?.filename || !contentBase64) return bad("filename and contentBase64 are required.");
   if (contentBase64.length > 6 * 1024 * 1024) return bad("File too large (max. ~4 MB).", 413);
 
-  const filename = rawName
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-  const allowed = kind === "photo" ? /\.(png|jpe?g)$/ : kind === "chronicle" ? /\.(md|ya?ml)$/ : /\.(pdf|png|jpe?g)$/;
-  if (!allowed.test(filename)) {
-    return bad(kind === "photo" ? "Only PNG or JPG allowed for photos."
-      : kind === "chronicle" ? "Only Markdown or YAML allowed for the chronicle."
-      : "Only PDF, PNG or JPG allowed.");
-  }
+  // kind: "source" (default, public/sources), "photo" (public/photos)
+  // or "chronicle" (public/chronicle/<tree>) \u2013 rules shared with delete-source.
+  const target = resolveTarget({ kind: body?.kind, tree: body?.tree, filename: body.filename });
+  if (target.error) return bad(target.error);
+  const { dir, filename, kind } = target;
 
   const headers = {
     accept: "application/vnd.github+json",

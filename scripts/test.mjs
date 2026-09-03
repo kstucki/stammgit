@@ -5,6 +5,8 @@ import path from "node:path";
 import YAML from "yaml";
 import { exportGedcom, importGedcom } from "../public/assets/gedcom.js";
 import { buildFamGraph, layoutGraph, computeGenerations } from "../public/assets/graph.js";
+import { validateDataset } from "../netlify/shared/validate.mjs";
+import { resolveTarget } from "../netlify/shared/upload-rules.mjs";
 
 const root = process.cwd();
 let failures = 0;
@@ -23,38 +25,37 @@ const data = trees[defaultTree];
 const ids = new Set(Object.keys(data.people || {}));
 
 // --- 1) Integrity of every dataset ---
+// The structural rules live in netlify/shared/validate.mjs, so the sync
+// endpoints reject exactly what the build rejects. Only the checks that need
+// the file system are left here.
 for (const [tid, tree] of Object.entries(trees)) {
-  const tids = new Set(Object.keys(tree.people || {}));
-  check(tids.size > 0, `${tid}: no persons.`);
-  check(tids.has(tree.meta?.focusPersonId), `${tid}: focusPersonId missing or unknown.`);
+  for (const problem of validateDataset(tree, { label: tid })) check(false, problem);
   for (const [pid, p] of Object.entries(tree.people || {})) {
-    for (const rel of ["parents", "children", "partners"]) {
-      for (const other of p[rel] || []) {
-        check(tids.has(other), `${tid}: '${pid}'.${rel} -> unknown id '${other}'.`);
-      }
+    const m = p.photo !== undefined && String(p.photo).match(/^\/photos\/([a-zA-Z0-9._-]+\.(?:png|jpe?g))$/);
+    if (m) {
+      check(fs.existsSync(path.join(root, "public", "photos", m[1])),
+        `${tid}: '${pid}'.photo file public/photos/${m[1]} is missing.`);
     }
-    for (const par of p.parents || []) {
-      check((tree.people[par]?.children || []).includes(pid), `${tid}: '${par}' does not list '${pid}' as child.`);
-    }
-    for (const partner of p.partners || []) {
-      check((tree.people[partner]?.partners || []).includes(pid), `${tid}: partner link '${pid}' <-> '${partner}' not symmetric.`);
-    }
-    for (const child of p.children || []) {
-      check((tree.people[child]?.parents || []).includes(pid), `${tid}: '${child}' does not list '${pid}' as parent.`);
-    }
-    if (p.notes !== undefined) {
-      check(Array.isArray(p.notes) && p.notes.every((n) => typeof n === "string"),
-        `${tid}: '${pid}'.notes must be a list of strings.`);
-    }
-    if (p.sources !== undefined) {
-      check(Array.isArray(p.sources) && p.sources.every((x) => x && typeof x.url === "string" && (x.label === undefined || typeof x.label === "string")),
-        `${tid}: '${pid}'.sources must be a list of { label, url }.`);
-    }
-    if (p.photo !== undefined) {
-      const m = String(p.photo).match(/^\/photos\/([a-zA-Z0-9._-]+\.(?:png|jpe?g))$/);
-      check(m, `${tid}: '${pid}'.photo must be /photos/<file>.jpg|png, got '${p.photo}'.`);
-      if (m) check(fs.existsSync(path.join(root, "public", "photos", m[1])), `${tid}: '${pid}'.photo file public/photos/${m[1]} is missing.`);
-    }
+  }
+}
+
+// --- 1b) The validator itself catches the cases the sync must not let through ---
+{
+  const good = { meta: { focusPersonId: "a" }, people: { a: { name: "A", partners: ["b"] }, b: { name: "B", partners: ["a"] } } };
+  check(validateDataset(good).length === 0, "validate: a valid dataset must pass.");
+  const cases = [
+    [{ meta: { focusPersonId: "a" }, people: {} }, "empty people"],
+    [{ people: { a: { name: "A" } } }, "missing focusPersonId"],
+    [{ meta: { focusPersonId: "x" }, people: { a: { name: "A" } } }, "unknown focusPersonId"],
+    [{ meta: { focusPersonId: "a" }, people: { a: { name: "A", parents: ["ghost"] } } }, "dangling reference"],
+    [{ meta: { focusPersonId: "a" }, people: { a: { name: "A", partners: ["b"] }, b: { name: "B" } } }, "asymmetric partner link"],
+    [{ meta: { focusPersonId: "a" }, people: { a: { name: "A", notes: "text" } } }, "notes as a bare string"],
+    [{ meta: { focusPersonId: "a" }, people: { a: { name: "A", sources: [{ label: "x" }] } } }, "source without url"],
+    [{ meta: { focusPersonId: "a" }, people: { a: { name: "A", photo: "../../etc/passwd" } } }, "photo outside /photos"],
+    [{ meta: { focusPersonId: "a" }, people: { a: { name: "A", children: ["a"] } } }, "self reference"]
+  ];
+  for (const [bad, label] of cases) {
+    check(validateDataset(bad).length > 0, `validate: must reject ${label}.`);
   }
 }
 
@@ -92,6 +93,23 @@ for (const [tid, tree] of Object.entries(trees)) {
       check(defined.has(c), `app.js calls undefined function '${c}()'.`);
     }
   }
+}
+
+// --- 3b) Cache busters move together ---
+// Bumping index.html but not the module imports (or the other way round) has
+// silently shipped stale assets more than once. One version for all of them.
+{
+  const files = ["public/index.html", "public/assets/app.js"];
+  const found = new Map();
+  for (const rel of files) {
+    const text = fs.readFileSync(path.join(root, rel), "utf8");
+    for (const m of text.matchAll(/\/assets\/[a-zA-Z.-]+\?v=(\d+)/g)) {
+      found.set(`${rel}: ${m[0]}`, m[1]);
+    }
+  }
+  const versions = new Set(found.values());
+  check(versions.size <= 1,
+    `cache busters disagree (${[...versions].join(", ")}): ${[...found.keys()].join(" | ")}`);
 }
 
 // --- 4) Model operations (shared with the app) ---
@@ -218,6 +236,37 @@ for (const [tid, tree] of Object.entries(trees)) {
     if (asUser.status !== 403) fail(`auth: ${name} must reject the user role with 403 (got ${asUser.status}).`);
     const asAdmin = await handler(req(adminToken));
     if (asAdmin.status === 403) fail(`auth: ${name} must not reject the admin role.`);
+  }
+}
+
+// --- 5c) Reading endpoints require a session too ---
+{
+  const handler = (await import("../netlify/functions/download-sources.mjs")).default;
+  const anon = new Request("http://localhost/.netlify/functions/download-sources");
+  check((await handler(anon)).status === 403,
+    "auth: download-sources must not rely on the edge function alone.");
+}
+
+// --- 5d) Upload and delete agree on what a valid file is ---
+{
+  const fail = (msg) => check(false, msg);
+  // A chronicle chapter has to survive both directions – upload used to allow
+  // .md while the delete filename check rejected everything but pdf/png/jpg.
+  const up = resolveTarget({ kind: "chronicle", tree: "napoleon", filename: "kapitel.md" });
+  const del = resolveTarget({ kind: "chronicle", tree: "napoleon", filename: "kapitel.md", sanitize: false });
+  if (up.error || del.error) fail(`upload rules: a chronicle chapter must pass both ways (${up.error || del.error}).`);
+  if (up.dir !== "chronicle/napoleon") fail(`upload rules: wrong directory '${up.dir}'.`);
+  if (!resolveTarget({ kind: "chronicle", tree: "../evil", filename: "x.md" }).error) fail("upload rules: tree must be a slug.");
+  if (!resolveTarget({ kind: "photo", filename: "x.pdf" }).error) fail("upload rules: a PDF is not a photo.");
+  if (!resolveTarget({ kind: "source", filename: "x.md" }).error) fail("upload rules: markdown is not a source document.");
+  for (const attempt of ["../../secret.pdf", "a/b/c.png", "..\\win.pdf"]) {
+    const name = resolveTarget({ kind: "source", filename: attempt }).filename || "";
+    if (!name || /[\/\\]/.test(name) || name.includes("..")) {
+      fail(`upload rules: '${attempt}' must sanitize to a plain filename, got '${name}'.`);
+    }
+  }
+  if (!resolveTarget({ kind: "source", filename: "../../secret.pdf", sanitize: false }).error) {
+    fail("upload rules: an unsanitized traversal attempt must be rejected.");
   }
 }
 
@@ -354,6 +403,18 @@ for (const [tid, tree] of Object.entries(trees)) {
   const hs = extractHeadings("### A B\ntext\n### A B\n#### Tief");
   check(hs.length === 3 && hs[0].id === "a-b" && hs[1].id === "a-b-2" && hs[2].level === 4, "chronicle: headings must extract with deduplicated slugs.");
   check(renderChapter("### Ort\nx").includes('<h3 id="ort">'), "chronicle: rendered headings must carry the slug id.");
+  // Chapters can arrive by pull request or scoped token, without the admin
+  // password – raw HTML must never reach the page.
+  const { containsRawHtml, isSafeUrl } = await import("../public/assets/chronicle.js");
+  const evil = renderChapter("<img src=x onerror=alert(1)>\n\n[go](javascript:alert(2))\n\n[[s:javascript:alert(3)|Q]]");
+  check(!/<img/i.test(evil), "chronicle: raw HTML must not be rendered.");
+  check(!evil.includes("javascript:"), "chronicle: javascript: URLs must not survive rendering.");
+  check(renderChapter("Jahr 1810 und [[p:x]]", { personLabel: () => "X" }).includes("1810"),
+    "chronicle: placeholder substitution must not touch plain numbers.");
+  check(containsRawHtml("a\n<div>x</div>").length === 1, "chronicle: containsRawHtml must flag a raw tag.");
+  check(containsRawHtml("prose with `<code>` and [[p:x]]").length === 0, "chronicle: containsRawHtml must not flag code spans.");
+  check(isSafeUrl("/sources/a.pdf") && isSafeUrl("https://x.org") && !isSafeUrl("javascript:x") && !isSafeUrl("data:text/html,x"),
+    "chronicle: isSafeUrl must allow relative/http(s) and block script URLs.");
   // real chronicle dirs: index files exist, tokens resolve, chapters cite
   for (const [treeId, data] of Object.entries(trees)) {
     const dir = path.join(root, "public", "chronicle", treeId);
@@ -372,6 +433,9 @@ for (const [tid, tree] of Object.entries(trees)) {
       if (!fs.existsSync(full)) continue;
       const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
       check(!!frontmatter.title, `chronicle ${treeId}/${file}: frontmatter needs a title.`);
+      const htmlLines = containsRawHtml(body);
+      check(htmlLines.length === 0,
+        `chronicle ${treeId}/${file}: raw HTML in line(s) ${htmlLines.join(", ")} – chapters are Markdown prose.`);
       const t = extractTokens(body);
       for (const pid of t.persons) {
         check(!!data.people?.[pid], `chronicle ${treeId}/${file}: [[p:${pid}]] is not a person in the dataset.`);

@@ -11,6 +11,8 @@ import YAML from "yaml";
 import { COOKIE_NAME, roleFromCookieValue } from "./netlify/shared/token.mjs";
 import { requireAdmin } from "./netlify/functions/_auth.mjs";
 import { contentHash } from "./netlify/shared/content-hash.mjs";
+import { validateDataset } from "./netlify/shared/validate.mjs";
+import { resolveTarget } from "./netlify/shared/upload-rules.mjs";
 
 const root = process.cwd();
 
@@ -63,8 +65,11 @@ const LOCAL_FNS = {
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
     const data = body?.data;
-    if (!data || typeof data !== "object" || !data.people || typeof data.people !== "object") {
-      return jsonResponse({ error: "Invalid family tree data." }, 400);
+    // Same pre-flight check as the GitHub sync; the build below stays as the
+    // second line of defence (it also verifies files on disk).
+    const problems = validateDataset(data, { label: "dataset" });
+    if (problems.length) {
+      return jsonResponse({ error: `Validation failed – nothing was saved:\n${problems.slice(0, 12).join("\n")}` }, 422);
     }
     const tree = String(body?.tree || "family");
     if (!/^[a-z0-9_-]+$/.test(tree)) return jsonResponse({ error: "Invalid dataset name." }, 400);
@@ -94,14 +99,9 @@ const LOCAL_FNS = {
     if (forbidden) return forbidden;
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
-    const filename = String(body?.filename || "");
-    const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
-    const tree = String(body?.tree || "");
-    if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return jsonResponse({ error: "Invalid tree." }, 400);
-    const dir = kind === "photo" ? "photos" : kind === "chronicle" ? path.join("chronicle", tree) : "sources";
-    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g|md|ya?ml)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
-    if (kind === "photo" && !/\.(png|jpe?g)$/i.test(filename)) return jsonResponse({ error: "Only PNG or JPG allowed for photos." }, 400);
-    if (kind === "chronicle" && !/\.(md|ya?ml)$/i.test(filename)) return jsonResponse({ error: "Only Markdown or YAML allowed for the chronicle." }, 400);
+    const target = resolveTarget({ kind: body?.kind, tree: body?.tree, filename: body?.filename });
+    if (target.error) return jsonResponse({ error: target.error }, 400);
+    const { dir, filename, kind } = target;
     const contentBase64 = String(body?.contentBase64 || "");
     if (!contentBase64 || contentBase64.length > 6 * 1024 * 1024) return jsonResponse({ error: "File too large (max. ~4 MB)." }, 413);
     fs.mkdirSync(path.join(root, "public", dir), { recursive: true });
@@ -114,12 +114,9 @@ const LOCAL_FNS = {
     if (forbidden) return forbidden;
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON." }, 400); }
-    const filename = String(body?.filename || "");
-    const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
-    const tree = String(body?.tree || "");
-    if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return jsonResponse({ error: "Invalid tree." }, 400);
-    const dir = kind === "photo" ? "photos" : kind === "chronicle" ? path.join("chronicle", tree) : "sources";
-    if (!/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g|md|ya?ml)$/i.test(filename)) return jsonResponse({ error: "Invalid filename." }, 400);
+    const target = resolveTarget({ kind: body?.kind, tree: body?.tree, filename: body?.filename, sanitize: false });
+    if (target.error) return jsonResponse({ error: target.error }, 400);
+    const { dir, filename, kind } = target;
     const filePath = path.join(root, "public", dir, filename);
     if (!fs.existsSync(filePath)) return jsonResponse({ error: "File not found." }, 404);
     fs.unlinkSync(filePath);
@@ -207,7 +204,11 @@ const server = http.createServer(async (req, res) => {
 
     // Static files from public/
     let filePath = path.normalize(path.join(PUBLIC_DIR, pathname === "/" ? "index.html" : pathname));
-    if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end(); }
+    // The separator matters: a bare prefix check would also accept a sibling
+    // directory whose name merely starts with "public".
+    if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
+      res.writeHead(403); return res.end();
+    }
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       return res.end("Not found");

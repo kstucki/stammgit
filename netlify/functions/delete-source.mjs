@@ -3,6 +3,7 @@ function bad(message, status = 400) {
 }
 
 import { requireAdmin } from "./_auth.mjs";
+import { resolveTarget } from "../shared/upload-rules.mjs";
 
 export default async (request) => {
   if (request.method !== "POST") return bad("Method Not Allowed", 405);
@@ -21,14 +22,11 @@ export default async (request) => {
     return bad("Invalid JSON.");
   }
 
-  const filename = String(body?.filename || "");
-  if (!filename || !/^[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/.test(filename)) {
-    return bad("Invalid filename.");
-  }
-  const kind = body?.kind === "photo" ? "photo" : body?.kind === "chronicle" ? "chronicle" : "source";
-  const tree = String(body?.tree || "");
-  if (kind === "chronicle" && !/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid tree.");
-  const dir = kind === "photo" ? "photos" : kind === "chronicle" ? `chronicle/${tree}` : "sources";
+  // Same rules as the upload, minus the sanitizing: a delete has to match the
+  // name as it sits in the repository (which may predate the upload endpoint).
+  const target = resolveTarget({ kind: body?.kind, tree: body?.tree, filename: body?.filename, sanitize: false });
+  if (target.error) return bad(target.error);
+  const { dir, filename, kind } = target;
 
   const headers = {
     accept: "application/vnd.github+json",

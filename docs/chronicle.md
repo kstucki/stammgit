@@ -50,6 +50,11 @@ Reordering or deleting chapters is done by editing `index.yaml`.
   synthesis of evidence, not a second place for unsourced notes.
 - Persons mentioned in a chapter cannot be deleted until the mention is
   removed.
+- No raw HTML. Chapters are Markdown prose; a chapter can reach the site
+  through a pull request or a scoped token without ever passing the admin
+  password, so HTML tags are rejected at save and at build time, and the
+  renderer shows anything that slips through as plain text. Link targets
+  are limited to `http(s):`, `mailto:` and repository-relative paths.
 
 When editing files by hand, run `npm run build` before pushing — a
 chapter that breaks these rules fails the site build. The person dialog

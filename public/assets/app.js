@@ -1,9 +1,9 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=11";
-import { getT } from "/assets/strings.js?v=10";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=10";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=10";
-import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=5";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=10";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=32";
+import { getT } from "/assets/strings.js?v=32";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=32";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=32";
+import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=32";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=32";
 
 let data = null;
 let people = {};
@@ -175,7 +175,11 @@ function localOnlyTrees() {
   }
   return out.sort();
 }
-const userRole = (document.cookie.match(/(?:^|;\s*)family_tree_role=([^;]+)/) || [])[1] || "admin";
+// The role cookie only drives what the UI offers; every write is checked
+// again server-side. Still fail closed: without the cookie the app shows the
+// read-only surface, and signing in again restores it. Defaulting to admin
+// here handed a read-only visitor an editor whose every sync ends in a 403.
+const userRole = (document.cookie.match(/(?:^|;\s*)family_tree_role=([^;]+)/) || [])[1] || "user";
 const isAdmin = userRole === "admin";
 let selectedPersonId = null;
 let draftActive = false;
@@ -187,9 +191,6 @@ const personDialog = document.getElementById("personDialog");
 const personDialogContent = document.getElementById("personDialogContent");
 const editDialog = document.getElementById("editDialog");
 const editDialogContent = document.getElementById("editDialogContent");
-const searchDialog = document.getElementById("searchDialog");
-const searchInput = document.getElementById("searchInput");
-const searchResults = document.getElementById("searchResults");
 
 function esc(value = "") {
   return String(value)
@@ -675,21 +676,12 @@ async function saveCentral() {
       if (!resp.ok) throw new Error(result?.error || `Upload ${name} failed (${resp.status})`);
       await pendingRemoveFile(name);
     }
-    // 2) queued deletions (missing files are fine)
-    for (const name of pendingDeletions) {
-      setStatus(strings.get("syncDeleting", { name }));
-      const resp = await fetch(`${API_BASE}/delete-source`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(uploadTarget(name))
-      });
-      if (!resp.ok && resp.status !== 404) {
-        const result = await resp.json().catch(() => ({}));
-        throw new Error(result?.error || `Delete ${name} failed (${resp.status})`);
-      }
-      await pendingClearDeletion(name);
-    }
-    // 3) dataset YAML
+    // 2) dataset YAML
+    // Order matters, and it is not symmetric: uploads have to come first
+    // (the YAML may already reference the new files), deletions last. A file
+    // deleted before a rejected YAML save would leave the central dataset
+    // pointing at a file that no longer exists – which fails the build and
+    // blocks every deploy until someone fixes it by hand.
     setStatus(strings.get("saving"));
     const res = await fetch(`${API_BASE}/save-family`, {
       method: "POST",
@@ -701,6 +693,31 @@ async function saveCentral() {
     });
     const result = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(result.error || `Save failed (${res.status})`);
+    // 3) queued deletions – only now that the YAML no longer references them
+    // (missing files are fine, the goal state is "gone"). Past this point the
+    // sync has succeeded: a failed deletion leaves an unreferenced file, which
+    // the build only notes. Throwing here would strand the draft instead,
+    // because the next attempt would hit the version guard. So: warn, keep the
+    // entry queued, and let the next sync retry it.
+    const deleteWarnings = [];
+    for (const name of pendingDeletions) {
+      setStatus(strings.get("syncDeleting", { name }));
+      try {
+        const resp = await fetch(`${API_BASE}/delete-source`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(uploadTarget(name))
+        });
+        if (!resp.ok && resp.status !== 404) {
+          const delResult = await resp.json().catch(() => ({}));
+          deleteWarnings.push(`${name}: ${delResult?.error || resp.status}`);
+          continue;
+        }
+        await pendingClearDeletion(name);
+      } catch (err) {
+        deleteWarnings.push(`${name}: ${err.message || err}`);
+      }
+    }
     localStorage.removeItem(draftKey());
     localStorage.removeItem(draftBaseKey());
     if (result.contentHash) serverContentHash = result.contentHash;
@@ -708,7 +725,8 @@ async function saveCentral() {
     isNewLocalTree = false;
     await refreshPending();
     updateDraftBadge();
-    alert(strings.get("saved", { commit: result.commit || strings.get("savedFallback") }));
+    alert(strings.get("saved", { commit: result.commit || strings.get("savedFallback") }) +
+      (deleteWarnings.length ? strings.get("syncDeleteWarn", { list: deleteWarnings.join("\n") }) : ""));
     if (currentView === "admin") renderView("admin");
   } catch (err) {
     await refreshPending();
@@ -834,7 +852,7 @@ function renderAdmin() {
     location.reload();
   });
   document.getElementById("exportYaml")?.addEventListener("click", () => {
-    downloadText(`${activeTree}.yaml`, (window.jsyaml ? jsyaml.dump(data, { lineWidth: -1 }) : JSON.stringify(data, null, 2)), "text/yaml");
+    downloadText(`${activeTree}.yaml`, `${toYaml(data)}\n`, "text/yaml");
   });
   document.getElementById("exportJson")?.addEventListener("click", () => {
     downloadText(`${activeTree}.json`, JSON.stringify(data, null, 2), "application/json");
@@ -1706,10 +1724,16 @@ async function renderChronicleEditor(app) {
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}${unsourced ? "unsourced: true\n" : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
-    const check = (await import(`/assets/chronicle.js?v=5`)).extractTokens(text);
+    const chronicleMod = await import(`/assets/chronicle.js?v=32`);
+    const check = chronicleMod.extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
     if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }
     if (!check.sources.length && !unsourced) { alert(strings.get("chapterNeedSource")); return; }
+    // The chapter's own filename has to be known before the cross references
+    // are checked – a chapter may link to itself before its first sync.
+    const slug = file || `${newTitle.toLowerCase().replace(/[äöü]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue" }[c])).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "kapitel"}.md`;
+    const rawHtmlLines = chronicleMod.containsRawHtml(ta.value);
+    if (rawHtmlLines.length) { alert(strings.get("chapterRawHtml", { lines: rawHtmlLines.join(", ") })); return; }
     const badRefs = (check.chapters || []).filter((ref) => {
       const [file, section] = ref.split("#");
       const ch = chronicleIndex?.chapters.find((c) => c.file === file);
@@ -1717,7 +1741,6 @@ async function renderChronicleEditor(app) {
       return section ? !(ch.sections || []).some((x) => x.id === section) : false;
     });
     if (badRefs.length) { alert(strings.get("chapterBadRefs", { refs: badRefs.join(", ") })); return; }
-    const slug = file || `${newTitle.toLowerCase().replace(/[äöü]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue" }[c])).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "kapitel"}.md`;
     await pendingPutFile(`chronicle/${activeTree}/${slug}`, new Blob([text], { type: "text/markdown" }));
     const seenFiles = new Set();
     const chapters = (chronicleIndex?.chapters || []).filter((c) => !seenFiles.has(c.file) && seenFiles.add(c.file));
@@ -1770,11 +1793,6 @@ document.addEventListener("click", (e) => {
     openPerson(personEl.dataset.person);
     return;
   }
-  const jump = e.target.closest("[data-view-jump]");
-  if (jump) {
-    renderView(jump.dataset.viewJump);
-    return;
-  }
   const showTree = e.target.closest("[data-show-in-tree]");
   if (showTree) {
     personDialog.close();
@@ -1789,12 +1807,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  const mapBtn = e.target.closest("[data-open-map]");
-  if (mapBtn) {
-    personDialog.close();
-    renderView("map");
-    return;
-  }
   const edit = e.target.closest("[data-edit-person]");
   if (edit) {
     personDialog.close();
@@ -1813,19 +1825,6 @@ document.querySelectorAll("dialog .dialog-close").forEach(btn => {
   btn.addEventListener("click", () => btn.closest("dialog").close());
 });
 
-
-searchInput.addEventListener("input", () => {
-  const q = searchInput.value.trim().toLowerCase();
-  if (!q) return searchResults.innerHTML = "";
-  const matches = Object.entries(people)
-    .filter(([,p]) => p.name.toLowerCase().includes(q))
-    .slice(0,20);
-  searchResults.innerHTML = matches.map(([id,p]) => `
-    <div class="search-result" data-person="${esc(id)}">
-      <strong>${esc(p.name)}</strong>
-      ${years(p) ? `<div class="meta">${esc(years(p))}</div>` : ""}
-    </div>`).join("") || `<p class="empty">${strings.get("noHits")}</p>`;
-});
 
 async function loadData() {
   const [cfgRes, idxRes] = await Promise.all([
@@ -1875,10 +1874,13 @@ async function loadData() {
     const el = document.querySelector(sel);
     if (el) el.textContent = strings.get(key);
   }
+  const loadingEl = document.querySelector(".loading");
+  if (loadingEl) loadingEl.textContent = strings.get("loading");
+  document.querySelectorAll("[data-close-label]").forEach((el) => {
+    el.setAttribute("aria-label", strings.get("close"));
+  });
   const logoutLink = document.querySelector(".header-actions .button-link");
   if (logoutLink) logoutLink.href = `${API_BASE}/logout`;
-  const searchInputEl = document.getElementById("searchInput");
-  if (searchInputEl) searchInputEl.placeholder = strings.get("searchDialog");
   chronicleChapter = undefined;
   await loadChronicleIndex();
 }

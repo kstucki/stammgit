@@ -115,9 +115,15 @@ source of truth. The tab only appears when an index exists; without an
 index order the tab would sort by date (blog behaviour as a fallback, not
 a mode). The person dialog lists "mentioned in" chapters from the same
 index. The validator enforces: every token resolves, internal source
-files exist, every chapter cites at least one source, and persons
-mentioned in chapters cannot be deleted. Deliberately not included:
-comments, feeds, WYSIWYG (see the README non-goals).
+files exist, every chapter cites at least one source, no chapter carries
+raw HTML, and persons mentioned in chapters cannot be deleted.
+
+Chapters are the one place where content can enter the site without the
+admin password — through a pull request or a scoped GitHub token. They are
+therefore treated as untrusted input: raw HTML is rejected by the build and
+escaped by the renderer, and only `http(s):`, `mailto:` and relative link
+targets survive. Deliberately not included: comments, feeds, WYSIWYG (see
+the README non-goals).
 
 ## Measuring changes
 

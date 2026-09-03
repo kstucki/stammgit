@@ -199,4 +199,30 @@ node server.mjs
   Git history.
 - Static-only hosts are not supported – auth and sync need a server side.
 
+## Security model
+
+What the password protects, and what it does not — worth knowing before
+you point this at real family data.
+
+- **Two shared passwords, no accounts.** Everyone who knows the admin
+  password is the admin. Roles are enforced on the server: every writing
+  endpoint re-checks the session, and the read-only role is rejected with
+  a 403 regardless of what the browser shows.
+- **Sessions cannot be revoked individually.** The session cookie is an
+  HMAC of the password and the role, valid for 30 days. Changing
+  `FAMILY_TREE_PASSWORD` invalidates every session at once — that is the
+  only revocation there is. Rotate it if a device is lost.
+- **No login rate limiting.** Serverless functions have no shared state to
+  count attempts in, and a fake in-memory limiter would only look like
+  protection. Use a long password; the login is the whole front door.
+- **Data validation is enforced server-side.** A sync runs the same
+  integrity rules as the build (`netlify/shared/validate.mjs`) before
+  anything is committed, so a broken draft cannot land in the repository
+  and block deploys.
+- **Chapters are untrusted input.** See [ARCHITECTURE.md](ARCHITECTURE.md):
+  content can enter through a pull request or a scoped token without the
+  admin password, so chronicle chapters may not contain HTML.
+- **No third-party requests.** The app loads no external scripts, fonts or
+  trackers; everything is served from your own deployment.
+
 MIT.

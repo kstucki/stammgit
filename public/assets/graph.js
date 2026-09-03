@@ -393,7 +393,9 @@ export function layoutGraph(graph, measure, personGen = null) {
   };
 
   // Precompute edges per layer pair once
-  const gapEdges = Array.from({ length: Math.max(0, 64) }, () => []);
+  // One bucket per layer gap – sized from the actual graph. A fixed cap here
+  // silently dropped the edges of deeper layers out of the crossing count.
+  const gapEdges = Array.from({ length: Math.max(1, maxGen + 1) }, () => []);
   for (const e of edges) {
     const a = byId.get(e.from), b = byId.get(e.to);
     if (!a || !b) continue;

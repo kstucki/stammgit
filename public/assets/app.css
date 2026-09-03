@@ -119,7 +119,7 @@ h3, .section-title { margin:.9rem 0 .3rem; font:700 var(--fs-title)/1.25 ui-seri
 .list-item { display:flex; justify-content:space-between; gap:1rem; align-items:center; padding:.8rem 0; border-bottom:1px solid var(--line); }
 .list-item:last-child { border-bottom:0; }
 
-.search-box, .editor input, .editor textarea, .editor select, #searchInput {
+.search-box, .editor input, .editor textarea, .editor select {
   width:100%; border:1px solid var(--line); border-radius:10px; padding:.7rem .8rem; background:#12161a; color:var(--ink);
 }
 .editor { display:grid; gap:.9rem; max-width:900px; }
@@ -149,9 +149,6 @@ dialog::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(2px); }
 .detail-links { display:flex; flex-wrap:wrap; gap:.4rem; }
 .detail-links button { border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:999px; padding:.35rem .6rem; cursor:pointer; }
 .source-list a { word-break:break-word; }
-.search-results { margin-top:.8rem; display:grid; gap:.4rem; }
-.search-result { border:1px solid var(--line); border-radius:10px; padding:.7rem; cursor:pointer; background:var(--paper); }
-.search-result:hover { background:var(--accent-soft); }
 
 .map-placeholder { min-height:360px; display:grid; place-items:center; text-align:center; padding:2rem; border:1px dashed #4a534e; border-radius:16px; background:linear-gradient(135deg,#181d21,#1c2320); }
 

@@ -6,45 +6,40 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="referrer" content="no-referrer" />
   <title>Family Tree</title>
-  <link rel="stylesheet" href="/assets/app.css?v=31" />
+  <link rel="stylesheet" href="/assets/app.css?v=32" />
 </head>
 <body>
   <header class="topbar">
-    <div class="eyebrow">Privates Familienarchiv</div>
+    <!-- Text content of the chrome is filled in from data/config.json and
+         strings.js on load; the markup carries neutral placeholders so no
+         language shows through before the app has started. -->
+    <div class="eyebrow"></div>
     <div class="header-actions">
-      <a class="ghost button-link small" href="/.netlify/functions/logout">Sign out</a>
+      <a class="ghost button-link small" href="/.netlify/functions/logout"></a>
     </div>
   </header>
 
-  <nav class="tabs" aria-label="Hauptnavigation">
-    <button class="tab active" data-view="overview">Overview</button>
-    <button class="tab" data-view="chronicle" hidden>Chronik</button>
-    <button class="tab" data-view="sources">Sources</button>
-    <button class="tab" data-view="admin">Admin</button>
+  <nav class="tabs" aria-label="Navigation">
+    <button class="tab active" data-view="overview"></button>
+    <button class="tab" data-view="chronicle" hidden></button>
+    <button class="tab" data-view="sources"></button>
+    <button class="tab" data-view="admin"></button>
   </nav>
 
   <main id="app">
-    <section class="loading">Loading family tree …</section>
+    <section class="loading"></section>
   </main>
 
   <dialog id="personDialog">
-    <button class="dialog-close" aria-label="Schliessen">×</button>
+    <button class="dialog-close" data-close-label>×</button>
     <div id="personDialogContent"></div>
   </dialog>
 
   <dialog id="editDialog">
-    <button class="dialog-close" aria-label="Schliessen">×</button>
+    <button class="dialog-close" data-close-label>×</button>
     <div id="editDialogContent"></div>
   </dialog>
 
-  <dialog id="searchDialog">
-    <button class="dialog-close" aria-label="Schliessen">×</button>
-    <h2>Person suchen</h2>
-    <input id="searchInput" type="search" placeholder="Name eingeben …" autocomplete="off" />
-    <div id="searchResults" class="search-results"></div>
-  </dialog>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js" defer></script>
-  <script type="module" src="/assets/app.js?v=31"></script>
+  <script type="module" src="/assets/app.js?v=32"></script>
 </body>
 </html>

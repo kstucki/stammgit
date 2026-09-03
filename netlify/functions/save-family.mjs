@@ -1,5 +1,6 @@
 import YAML from "yaml";
 import { contentHash } from "../shared/content-hash.mjs";
+import { validateDataset } from "../shared/validate.mjs";
 
 function bad(message, status = 400) {
   return Response.json({ error: message }, { status });
@@ -30,13 +31,17 @@ export default async (request) => {
     return bad("Invalid JSON.");
   }
 
+  // Full integrity check before anything is committed: the same rules the
+  // build runs, so a sync can never push a YAML that breaks the next deploy.
   const data = body?.data;
-  if (!data || typeof data !== "object" || !data.people || typeof data.people !== "object") {
-    return bad("Invalid family tree data.");
+  const problems = validateDataset(data, { label: "dataset" });
+  if (problems.length) {
+    return bad(
+      `Validation failed – nothing was saved:\n${problems.slice(0, 12).join("\n")}` +
+      (problems.length > 12 ? `\n… and ${problems.length - 12} more.` : ""),
+      422
+    );
   }
-
-  const count = Object.keys(data.people).length;
-  if (count < 1 || count > 5000) return bad("Implausible number of persons.");
 
   const tree = String(body?.tree || "family");
   if (!/^[a-z0-9_-]+$/.test(tree)) return bad("Invalid dataset name.");

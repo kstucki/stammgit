@@ -2,7 +2,7 @@
 // A chapter is a Markdown file with a small YAML-ish frontmatter block
 // (title, optional date) and [[p:person_id]] / [[s:source_url]] tokens in
 // the text that link into the tree.
-import { marked } from "./vendor/marked.esm.js";
+import { marked, Renderer } from "./vendor/marked.esm.js";
 
 // Parse "---\ntitle: ...\ndate: ...\n---\nbody" without a YAML dependency —
 // the frontmatter is deliberately limited to simple "key: value" lines.
@@ -37,7 +37,7 @@ export function extractTokens(body) {
 function slugify(text) {
   return String(text).toLowerCase()
     .replace(/[äöüß]/g, (c) => ({ "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss" }[c]))
-    .replace(/\[\[[ps]:[^\]]+\]\]/g, "")
+    .replace(/\[\[[psc]:[^\]]+\]\]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "abschnitt";
 }
 
@@ -62,41 +62,92 @@ const escapeHtml = (s) => String(s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;");
 
+// A chapter is prose, not a template: chapters can arrive through a pull
+// request or a scoped GitHub token without ever passing the admin password,
+// so raw HTML is shown as text and only harmless link protocols survive.
+// See containsRawHtml() for the matching build-time check.
+export const isSafeUrl = (url) => {
+  const value = String(url || "").trim();
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) {
+    return /^(https?|mailto):/i.test(value);
+  }
+  return !value.startsWith("//"); // relative paths and anchors stay allowed
+};
+
+const SAFE_RENDERER = new Renderer();
+SAFE_RENDERER.html = (html) => escapeHtml(html);
+SAFE_RENDERER.link = function (href, title, text) {
+  if (!isSafeUrl(href)) return text;
+  return Renderer.prototype.link.call(this, href, title, text);
+};
+SAFE_RENDERER.image = function (href, title, text) {
+  if (!isSafeUrl(href)) return escapeHtml(text);
+  return Renderer.prototype.image.call(this, href, title, text);
+};
+
+const RAW_HTML = /<\/?[a-zA-Z][^>]*>/;
+
+// Lines that would have carried raw HTML into the page. Used by the build to
+// reject a chapter outright instead of silently escaping it in the browser.
+export function containsRawHtml(body) {
+  return String(body).split(/\r?\n/).reduce((hits, line, i) => {
+    // Token syntax and fenced code are not HTML; indented code is rare enough
+    // in a chronicle that a false positive is a fair price for the guarantee.
+    if (RAW_HTML.test(line.replace(/`[^`]*`/g, ""))) hits.push(i + 1);
+    return hits;
+  }, []);
+}
+
 // Render a chapter body to HTML. Resolvers supply display labels:
 //   personLabel(id) -> string | null (null marks a broken link)
 //   sourceLabel(url) -> string
 //   chapterLabel(ref) -> string | null for [[c:file.md]] or [[c:file.md#slug]]
 export function renderChapter(body, { personLabel, sourceLabel, chapterLabel } = {}) {
-  // Headings become HTML with stable ids BEFORE token replacement, so the
-  // slugs match extractHeadings on the raw body. marked passes the inline
-  // HTML through; tokens inside headings are still replaced afterwards.
-  const headings = extractHeadings(body);
-  let hi = 0;
-  const withIds = String(body).replace(HEADING, (m, hashes, text) => {
-    const h = headings[hi++];
-    return `<h${hashes.length} id="${h.id}">${text}</h${hashes.length}>`;
-  });
-  const withLinks = withIds.replace(TOKEN, (_, kind, raw) => {
+  // Tokens are rendered to HTML, but they must not travel through marked as
+  // raw HTML — that path is closed. They are parked as placeholders from the
+  // Private Use Area (marked leaves them untouched, they cannot occur in real
+  // prose) and swapped back in after parsing.
+  const parked = [];
+  const park = (html) => `${parked.push(html) - 1}`;
+  const withLinks = String(body).replace(TOKEN, (_, kind, raw) => {
     const [rawValue, ...labelParts] = raw.split("|");
     const value = rawValue.trim();
     const custom = labelParts.join("|").trim() || null; // [[p:id|Label]]
     if (kind === "p") {
       const label = custom ?? (personLabel ? personLabel(value) : value);
       if ((label === null || label === undefined) || (custom && personLabel && personLabel(value) === null)) {
-        return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
+        return park(`<span class="chronicle-broken">${escapeHtml(value)}</span>`);
       }
-      return `<a href="#" data-person="${escapeHtml(value)}">${escapeHtml(label)}</a>`;
+      return park(`<a href="#" data-person="${escapeHtml(value)}">${escapeHtml(label)}</a>`);
     }
     if (kind === "c") {
       const [file, section] = value.split("#");
       const label = custom ?? (chapterLabel ? chapterLabel(value) : null);
       if ((label === null || label === undefined) || (custom && chapterLabel && chapterLabel(value) === null)) {
-        return `<span class="chronicle-broken">${escapeHtml(value)}</span>`;
+        return park(`<span class="chronicle-broken">${escapeHtml(value)}</span>`);
       }
-      return `<a href="#" data-chapter="${escapeHtml(file)}"${section ? ` data-section="${escapeHtml(section)}"` : ""}>${escapeHtml(label)}</a>`;
+      return park(`<a href="#" data-chapter="${escapeHtml(file)}"${section ? ` data-section="${escapeHtml(section)}"` : ""}>${escapeHtml(label)}</a>`);
     }
     const label = custom || (sourceLabel && sourceLabel(value)) || value.split("/").pop();
-    return `<a href="${escapeHtml(value)}" target="_blank" class="chronicle-source">${escapeHtml(label)}</a>`;
+    if (!isSafeUrl(value)) return park(`<span class="chronicle-broken">${escapeHtml(label)}</span>`);
+    return park(`<a href="${escapeHtml(value)}" target="_blank" class="chronicle-source">${escapeHtml(label)}</a>`);
   });
-  return marked.parse(withLinks, { async: false });
+
+  // Headings carry the same slug ids extractHeadings computes, so the table of
+  // contents can deep-link into the chapter. Deriving them in the renderer
+  // (instead of injecting <h2> into the source) keeps raw HTML blocked.
+  const renderer = Object.create(SAFE_RENDERER);
+  const used = new Set();
+  renderer.heading = (text, level, raw) => {
+    // marked hands over the whole source line; take the heading text the same
+    // way extractHeadings does, so both sides produce identical slugs.
+    const m = String(raw).match(/^#{2,6}\s+(.*?)\s*$/);
+    let slug = slugify(m ? m[1] : raw);
+    while (used.has(slug)) slug += "-2";
+    used.add(slug);
+    return `<h${level} id="${slug}">${text}</h${level}>\n`;
+  };
+
+  const html = marked.parse(withLinks, { async: false, renderer });
+  return html.replace(/(\d+)/g, (_, i) => parked[Number(i)] ?? "");
 }

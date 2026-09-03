@@ -1,10 +1,17 @@
 import JSZip from "jszip";
+import { roleFromRequest } from "./_auth.mjs";
 
 function bad(message, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-export default async () => {
+export default async (request) => {
+  // This endpoint reads every source document out of a possibly private
+  // repository. It must not rely on the edge function alone for its gate.
+  if (!(await roleFromRequest(request))) {
+    return Response.json({ error: "Sign-in required." }, { status: 403 });
+  }
+
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;
   const branch = process.env.GITHUB_BRANCH || "main";
@@ -24,7 +31,7 @@ export default async () => {
   if (!list.ok) return bad(`Sources folder could not be read (${list.status}).`, 502);
   const entries = await list.json();
   const files = (Array.isArray(entries) ? entries : []).filter((e) => e.type === "file");
-  if (!files.length) return bad("Der Quellenordner ist leer.", 404);
+  if (!files.length) return bad("The sources folder is empty.", 404);
 
   const zip = new JSZip();
   for (const f of files) {
