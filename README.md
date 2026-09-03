@@ -7,6 +7,8 @@ commit. The app is a static site plus a few serverless functions, built
 for Netlify, with a standalone local server included. (*Stammbaum* is
 German for family tree.)
 
+Demo: [stammgit-demo.netlify.app](https://stammgit-demo.netlify.app) — password `admin` or `user`.
+
 ## Why
 
 stammgit is for people who want their family archive to survive the app.
