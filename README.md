@@ -1,21 +1,22 @@
 # stammgit
 
-Lightweight, Git-native family trees. The data is plain YAML in your own repository,
-every change is a Git commit, the app is a static site plus a few
-serverless functions, built to deploy on Netlify — with a standalone
-server for local hosting included. (*Stammbaum* is German for family
-tree.)
+Lightweight, Git-native family trees.
 
-## Why stammgit
+Your data is plain YAML in your own repository. Every change is a Git
+commit. The app is a static site plus a few serverless functions, built
+for Netlify, with a standalone local server included. (*Stammbaum* is
+German for family tree.)
 
-stammgit is for people who want to **own their genealogy data as files**.
+## Why
 
-- your data is human-readable YAML you can open and edit anywhere
-- your history is Git commits, not an opaque database
-- the way in and out is standard GEDCOM
-- it's agent-friendly: plain files plus CI validation mean an AI
-  assistant with a scoped GitHub token can safely help maintain your
-  tree – this project is maintained that way
+stammgit is for people who want their family archive to survive the app.
+
+- data is YAML you can read in any editor
+- prose is Markdown
+- sources and photos are normal files
+- history is Git, not an opaque database
+- exchange is GEDCOM
+- the app is useful, but the files are the source of truth
 
 ## What it does
 
@@ -33,6 +34,24 @@ stammgit is for people who want to **own their genealogy data as files**.
 - Two roles (admin, read-only user), enforced server-side. UI in English
   and German.
 
+## AI-ready
+
+This is a core use case, not a bolt-on.
+
+You can tell an AI assistant your family story in normal language. It can
+edit the YAML, add Markdown chronicle chapters, connect people to
+sources, then leave you a Git diff to review.
+
+That works because the repository is boring on purpose:
+
+- stable person ids
+- plain YAML and Markdown
+- source links as paths or URLs
+- tests for broken relations, missing files and bad chronicle links
+- Git commits for review, rollback and blame
+
+Research -> sources -> YAML -> chronicle -> tests -> commit.
+
 ## Non-goals
 
 Things stammgit deliberately does not do. If you need them, use
@@ -40,7 +59,7 @@ Things stammgit deliberately does not do. If you need them, use
 
 - No database, no application server. Static files plus a few
   serverless functions is the ceiling.
-- No build step, no frontend framework, no layout library.
+- No frontend build step, no framework, no layout library.
 - No user accounts or per-person permissions. One admin; Git is the
   collaboration model.
 - No WYSIWYG or rich text. Data is YAML, prose is Markdown.
@@ -64,6 +83,8 @@ the admin tab.
 </p>
 
 ## Quickstart
+
+For real family data, use a private repository.
 
 ### Local
 
@@ -125,13 +146,9 @@ overview:
       text: "Description shown next to the link."
 ```
 
-Typical path: create your dataset in the app (admin → New dataset – it
-starts with one seed person), optionally import a GEDCOM into it and
-merge the seed person into your imported self, sync, then point
-`defaultTree` at it and rewrite the overview texts. The build validates the config. Afterwards the demo data
-can go: delete `data/trees/napoleon.yaml` and its source sheets
-(`public/sources/wikipedia-*.pdf`) – the build lists source files no
-longer referenced by any dataset.
+Typical path: create a dataset in the app, import GEDCOM if you have
+one, sync, then point `defaultTree` at it. The build validates the
+config. Demo data can be deleted afterwards.
 
 ## Data format
 
@@ -162,10 +179,10 @@ and the custom crossing rules of the layout — are documented in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```
-Browser        edit local-first: drafts, pending uploads (nothing leaves the device)
+Browser        local drafts, pending uploads
    │  Sync
    ▼
-Functions      auth and writes – Netlify functions, or server.mjs locally
+Functions      auth and writes: Netlify functions or server.mjs locally
    │
    ▼
 Git repo       YAML commits; CI and build validate every state
@@ -175,14 +192,15 @@ Static site    rebuilt – everyone sees the new state
 ```
 
 ```
-data/config.yaml          instance config (app only reads it)
+data/config.yaml          instance config
 data/trees/*.yaml         datasets
-scripts/                  build + test suite (runs on every deploy and sync)
-server.mjs                standalone server (local / VPS)
-public/assets/            app, layout engine, model, GEDCOM, strings, pending store
-public/sources/           uploaded source documents (committed on sync)
-public/photos/            portrait photos (committed on sync)
-netlify/                  auth edge function + functions (login, save, upload, …)
+public/chronicle/         Markdown chapters
+public/sources/           source documents
+public/photos/            portraits
+public/assets/            browser app
+scripts/                  build + tests
+netlify/                  hosted auth + sync
+server.mjs                local server
 ```
 
 ## Development
@@ -198,31 +216,5 @@ node server.mjs
   rejected instead of overwriting it; every state stays recoverable via
   Git history.
 - Static-only hosts are not supported – auth and sync need a server side.
-
-## Security model
-
-What the password protects, and what it does not — worth knowing before
-you point this at real family data.
-
-- **Two shared passwords, no accounts.** Everyone who knows the admin
-  password is the admin. Roles are enforced on the server: every writing
-  endpoint re-checks the session, and the read-only role is rejected with
-  a 403 regardless of what the browser shows.
-- **Sessions cannot be revoked individually.** The session cookie is an
-  HMAC of the password and the role, valid for 30 days. Changing
-  `FAMILY_TREE_PASSWORD` invalidates every session at once — that is the
-  only revocation there is. Rotate it if a device is lost.
-- **No login rate limiting.** Serverless functions have no shared state to
-  count attempts in, and a fake in-memory limiter would only look like
-  protection. Use a long password; the login is the whole front door.
-- **Data validation is enforced server-side.** A sync runs the same
-  integrity rules as the build (`netlify/shared/validate.mjs`) before
-  anything is committed, so a broken draft cannot land in the repository
-  and block deploys.
-- **Chapters are untrusted input.** See [ARCHITECTURE.md](ARCHITECTURE.md):
-  content can enter through a pull request or a scoped token without the
-  admin password, so chronicle chapters may not contain HTML.
-- **No third-party requests.** The app loads no external scripts, fonts or
-  trackers; everything is served from your own deployment.
 
 MIT.
