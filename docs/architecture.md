@@ -1,4 +1,40 @@
-# Architecture: tree graph rules
+# Architecture
+
+[Back to README](../README.md)
+
+## Application structure
+
+The browser keeps local drafts and pending uploads. **Sync** sends changes
+to Netlify functions or the local server for validation and persistence.
+Git records published changes; the static site is rebuilt from that state.
+
+| Path | Purpose |
+| --- | --- |
+| `data/config.yaml` | Instance configuration |
+| `data/trees/*.yaml` | Datasets |
+| `public/chronicle/` | Markdown chapters |
+| `public/sources/` | Source documents |
+| `public/photos/` | Portraits |
+| `public/assets/` | Browser app |
+| `scripts/` | Build and tests |
+| `netlify/` | Hosted authentication and sync |
+| `server.mjs` | Local server |
+
+## Non-goals
+
+Things stammgit deliberately does not do. If you need them, use
+[Gramps](https://gramps-project.org) — it's excellent.
+
+- No database or large application backend: static files with serverless
+  functions or the small local server handle authentication and sync.
+- No frontend build step, no framework, no layout library.
+- No user accounts or per-person permissions. One admin; Git is the
+  collaboration model.
+- No WYSIWYG or rich text. Data is YAML, prose is Markdown.
+- No social features: comments, feeds, notifications.
+- No media management beyond portraits and plain image files.
+
+## Tree graph rules
 
 This document states the rules the graph view follows. They were decided
 deliberately (see the git history for the discussions behind them); change
@@ -135,7 +171,7 @@ admin password — through a pull request or a scoped GitHub token. They are
 therefore treated as untrusted input: raw HTML is rejected by the build and
 escaped by the renderer, and only `http(s):`, `mailto:` and relative link
 targets survive. Deliberately not included: comments, feeds, WYSIWYG (see
-the README non-goals).
+[Non-goals](#non-goals)).
 
 ## Measuring changes
 
