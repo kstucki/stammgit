@@ -1,9 +1,10 @@
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=32";
-import { getT } from "/assets/strings.js?v=32";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=32";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=32";
-import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=32";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=32";
+import { lineRootIds } from "/assets/view-config.js?v=34";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=34";
+import { getT } from "/assets/strings.js?v=34";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=34";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=34";
+import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=34";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=34";
 
 let data = null;
 let people = {};
@@ -316,7 +317,7 @@ function genLabel(diff) {
 
 let descendantRoot = null;
 let viewMode = localStorage.getItem("graphViewMode") || "hourglass";
-let hourglassRoot = null;
+let hourglassRoots = [];
 
 function effectiveAnchors() {
   return new Set([...expandedAnchors, ...(data.meta.autoExpand || [])]);
@@ -340,12 +341,14 @@ function computeFullVisible(roots) {
 function renderOverview() {
   const roots = baseRootIds();
   const inDescMode = descendantRoot && people[descendantRoot];
-  const hgRoot = (hourglassRoot && people[hourglassRoot]) ? hourglassRoot : data.meta.focusPersonId;
+  const selectedRoots = hourglassRoots.filter(id => people[id]);
+  const hgRoots = selectedRoots.length ? selectedRoots : [data.meta.focusPersonId];
+  const hgRoot = hgRoots[0];
   const inHourglass = !inDescMode && viewMode === "hourglass";
   const visible = inDescMode
     ? computeVisible(people, [descendantRoot], new Set())
     : inHourglass
-      ? computeHourglass(people, hgRoot)
+      ? computeHourglass(people, hgRoots)
       : computeFullVisible(roots);
   // Keep the focus family visible (full view only; hourglass/descendants show just the subtree)
   if (!inDescMode && !inHourglass) visible.add(data.meta.focusPersonId);
@@ -353,7 +356,8 @@ function renderOverview() {
   const toggles = new Set([...anchors, ...expandedAnchors]);
   const graph = buildFamGraph(people, visible, {});
   const personGen = computeGenerations(people, visible, inDescMode ? descendantRoot : (inHourglass ? hgRoot : data.meta.focusPersonId));
-  const cacheKey = [...visible].sort().join(",");
+  // The same visible people can have different generations for another focus.
+  const cacheKey = JSON.stringify([inDescMode ? descendantRoot : (inHourglass ? hgRoot : data.meta.focusPersonId), [...visible].sort()]);
   let laid = layoutCache.get(cacheKey);
   if (!laid) {
     laid = layoutGraph(graph, measureNode, personGen);
@@ -467,9 +471,9 @@ function renderOverview() {
         ${(config.overview?.extraLines || []).length ? `
         <h3 class="section-title">${esc(config.overview?.linesHeading || (config.language === "de" ? "Zusätzliche Linien" : "Additional lines"))}</h3>
         <table class="scope-table">
-          ${config.overview.extraLines.map(l => `
+          ${config.overview.extraLines.map((l, index) => `
           <tr>
-            <td><button class="linklike" data-show-in-tree="${esc(l.person)}">${esc(l.label)}</button></td>
+            <td><button class="linklike" data-extra-line="${index}">${esc(l.label)}</button></td>
             <td>${esc(l.text)}${isAdmin && l.adminSuffix ? " " + esc(l.adminSuffix) : ""}</td>
           </tr>`).join("")}
         </table>` : ""}
@@ -484,7 +488,7 @@ function renderOverview() {
       ${inDescMode ? `
       <span class="desc-banner">${strings.get("descendantsBanner")} <b>${esc(people[descendantRoot].name)}</b></span>
       <button class="ghost" id="exitDescendants">${strings.get("back")}</button>` : inHourglass ? `
-      <span class="desc-banner">${strings.get("hourglassBanner")} <b>${esc(people[hgRoot].name)}</b></span>
+      <span class="desc-banner">${strings.get("hourglassBanner")} <b>${hgRoots.map(id => esc(people[id].name)).join(" / ")}</b></span>
       <button class="ghost" id="toFullView">${strings.get("viewFull")}</button>` : `
       <button class="ghost" id="toHourglass">${strings.get("viewHourglass")}</button>`}
 
@@ -508,7 +512,7 @@ function renderOverview() {
   });
   document.getElementById("toHourglass")?.addEventListener("click", () => {
     viewMode = "hourglass";
-    hourglassRoot = null;
+    hourglassRoots = [];
     localStorage.setItem("graphViewMode", "hourglass");
     renderOverview();
   });
@@ -627,10 +631,21 @@ function renderOverview() {
   }));
 }
 
+function showDirectLine(rootIds) {
+  const roots = [...new Set(rootIds)].filter(id => people[id]);
+  if (!roots.length) return;
+  descendantRoot = null;
+  hourglassRoots = roots;
+  viewMode = "hourglass";
+  localStorage.setItem("graphViewMode", "hourglass");
+  pendingHighlight = roots[0];
+  renderView("overview");
+}
+
 function showInTree(personId) {
   descendantRoot = null;
   if (viewMode === "hourglass") {
-    hourglassRoot = personId;
+    hourglassRoots = [personId];
     pendingHighlight = personId;
     renderView("overview");
     return;
@@ -640,7 +655,7 @@ function showInTree(personId) {
   if (!visible.has(personId)) {
     viewMode = "hourglass";
     localStorage.setItem("graphViewMode", "hourglass");
-    hourglassRoot = personId;
+    hourglassRoots = [personId];
   }
   pendingHighlight = personId;
   renderView("overview");
@@ -1724,7 +1739,7 @@ async function renderChronicleEditor(app) {
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}${unsourced ? "unsourced: true\n" : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
-    const chronicleMod = await import(`/assets/chronicle.js?v=32`);
+    const chronicleMod = await import(`/assets/chronicle.js?v=34`);
     const check = chronicleMod.extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
     if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }
@@ -1791,6 +1806,12 @@ document.addEventListener("click", (e) => {
   const personEl = e.target.closest("[data-person]");
   if (personEl) {
     openPerson(personEl.dataset.person);
+    return;
+  }
+  const extraLine = e.target.closest("[data-extra-line]");
+  if (extraLine) {
+    const line = config.overview.extraLines[Number(extraLine.dataset.extraLine)];
+    showDirectLine(lineRootIds(line));
     return;
   }
   const showTree = e.target.closest("[data-show-in-tree]");

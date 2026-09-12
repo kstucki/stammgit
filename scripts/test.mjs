@@ -8,6 +8,8 @@ import { buildFamGraph, layoutGraph, computeGenerations } from "../public/assets
 import { validateDataset } from "../netlify/shared/validate.mjs";
 import { resolveTarget } from "../netlify/shared/upload-rules.mjs";
 
+import { lineRootIds, validateExtraLines } from "../public/assets/view-config.js";
+
 const root = process.cwd();
 let failures = 0;
 const check = (cond, msg) => { if (!cond) { failures++; console.error("FAIL:", msg); } };
@@ -276,10 +278,7 @@ for (const [tid, tree] of Object.entries(trees)) {
   check(typeof config.title === "string" && config.title.trim(), "config: title missing.");
   check(["de", "en"].includes(config.language), "config: language must be de or en.");
   check(typeof config.overview?.heading === "string", "config: overview.heading missing.");
-  for (const line of config.overview?.extraLines || []) {
-    check(typeof line.label === "string" && line.label.trim(), "config: extraLines entry without label.");
-    check(ids.has(line.person), `config: extraLines '${line.label}' references unknown person '${line.person}'.`);
-  }
+  for (const error of validateExtraLines(config.overview?.extraLines, data.people)) check(false, error);
 }
 
 // --- 6b) Orphan components in full view ---
@@ -320,6 +319,49 @@ for (const [tid, tree] of Object.entries(trees)) {
   const vis = computeHourglass(ppl, "me");
   check(vis.has("second"), "hourglass: an ancestor's further partner must be visible.");
   check(vis.has("uropa"), "hourglass: the second parent's own ancestor line must stay visible even though that parent was first seen as a partner.");
+}
+
+// Multiple direct roots include both ancestor lines and preserve the first focus.
+{
+  const { computeHourglass } = await import("../public/assets/graph.js");
+  const ppl = {
+    a: { name: "A", parents: ["pa"], partners: ["b"], children: ["child"] },
+    b: { name: "B", parents: ["pb"], partners: ["a", "other"], children: ["child", "half"] },
+    pa: { name: "Parent A", children: ["a", "sibling"] },
+    pb: { name: "Parent B", children: ["b"] },
+    child: { name: "Child", parents: ["a", "b"] },
+    other: { name: "Other", partners: ["b"], children: ["half"] },
+    half: { name: "Half", parents: ["b", "other"] },
+    sibling: { name: "Sibling", parents: ["pa"] },
+    separate: { name: "Separate" }
+  };
+  const key = set => [...set].sort().join(",");
+  const one = computeHourglass(ppl, "a");
+  const both = computeHourglass(ppl, ["a", "b"]);
+  check(!one.has("pb") && both.has("pb"), "multi-root: add the partner's own ancestor line.");
+  check(key(both) === "a,b,child,half,other,pa,pb", "multi-root: exact union, half-siblings retained, ancestor side branches excluded.");
+  check(key(computeHourglass(ppl, ["a"])) === key(one), "multi-root: single-item list preserves legacy visibility.");
+  check(key(computeHourglass(ppl, ["a", "a", "missing", "b"])) === key(both), "multi-root: duplicate/unknown roots do not add duplicate people.");
+  check(computeHourglass(ppl, []).size === 0, "multi-root: no roots gives no people.");
+  const roots = lineRootIds({ persons: ["child", "a"] });
+  const vis = computeHourglass(ppl, roots);
+  const gen = computeGenerations(ppl, vis, roots[0]);
+  check(gen.get("child") === 0 && gen.get("a") === -1, "multi-root: first root determines generations, not input order in people.");
+  const reversed = lineRootIds({ persons: ["a", "child"] });
+  const revGen = computeGenerations(ppl, vis, reversed[0]);
+  check(revGen.get("a") === 0 && revGen.get("child") === 1, "multi-root: reversing roots changes the generation origin.");
+  const graph = buildFamGraph(ppl, both, {});
+  const members = graph.nodes.flatMap(n => n.persons);
+  check(members.length === both.size && new Set(members).size === both.size, "multi-root: shared descendants appear in exactly one box.");
+  check(computeHourglass(ppl, ["a", "separate"]).has("separate"), "multi-root: disconnected roots remain visible.");
+
+  check(lineRootIds({ person: "a" })[0] === "a", "config: legacy person remains supported.");
+  for (const line of [{ label: "Single", person: "a" }, { label: "Pair", persons: ["a", "b"] }]) {
+    check(validateExtraLines([line], ppl).length === 0, "config: valid single/multiple roots accepted.");
+  }
+  for (const fields of [{}, { persons: [] }, { persons: "a" }, { persons: [null] }, { persons: ["a", "missing"] }, { persons: ["a", "a"] }, { person: "a", persons: ["b"] }, { person: ["a"] }]) {
+    check(validateExtraLines([{ label: "Invalid", ...fields }], ppl).length > 0, "config: malformed or ambiguous root selection rejected.");
+  }
 }
 
 // --- 6c) Marriage boxes: pairing, rings, descent anchors ---

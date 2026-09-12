@@ -22,6 +22,14 @@ browser and in the Node test suite alike.
    current view shows. The hourglass view follows the direct parent chain of
    the root and always includes every partner of each ancestor on the line
    (second marriages stay visible; their own kin is not pulled in).
+   Multiple roots show the set union of their independent hourglass views;
+   shared persons appear once. The first root determines the generation
+   origin and initial highlight. The banner names all roots. Overview
+   starting points open this direct view even when the full view was active.
+   Config entries accept either legacy `person: id` or a non-empty, ordered
+   `persons: [id, ...]` list of distinct existing IDs, never both. Layout
+   cache keys include the focus as well as the visible IDs. Disconnected
+   components retain their existing independent generation origin.
 2. **Boxes and rings** (`buildFamGraph`): persons become marriage boxes,
    further marriages become ring links, children get descent edges.
 3. **Generations** (`computeGenerations`): BFS from the focus person —

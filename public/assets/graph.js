@@ -75,6 +75,11 @@ export function computeVisible(people, baseRootIds, expandedAnchors = new Set(),
 // Hourglass view: only the direct ancestor line of the center person (no side branches)
 // plus their complete descendants.
 export function computeHourglass(people, rootId) {
+  // Union of independent views: ancestor traversal must run for every root,
+  // even if it was already included as another root's partner or descendant.
+  if (Array.isArray(rootId)) {
+    return new Set(rootId.flatMap(id => [...computeHourglass(people, id)]));
+  }
   const visible = new Set();
   if (!people[rootId]) return visible;
   // downwards: person, partners, all descendants (like the base hull)

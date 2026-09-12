@@ -3,6 +3,8 @@ import path from "node:path";
 import YAML from "yaml";
 import { contentHash } from "../netlify/shared/content-hash.mjs";
 
+import { validateExtraLines } from "../public/assets/view-config.js";
+
 const root = process.cwd();
 const treesDir = path.join(root, "data", "trees");
 const outDir = path.join(root, "public", "data");
@@ -42,11 +44,10 @@ fs.writeFileSync(
 
 // Validate instance configuration against the default dataset
 const defaultData = YAML.parse(fs.readFileSync(path.join(treesDir, `${defaultTree}.yaml`), "utf8"));
-for (const line of config?.overview?.extraLines || []) {
-  if (!defaultData.people[line.person]) {
-    console.error(`config.yaml: extraLines references unknown person '${line.person}'.`);
-    process.exit(1);
-  }
+const configErrors = validateExtraLines(config.overview?.extraLines, defaultData.people);
+if (configErrors.length) {
+  configErrors.forEach(error => console.error(error));
+  process.exit(1);
 }
 fs.writeFileSync(path.join(outDir, "config.json"), JSON.stringify(config, null, 2), "utf8");
 fs.writeFileSync(path.join(outDir, "source-links.json"), JSON.stringify(sourceLinks, null, 2), "utf8");

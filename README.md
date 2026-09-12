@@ -148,6 +148,13 @@ overview:
       text: "Description shown next to the link."
 ```
 
+For a combined direct view, replace `person: id` with `persons: [id_a, id_b]`.
+The view is the union of each person's direct view, including both ancestor
+lines and the usual descendants/partners, without duplicate people. The first
+person sets the generation origin and initial highlight. Starting-point links
+always open the direct view. Use exactly one of `person` or `persons`; lists
+must be non-empty and contain distinct IDs from the default dataset.
+
 Typical path: create a dataset in the app, import GEDCOM if you have
 one, sync, then point `defaultTree` at it. The build validates the
 config. Demo data can be deleted afterwards.
