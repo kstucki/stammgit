@@ -1,53 +1,65 @@
 # stammgit
 
-**AI-ready, Git-native family trees.** Tell an AI assistant your family story,
-let it update people, sources and chronicle chapters, then review the Git diff.
+**AI-ready, Git-native family trees.** Your family data lives in your own
+repository: YAML for people, Markdown for the chronicle, plain files for
+documents and photos. Git keeps the history; the archive outlives the app.
 
-Keep your family data, sources and stories in your own repository:
-YAML for people, Markdown for the chronicle, ordinary files for documents
-and photos. Git keeps the history; your archive can outlive the app.
-
-You can also edit everything in the browser. Built for Netlify, with a local
-server included.
-(*Stammbaum* is German for family tree.)
+That makes the repository something an AI assistant can work with directly:
+tell it a story, let it add people, sources and chapters, run the validator,
+and review the diff before you merge. Everything can equally be edited in the
+browser, on your phone as well as on a desktop.
 
 ## Demo
 
 **[stammgit-demo.netlify.app](https://stammgit-demo.netlify.app)** —
 password `admin` (editing) or `user` (read-only).
-Demo edits stay in your browser; the repository is unchanged.
+Edits stay in your browser; the repository is unchanged.
 
 <p align="center">
-<img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview with starting points and the direct line of Napoleon I – the Beauharnais double connection converging on Napoleon III">
+<img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview: direct line of Napoleon I with the Beauharnais double connection">
 &emsp;&emsp;
-<img src="docs/screenshots/person-dialog-iphone.jpeg" width="290" alt="Person dialog: Napoleon III with the double parentage (Louis Bonaparte and Hortense de Beauharnais), sources and view actions">
+<img src="docs/screenshots/person-dialog-iphone.jpeg" width="290" alt="Person dialog: Napoleon III with parents, sources and view actions">
 </p>
 
 ## Features
 
-- Direct line (hourglass), full family and descendant views.
-  Combine multiple people's hourglass views into one.
+- Direct line (hourglass), full family and descendant views; several
+  hourglass views can be combined.
 - Edit people and relationships in the browser, including merge and delete.
   Changes stay on your device until **Sync**.
 - Portraits, source documents and Markdown chronicle chapters linked to people.
-- GEDCOM import/export, multiple datasets and YAML/JSON/GEDCOM/ZIP downloads.
-- Admin and read-only roles, with server-side access checks; English and German UI.
+- GEDCOM import/export, multiple datasets, YAML/JSON/GEDCOM/ZIP downloads.
+- Admin and read-only roles with server-side checks; English and German UI.
 
 ## Get started
 
-**Use a private repository for real family data.**
-Create your own copy, then follow the [setup guide](docs/setup.md)
-for local hosting or Netlify.
+Use a **private repository** for real family data — see the
+[setup guide](docs/setup.md) for your own copy, local hosting and Netlify.
 
-To try it locally:
+Try it locally:
 
 ```bash
 git clone https://github.com/kstucki/stammgit.git
 cd stammgit
 npm install
 cp .env.example .env    # set FAMILY_TREE_PASSWORD
-npm start              # http://localhost:8888
+npm start               # http://localhost:8888
 ```
+
+### With an AI assistant
+
+Point the assistant at your private copy. [AGENTS.md](AGENTS.md) holds the
+rules it needs: preserve IDs and reciprocal links, attach sources, never
+invent facts, and run `npm run build` — it validates every person, source,
+photo and chapter reference and fails on anything broken. What survives the
+build becomes a commit you can read like any other diff.
+
+## What it is not
+
+No database, no build step, no framework, no accounts, no WYSIWYG, no social
+features. Single admin; Git is the collaboration model. Details and the
+graph rules in [architecture](docs/architecture.md). If you need a full
+genealogy suite, [Gramps](https://gramps-project.org) is excellent.
 
 ## Documentation
 
@@ -55,9 +67,9 @@ npm start              # http://localhost:8888
 - [Configuration](docs/configuration.md) — datasets, default view and starting points
 - [Data format](docs/data-format.md) — people, relationships, sources and GEDCOM
 - [Chronicle](docs/chronicle.md) — writing and linking chapters
-- [Architecture](docs/architecture.md) — design decisions and graph rules
+- [Architecture](docs/architecture.md) — non-goals, design decisions and graph rules
 - [Development](docs/development.md) — tests, layout metrics and editing workflow
-- [Agent instructions](AGENTS.md) — concise rules to adapt to your own copy
+- [Agent instructions](AGENTS.md)
 
 ## License
 
