@@ -54,6 +54,8 @@ That works because the repository is boring on purpose:
 
 Research -> sources -> YAML -> chronicle -> tests -> commit.
 
+[AGENTS.md](AGENTS.md) contains concise working rules for AI agents; adapt them to your own copy.
+
 ## Non-goals
 
 Things stammgit deliberately does not do. If you need them, use
