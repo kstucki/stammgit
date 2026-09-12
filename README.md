@@ -1,13 +1,14 @@
 # stammgit
 
-Lightweight, Git-native family trees.
+**AI-ready, Git-native family trees.** Tell an AI assistant your family story,
+let it update people, sources and chronicle chapters, then review the Git diff.
 
 Keep your family data, sources and stories in your own repository:
 YAML for people, Markdown for the chronicle, ordinary files for documents
 and photos. Git keeps the history; your archive can outlive the app.
 
-Edit in the browser or work with an AI assistant and review its changes
-as a Git diff. Built for Netlify, with a local server included.
+You can also edit everything in the browser. Built for Netlify, with a local
+server included.
 (*Stammbaum* is German for family tree.)
 
 ## Demo
