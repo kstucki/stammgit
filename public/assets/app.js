@@ -1,10 +1,10 @@
-import { lineRootIds } from "/assets/view-config.js?v=34";
-import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=34";
-import { getT } from "/assets/strings.js?v=34";
-import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=34";
-import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=34";
-import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=34";
-import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=34";
+import { lineRootIds, defaultRootIds } from "/assets/view-config.js?v=35";
+import { pendingPutFile, pendingGetFile, pendingListFiles, pendingRemoveFile, pendingQueueDeletion, pendingListDeletions, pendingClearDeletion } from "/assets/pending.js?v=35";
+import { getT } from "/assets/strings.js?v=35";
+import { exportGedcom, importGedcom } from "/assets/gedcom.js?v=35";
+import { computeVisible, computeHourglass, findAnchors, buildFamGraph, layoutGraph, computeGenerations } from "/assets/graph.js?v=35";
+import { parseChapter, renderChapter, extractHeadings } from "/assets/chronicle.js?v=35";
+import { removePersonFromData, countSourceLinks, removeSourceLinks, mergeImportedPeople, absorbPerson } from "/assets/model.js?v=35";
 
 let data = null;
 let people = {};
@@ -342,7 +342,8 @@ function renderOverview() {
   const roots = baseRootIds();
   const inDescMode = descendantRoot && people[descendantRoot];
   const selectedRoots = hourglassRoots.filter(id => people[id]);
-  const hgRoots = selectedRoots.length ? selectedRoots : [data.meta.focusPersonId];
+  const defaultRoots = defaultRootIds(config, activeTree, data.meta.focusPersonId).filter(id => people[id]);
+  const hgRoots = selectedRoots.length ? selectedRoots : (defaultRoots.length ? defaultRoots : [data.meta.focusPersonId]);
   const hgRoot = hgRoots[0];
   const inHourglass = !inDescMode && viewMode === "hourglass";
   const visible = inDescMode
@@ -1739,7 +1740,7 @@ async function renderChronicleEditor(app) {
     const text = `---\ntitle: ${newTitle}\n${newDate ? `date: ${newDate}\n` : ""}${unsourced ? "unsourced: true\n" : ""}---\n\n${ta.value.trim()}\n`;
     // Validate BEFORE anything reaches the sync: an invalid chapter would
     // pass the unchecked upload, fail the site build and freeze the deploy.
-    const chronicleMod = await import(`/assets/chronicle.js?v=34`);
+    const chronicleMod = await import(`/assets/chronicle.js?v=35`);
     const check = chronicleMod.extractTokens(text);
     const unknown = check.persons.filter((pid) => !people[pid]);
     if (unknown.length) { alert(strings.get("chapterBadPersons", { ids: unknown.join(", ") })); return; }

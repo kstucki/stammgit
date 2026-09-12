@@ -28,7 +28,11 @@ browser and in the Node test suite alike.
    starting points open this direct view even when the full view was active.
    Config entries accept either legacy `person: id` or a non-empty, ordered
    `persons: [id, ...]` list of distinct existing IDs, never both. Layout
-   cache keys include the focus as well as the visible IDs. Disconnected
+   cache keys include the focus as well as the visible IDs. Optional
+   `overview.defaultPersons` selects the initial direct view for the default
+   dataset; without it, the dataset focus remains the only root. Other
+   datasets retain their own focus. Returning from full to direct view
+   restores these default roots. Disconnected
    components retain their existing independent generation origin.
 2. **Boxes and rings** (`buildFamGraph`): persons become marriage boxes,
    further marriages become ring links, children get descent edges.

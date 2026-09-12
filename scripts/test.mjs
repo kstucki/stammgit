@@ -8,7 +8,7 @@ import { buildFamGraph, layoutGraph, computeGenerations } from "../public/assets
 import { validateDataset } from "../netlify/shared/validate.mjs";
 import { resolveTarget } from "../netlify/shared/upload-rules.mjs";
 
-import { lineRootIds, validateExtraLines } from "../public/assets/view-config.js";
+import { lineRootIds, validateExtraLines, defaultRootIds, validateDefaultPersons } from "../public/assets/view-config.js";
 
 const root = process.cwd();
 let failures = 0;
@@ -278,7 +278,7 @@ for (const [tid, tree] of Object.entries(trees)) {
   check(typeof config.title === "string" && config.title.trim(), "config: title missing.");
   check(["de", "en"].includes(config.language), "config: language must be de or en.");
   check(typeof config.overview?.heading === "string", "config: overview.heading missing.");
-  for (const error of validateExtraLines(config.overview?.extraLines, data.people)) check(false, error);
+  for (const error of [...validateExtraLines(config.overview?.extraLines, data.people), ...validateDefaultPersons(config.overview, data.people)]) check(false, error);
 }
 
 // --- 6b) Orphan components in full view ---
@@ -356,6 +356,15 @@ for (const [tid, tree] of Object.entries(trees)) {
   check(computeHourglass(ppl, ["a", "separate"]).has("separate"), "multi-root: disconnected roots remain visible.");
 
   check(lineRootIds({ person: "a" })[0] === "a", "config: legacy person remains supported.");
+  const cfg = { defaultTree: "demo", overview: { defaultPersons: ["child", "a"] } };
+  check(defaultRootIds(cfg, "demo", "a").join(",") === "child,a", "default view: configured roots preserve focus order.");
+  check(defaultRootIds(cfg, "other", "b").join(",") === "b", "default view: another dataset retains its own focus.");
+  check(defaultRootIds({}, "demo", "a").join(",") === "a", "default view: legacy fallback is the dataset focus.");
+  check(validateDefaultPersons(cfg.overview, ppl).length === 0, "default view: valid configured roots accepted.");
+  for (const defaultPersons of [[], "a", ["missing"], ["a", "a"]]) {
+    check(validateDefaultPersons({ defaultPersons }, ppl).length > 0, "default view: invalid roots rejected.");
+  }
+
   for (const line of [{ label: "Single", person: "a" }, { label: "Pair", persons: ["a", "b"] }]) {
     check(validateExtraLines([line], ppl).length === 0, "config: valid single/multiple roots accepted.");
   }

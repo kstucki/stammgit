@@ -33,3 +33,14 @@ export function validateExtraLines(lines, people) {
   }
   return errors;
 }
+
+// Instance defaults apply only to the configured default dataset.
+export function defaultRootIds(config, activeTree, focusId) {
+  return activeTree === config.defaultTree && config.overview?.defaultPersons !== undefined
+    ? config.overview.defaultPersons : [focusId];
+}
+
+export function validateDefaultPersons(overview, people) {
+  if (overview?.defaultPersons === undefined) return [];
+  return validateExtraLines([{ label: "defaultPersons", persons: overview.defaultPersons }], people);
+}

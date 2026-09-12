@@ -3,7 +3,7 @@ import path from "node:path";
 import YAML from "yaml";
 import { contentHash } from "../netlify/shared/content-hash.mjs";
 
-import { validateExtraLines } from "../public/assets/view-config.js";
+import { validateExtraLines, validateDefaultPersons } from "../public/assets/view-config.js";
 
 const root = process.cwd();
 const treesDir = path.join(root, "data", "trees");
@@ -44,7 +44,7 @@ fs.writeFileSync(
 
 // Validate instance configuration against the default dataset
 const defaultData = YAML.parse(fs.readFileSync(path.join(treesDir, `${defaultTree}.yaml`), "utf8"));
-const configErrors = validateExtraLines(config.overview?.extraLines, defaultData.people);
+const configErrors = [...validateExtraLines(config.overview?.extraLines, defaultData.people), ...validateDefaultPersons(config.overview, defaultData.people)];
 if (configErrors.length) {
   configErrors.forEach(error => console.error(error));
   process.exit(1);

@@ -159,6 +159,8 @@ Typical path: create a dataset in the app, import GEDCOM if you have
 one, sync, then point `defaultTree` at it. The build validates the
 config. Demo data can be deleted afterwards.
 
+Set `overview.defaultPersons: [id_a, id_b]` to use a union of multiple hourglass views as the default view; the first person is the focus.
+
 ## Data format
 
 ```yaml
