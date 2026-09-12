@@ -36,45 +36,30 @@ Things stammgit deliberately does not do. If you need them, use
 
 ## Tree graph rules
 
-This document states the rules the graph view follows. They were decided
-deliberately (see the git history for the discussions behind them); change
-them here first, then in code. The layout lives in `public/assets/graph.js`
-(pure, testable in Node), the rendering in `public/assets/app.js`.
-
-## Foundations
-
-The layout engine is written from scratch — there is no Graphviz, dagre,
-ELK or d3 underneath (the only runtime dependencies of the project are
-`yaml` and `jszip`, neither of which touches the layout). The algorithm
-follows the classic Sugiyama framework — layer assignment, crossing
-minimization by ordering, then coordinate assignment — the same family of
-methods as Graphviz `dot`, but implemented directly in
-`public/assets/graph.js` as a pure, DOM-free module so it runs in the
-browser and in the Node test suite alike.
+The rules below are the specification of the graph view. They were decided
+deliberately; change them here first, then in code. The layout engine is
+written from scratch as a pure, DOM-free module in `public/assets/graph.js`
+(no Graphviz, dagre, ELK or d3; the only runtime dependencies are `yaml`
+and `jszip`). It follows the classic Sugiyama framework — layer assignment,
+crossing minimization by ordering, coordinate assignment — and runs
+unchanged in the browser and in the Node test suite. Rendering lives in
+`public/assets/app.js`.
 
 ## Pipeline
 
 1. **Visibility** (`computeVisible`, `computeHourglass`): which persons the
-   current view shows. The hourglass view follows the direct parent chain of
-   the root and always includes every partner of each ancestor on the line
+   view shows. The hourglass view follows the direct parent chain of each
+   root and always includes every partner of each ancestor on the line
    (second marriages stay visible; their own kin is not pulled in).
-   Multiple roots show the set union of their independent hourglass views;
-   shared persons appear once. The first root determines the generation
-   origin and initial highlight. The banner names all roots. Overview
-   starting points open this direct view even when the full view was active.
-   Config entries accept either legacy `person: id` or a non-empty, ordered
-   `persons: [id, ...]` list of distinct existing IDs, never both. Layout
-   cache keys include the focus as well as the visible IDs. Optional
-   `overview.defaultPersons` selects the initial direct view for the default
-   dataset; without it, the dataset focus remains the only root. Other
-   datasets retain their own focus. Returning from full to direct view
-   restores these default roots. Disconnected
-   components retain their existing independent generation origin.
+   Several roots show the union of their hourglass views; the first root
+   sets the generation origin and the initial highlight. Which roots a view
+   starts with is configuration, see [configuration.md](configuration.md).
 2. **Boxes and rings** (`buildFamGraph`): persons become marriage boxes,
    further marriages become ring links, children get descent edges.
 3. **Generations** (`computeGenerations`): BFS from the focus person —
    parents −1, children +1, partners level. On conflicts the first visit
-   wins, so the assignment depends on the focus.
+   wins, so the assignment depends on the focus. Disconnected components
+   keep their own generation origin.
 4. **Layout** (`layoutGraph`): layers by generation, ordering by crossing
    minimization, x positions by iterative relaxation.
 5. **Rendering** (`app.js`): boxes, gray descent curves, pink ring lines.

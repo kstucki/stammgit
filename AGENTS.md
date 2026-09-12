@@ -1,6 +1,6 @@
 # Agent instructions
 
-- Read [README.md](README.md) for setup and [docs/architecture.md](docs/architecture.md)
+- Read [README.md](README.md) and [docs/development.md](docs/development.md) for setup and [docs/architecture.md](docs/architecture.md)
   before changing graph behavior; update the latter when its rules change.
 - Run `npm run build` after code or content changes. Add tests for new behavior.
 - For graph changes, compare `npm run metrics -- data/trees/<tree>.yaml`
