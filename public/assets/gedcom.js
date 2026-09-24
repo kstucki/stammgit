@@ -1,3 +1,5 @@
+import { parentGroups, parentType, partnerDetail } from "./relationships.js";
+
 // GEDCOM 5.5.1 export/import for the internal family tree schema.
 
 const PARTICLES = new Set(["von", "van", "de", "da", "di", "du", "della", "v."]);
@@ -22,161 +24,193 @@ function gedcomDate(value = "") {
   return v; // years or free text unchanged
 }
 
+// Private underscore extensions preserve exact relationship annotations on our
+// roundtrip. Standard FAMC/PEDI/ADOP links remain available to other readers.
+const REL_FIELDS = ["parents", "children", "partners", "siblings", "parentDetails", "parentGroups", "partnerDetails"];
+function mapRelationships(person, map) {
+  const result = {};
+  for (const key of REL_FIELDS) {
+    if (person[key] === undefined) continue;
+    if (["parentDetails", "partnerDetails"].includes(key)) {
+      result[key] = Object.fromEntries(Object.entries(person[key]).map(([id, detail]) => [map(id), structuredClone(detail)]));
+    } else if (key === "parentGroups") result[key] = person[key].map(group => group.map(map));
+    else result[key] = person[key].map(map);
+  }
+  return result;
+}
+function writeExtension(lines, tag, value) {
+  const chars = Array.from(JSON.stringify(value));
+  lines.push(`1 ${tag} ${chars.splice(0, 40).join("")}`);
+  while (chars.length) lines.push(`2 CONC ${chars.splice(0, 40).join("")}`);
+}
+
 export function exportGedcom(data) {
-  const people = data?.people || {};
-  const ids = Object.keys(people);
-  const xref = {};
-  ids.forEach((id, i) => { xref[id] = `@I${i + 1}@`; });
-
-  // Familien aus Partnerpaaren und Eltern von Kindern ableiten
-  const famKey = (a, b) => [a, b].filter(Boolean).sort().join("|");
-  const fams = new Map(); // key -> {partners:[a,b], children:[]}
-  for (const [id, p] of Object.entries(people)) {
-    for (const partner of p.partners || []) {
-      const key = famKey(id, partner);
-      if (!fams.has(key)) fams.set(key, { partners: [id, partner].sort(), children: [] });
+  const people = data?.people || {}, ids = Object.keys(people);
+  const xref = new Map(ids.map((id, i) => [id, `@I${i + 1}@`]));
+  const pointer = id => { if (!xref.has(id)) throw new Error(`Unknown person: ${id}`); return xref.get(id); };
+  const families = new Map();
+  const family = adults => {
+    const sorted = [...adults].sort(), key = JSON.stringify(sorted);
+    if (!families.has(key)) families.set(key, { adults: sorted, children: [], partnership: false });
+    return families.get(key);
+  };
+  for (const [id, person] of Object.entries(people)) {
+    for (const other of person.partners || []) family([id, other]).partnership = true;
+    for (const group of parentGroups(person)) {
+      // GEDCOM 5.5.1 has two adult slots. Preserve larger groups exactly in the
+      // extension and expose every parent via individual standard FAMC links.
+      for (const adults of group.length > 2 ? group.map(parent => [parent]) : [group]) family(adults).children.push(id);
     }
   }
-  for (const [id, p] of Object.entries(people)) {
-    const parents = (p.parents || []).filter((x) => people[x]);
-    if (!parents.length) continue;
-    const key = famKey(parents[0], parents[1]);
-    if (!fams.has(key)) fams.set(key, { partners: [...parents].sort(), children: [] });
-    fams.get(key).children.push(id);
-  }
-  const famList = [...fams.values()];
-  const famXref = new Map();
-  famList.forEach((f, i) => famXref.set(f, `@F${i + 1}@`));
-
-  const famsOfPerson = (id) => famList.filter((f) => f.partners.includes(id));
-  const famOfChild = (id) => famList.find((f) => f.children.includes(id));
-
-  const lines = [
-    "0 HEAD",
-    "1 SOUR familienstammbaum",
-    "1 GEDC",
-    "2 VERS 5.5.1",
-    "2 FORM LINEAGE-LINKED",
-    "1 CHAR UTF-8"
-  ];
-
+  const fams = [...families.values()];
+  fams.forEach((fam, i) => { fam.xref = `@F${i + 1}@`; });
+  const lines = ["0 HEAD", "1 SOUR familienstammbaum", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8"];
   for (const id of ids) {
-    const p = people[id];
-    const { given, surname } = splitName(p.name);
-    lines.push(`0 ${xref[id]} INDI`);
-    lines.push(`1 NAME ${given} /${surname}/`);
-    if (p.gender === "m" || p.gender === "f") lines.push(`1 SEX ${p.gender.toUpperCase()}`);
-    if (p.birth) { lines.push("1 BIRT"); lines.push(`2 DATE ${gedcomDate(p.birth)}`); }
-    if (p.death) { lines.push("1 DEAT"); lines.push(`2 DATE ${gedcomDate(p.death)}`); }
+    const p = people[id], { given, surname } = splitName(p.name);
+    lines.push(`0 ${pointer(id)} INDI`, `1 NAME ${given} /${surname}/`);
+    if (["m", "f"].includes(p.gender)) lines.push(`1 SEX ${p.gender.toUpperCase()}`);
+    if (p.birth) lines.push("1 BIRT", `2 DATE ${gedcomDate(p.birth)}`);
+    if (p.death) lines.push("1 DEAT", `2 DATE ${gedcomDate(p.death)}`);
     if (p.occupation) lines.push(`1 OCCU ${p.occupation}`);
-    for (const n of p.notes || []) lines.push(`1 NOTE ${n}`);
-    for (const s of p.sources || []) lines.push(`1 NOTE Quelle: ${s.label}${s.url ? ` – ${s.url}` : ""}`);
-    const childFam = famOfChild(id);
-    if (childFam) lines.push(`1 FAMC ${famXref.get(childFam)}`);
-    for (const f of famsOfPerson(id)) lines.push(`1 FAMS ${famXref.get(f)}`);
+    for (const note of p.notes || []) lines.push(`1 NOTE ${note}`);
+    for (const source of p.sources || []) lines.push(`1 NOTE Quelle: ${source.label || ""}${source.url ? ` – ${source.url}` : ""}`);
+    for (const fam of fams.filter(fam => fam.children.includes(id))) {
+      lines.push(`1 FAMC ${fam.xref}`);
+      if (fam.adults.every(parent => parentType(people, parent, id) === "biological")) lines.push("2 PEDI birth");
+      const adoptive = fam.adults.filter(parent => parentType(people, parent, id) === "adoptive");
+      if (adoptive.length) {
+        if (adoptive.length === fam.adults.length) lines.push("2 PEDI adopted");
+        const selector = adoptive.length === 2 ? "BOTH" : adoptive[0] === fam.adults[0] ? "HUSB" : "WIFE";
+        lines.push("1 ADOP", `2 FAMC ${fam.xref}`, `3 ADOP ${selector}`);
+      }
+    }
+    for (const fam of fams.filter(fam => fam.adults.includes(id))) lines.push(`1 FAMS ${fam.xref}`);
+    writeExtension(lines, "_STAMMBAUM_ID", id);
+    writeExtension(lines, "_STAMMBAUM_REL", { version: 1, ...mapRelationships(p, pointer) });
   }
-
-  for (const f of famList) {
-    const [a, b] = f.partners;
-    lines.push(`0 ${famXref.get(f)} FAM`);
-    if (a && people[a]) lines.push(`1 HUSB ${xref[a]}`);
-    if (b && people[b]) lines.push(`1 WIFE ${xref[b]}`);
-    for (const c of f.children) lines.push(`1 CHIL ${xref[c]}`);
-    const status = people[a]?.partnerDetails?.[b]?.status || people[b]?.partnerDetails?.[a]?.status;
-    if (a && b) {
-      if (status !== "partner") lines.push("1 MARR");
-      if (status === "geschieden") lines.push("1 DIV Y");
+  for (const fam of fams) {
+    const [a, b] = fam.adults;
+    lines.push(`0 ${fam.xref} FAM`, `1 HUSB ${pointer(a)}`);
+    if (b) lines.push(`1 WIFE ${pointer(b)}`);
+    for (const child of fam.children) lines.push(`1 CHIL ${pointer(child)}`);
+    if (fam.partnership) {
+      const own = partnerDetail(people, a, b), reverse = partnerDetail(people, b, a);
+      const married = own.kind === "marriage" || [own.status, reverse.status].some(status => ["verheiratet", "geschieden", "verwitwet"].includes(status));
+      if (married) {
+        lines.push("1 MARR");
+        if (own.start) lines.push(`2 DATE ${gedcomDate(own.start)}`);
+      }
+      if ([own.status, reverse.status].includes("geschieden")) {
+        lines.push("1 DIV Y");
+        if (own.end) lines.push(`2 DATE ${gedcomDate(own.end)}`);
+      }
     }
   }
-
   lines.push("0 TRLR");
   return lines.join("\n") + "\n";
 }
 
 export function importGedcom(text) {
-  const records = [];
-  let current = null;
+  const records = [], stack = [];
   for (const raw of String(text).split(/\r?\n/)) {
-    const m = raw.match(/^(\d+)\s+(@[^@]+@\s+)?(\S+)(?:\s(.*))?$/);
-    if (!m) continue;
-    const [, levelStr, xrefRaw, tag, value = ""] = m;
-    const level = Number(levelStr);
-    const node = { level, xref: xrefRaw?.trim(), tag, value, children: [] };
-    if (level === 0) { current = node; records.push(node); }
-    else if (current) {
-      let parent = current;
-      while (parent.children.length && parent.children[parent.children.length - 1].level < level - 1) {
-        parent = parent.children[parent.children.length - 1];
-      }
-      // flache Suche nach dem richtigen Elternknoten
-      let stack = current;
-      const path = [current];
-      while (true) {
-        const last = path[path.length - 1];
-        const lastChild = last.children[last.children.length - 1];
-        if (lastChild && lastChild.level < level) path.push(lastChild);
-        else break;
-      }
-      path[path.length - 1].children.push(node);
-    }
+    const match = raw.match(/^(\d+)\s+(@[^@]+@\s+)?(\S+)(?:\s(.*))?$/);
+    if (!match) continue;
+    const [, levelText, xref, tag, value = ""] = match;
+    const node = { level: Number(levelText), xref: xref?.trim(), tag, value, children: [] };
+    while (stack.length && stack.at(-1).level >= node.level) stack.pop();
+    if (!node.level) records.push(node);
+    else if (stack.length) stack.at(-1).children.push(node);
+    stack.push(node);
   }
-
-  const find = (node, tag) => node.children.find((c) => c.tag === tag);
-  const findAll = (node, tag) => node.children.filter((c) => c.tag === tag);
-
-  const people = {};
-  const byXref = {};
-  const slug = (name) => {
-    let base = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "person";
+  const all = (node, tag) => (node?.children || []).filter(child => child.tag === tag);
+  const find = (node, tag) => all(node, tag)[0];
+  const textOf = node => node ? node.value + node.children.filter(child => ["CONC", "CONT"].includes(child.tag)).map(child => (child.tag === "CONT" ? "\n" : "") + child.value).join("") : "";
+  const extension = (node, tag) => { const field = find(node, tag); return field ? JSON.parse(textOf(field)) : undefined; };
+  const people = Object.create(null), byXref = new Map(), nodes = new Map(), packed = new Map();
+  const individuals = records.filter(record => record.tag === "INDI");
+  for (const record of individuals) {
+    const name = (textOf(find(record, "NAME")) || "Unbekannt").replace(/\//g, "").replace(/\s+/g, " ").trim();
+    const originalId = extension(record, "_STAMMBAUM_ID");
+    const base = typeof originalId === "string" && originalId ? originalId : name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "person";
     let id = base, n = 2;
-    while (people[id]) id = `${base}_${n++}`;
-    return id;
-  };
-
-  for (const rec of records.filter((r) => r.tag === "INDI")) {
-    const nameNode = find(rec, "NAME");
-    const name = (nameNode?.value || "Unbekannt").replace(/\//g, "").replace(/\s+/g, " ").trim();
-    const id = slug(name);
+    while (Object.hasOwn(people, id)) id = `${base}_${n++}`;
     const p = { name };
-    const birt = find(rec, "BIRT"); const deat = find(rec, "DEAT");
-    const bdate = birt && find(birt, "DATE")?.value; if (bdate) p.birth = bdate;
-    const ddate = deat && find(deat, "DATE")?.value; if (ddate) p.death = ddate;
-    const occu = find(rec, "OCCU")?.value; if (occu) p.occupation = occu;
-    const sex = find(rec, "SEX")?.value; if (sex === "M") p.gender = "m"; if (sex === "F") p.gender = "f";
-    const notes = findAll(rec, "NOTE").map((n) => n.value).filter(Boolean);
-    if (notes.length) p.notes = notes;
-    people[id] = p;
-    byXref[rec.xref] = id;
-  }
-
-  const addUnique = (obj, key, value) => {
-    obj[key] = [...new Set([...(obj[key] || []), value])];
-  };
-
-  for (const rec of records.filter((r) => r.tag === "FAM")) {
-    const husb = byXref[find(rec, "HUSB")?.value];
-    const wife = byXref[find(rec, "WIFE")?.value];
-    const children = findAll(rec, "CHIL").map((c) => byXref[c.value]).filter(Boolean);
-    if (husb && wife) { addUnique(people[husb], "partners", wife); addUnique(people[wife], "partners", husb); }
-    const divorced = !!find(rec, "DIV");
-    const married = !!find(rec, "MARR");
-    if (husb && wife && (divorced || !married)) {
-      const status = divorced ? "geschieden" : "partner";
-      people[husb].partnerDetails = { ...(people[husb].partnerDetails || {}), [wife]: { status } };
-      people[wife].partnerDetails = { ...(people[wife].partnerDetails || {}), [husb]: { status } };
+    for (const [field, event] of [["birth", "BIRT"], ["death", "DEAT"]]) {
+      const date = find(find(record, event), "DATE")?.value;
+      if (date) p[field] = date;
     }
-    for (const c of children) {
-      for (const parent of [husb, wife].filter(Boolean)) {
-        addUnique(people[c], "parents", parent);
-        addUnique(people[parent], "children", c);
+    const occupation = textOf(find(record, "OCCU")); if (occupation) p.occupation = occupation;
+    const sex = find(record, "SEX")?.value; if (["M", "F"].includes(sex)) p.gender = sex.toLowerCase();
+    const notes = all(record, "NOTE").map(textOf).filter(Boolean); if (notes.length) p.notes = notes;
+    people[id] = p; byXref.set(record.xref, id); nodes.set(id, record);
+    const detail = extension(record, "_STAMMBAUM_REL");
+    if (detail !== undefined) {
+      if (!detail || typeof detail !== "object" || detail.version !== 1) throw new Error("Unsupported _STAMMBAUM_REL data.");
+      packed.set(id, detail);
+    }
+  }
+  const ref = pointer => { const id = byXref.get(pointer); if (!id) throw new Error(`Unknown GEDCOM person ${pointer}.`); return id; };
+  const add = (person, key, value) => { person[key] = [...new Set([...(person[key] || []), value])]; };
+  const groups = new Map();
+  const setType = (child, parent, type, label) => {
+    people[child].parentDetails ||= {};
+    const previous = people[child].parentDetails[parent];
+    if (previous?.type && previous.type !== type) throw new Error(`Conflicting parent types for ${child}/${parent}.`);
+    people[child].parentDetails[parent] = { type, ...(label ? { label } : {}) };
+  };
+  for (const fam of records.filter(record => record.tag === "FAM")) {
+    const husband = find(fam, "HUSB"), wife = find(fam, "WIFE");
+    const adults = [husband, wife].filter(Boolean).map(node => ref(node.value));
+    if (!adults.length) continue;
+    if (all(fam, "HUSB").length > 1 || all(fam, "WIFE").length > 1) throw new Error("Repeated GEDCOM adult slots are not supported.");
+    const children = new Set(all(fam, "CHIL").map(node => ref(node.value)));
+    for (const [id, record] of nodes) if (all(record, "FAMC").some(node => node.value === fam.xref)) children.add(id);
+    const married = find(fam, "MARR"), divorced = find(fam, "DIV");
+    // Two FAM adults are parents, not proof of a partnership or marriage.
+    if (adults.length === 2 && (married || divorced)) {
+      const [a, b] = adults;
+      add(people[a], "partners", b); add(people[b], "partners", a);
+      for (const [owner, other] of [[a, b], [b, a]]) {
+        people[owner].partnerDetails ||= {};
+        const detail = { kind: "marriage", ...(divorced ? { status: "geschieden" } : {}) };
+        const start = find(married, "DATE")?.value, end = find(divorced, "DATE")?.value;
+        if (start) detail.start = start; if (end) detail.end = end;
+        const previous = people[owner].partnerDetails[other];
+        if (previous && JSON.stringify(previous) !== JSON.stringify(detail) && !packed.has(owner)) throw new Error("Multiple partnership episodes need separate review before import.");
+        people[owner].partnerDetails[other] = detail;
+      }
+    }
+    for (const child of children) {
+      for (const parent of adults) { add(people[child], "parents", parent); add(people[parent], "children", child); }
+      groups.set(child, [...(groups.get(child) || []), [...adults].sort()]);
+      if (packed.has(child)) continue; // Exact annotations are restored below.
+      const record = nodes.get(child);
+      const links = all(record, "FAMC").filter(node => node.value === fam.xref);
+      const pedi = links.map(link => find(link, "PEDI")?.value?.toLowerCase()).find(Boolean);
+      const adoption = all(record, "ADOP").map(event => find(event, "FAMC")).find(link => link?.value === fam.xref);
+      const selector = find(adoption, "ADOP")?.value;
+      if (pedi === "birth") for (const parent of adults) setType(child, parent, "biological");
+      if (pedi === "foster" || pedi === "sealing") for (const parent of adults) setType(child, parent, "other", `GEDCOM: ${pedi}`);
+      if (adoption || pedi === "adopted") {
+        if (adults.length > 1 && !["HUSB", "WIFE", "BOTH"].includes(selector)) throw new Error(`Adoption for ${child}: the adopting parent is not specified (HUSB/WIFE/BOTH).`);
+        const selected = selector === "HUSB" ? (husband ? [ref(husband.value)] : []) : selector === "WIFE" ? (wife ? [ref(wife.value)] : []) : adults;
+        if (!selected.length) throw new Error(`Adoption for ${child}: selected parent is missing.`);
+        for (const parent of selected) setType(child, parent, "adoptive");
       }
     }
   }
-
-  const first = Object.keys(people)[0];
-  return {
-    meta: { title: "GEDCOM import", focusPersonId: first },
-    people
-  };
+  for (const [id, families] of groups) {
+    const distinct = [...new Map(families.map(group => [JSON.stringify(group), group])).values()];
+    if (distinct.length > 1) {
+      const flat = distinct.flat();
+      if (new Set(flat).size !== flat.length && !packed.has(id)) throw new Error("Overlapping GEDCOM parent families need review before import.");
+      people[id].parentGroups = distinct;
+    }
+  }
+  for (const [id, detail] of packed) {
+    const mapped = mapRelationships(detail, ref);
+    for (const key of REL_FIELDS) delete people[id][key];
+    Object.assign(people[id], mapped);
+  }
+  return { meta: { title: "GEDCOM import", focusPersonId: Object.keys(people)[0] }, people };
 }

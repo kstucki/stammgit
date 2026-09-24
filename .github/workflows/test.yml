@@ -10,6 +10,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run build
+      - run: npm run test:server
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:e2e
+      - run: npm run test:e2e:dev
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failures
+          path: test-results/
+          retention-days: 7

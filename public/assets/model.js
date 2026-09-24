@@ -1,4 +1,5 @@
 // Pure data operations – shared by the app and the tests.
+import { personSources, hasRelationshipMetadata } from "./relationships.js";
 
 export function removePersonFromData(data, id) {
   const people = data.people;
@@ -6,7 +7,7 @@ export function removePersonFromData(data, id) {
   if (data.meta?.focusPersonId === id) return { ok: false, reason: "focus" };
   delete people[id];
   for (const p of Object.values(people)) {
-    for (const key of ["parents", "children", "partners"]) {
+    for (const key of ["parents", "children", "partners", "siblings"]) {
       if (!p[key]) continue;
       p[key] = p[key].filter((x) => x !== id);
       if (!p[key].length) delete p[key];
@@ -14,6 +15,14 @@ export function removePersonFromData(data, id) {
     if (p.partnerDetails && p.partnerDetails[id]) {
       delete p.partnerDetails[id];
       if (!Object.keys(p.partnerDetails).length) delete p.partnerDetails;
+    }
+    if (p.parentDetails?.[id]) {
+      delete p.parentDetails[id];
+      if (!Object.keys(p.parentDetails).length) delete p.parentDetails;
+    }
+    if (p.parentGroups) {
+      p.parentGroups = p.parentGroups.map(group => group.filter(parent => parent !== id)).filter(group => group.length);
+      if (!p.parentGroups.length) delete p.parentGroups;
     }
   }
   if (Array.isArray(data.meta?.autoExpand)) {
@@ -25,7 +34,7 @@ export function removePersonFromData(data, id) {
 export function countSourceLinks(people, url) {
   let n = 0;
   for (const p of Object.values(people)) {
-    if ((p.sources || []).some((s) => s.url === url)) n++;
+    if (personSources(p).some((s) => s.url === url)) n++;
   }
   return n;
 }
@@ -33,11 +42,13 @@ export function countSourceLinks(people, url) {
 export function removeSourceLinks(people, url) {
   let removed = 0;
   for (const p of Object.values(people)) {
-    if (!p.sources) continue;
-    const before = p.sources.length;
-    p.sources = p.sources.filter((s) => s.url !== url);
-    removed += before - p.sources.length;
-    if (!p.sources.length) delete p.sources;
+    for (const owner of [p, ...Object.values(p.parentDetails || {})]) {
+      if (!owner.sources) continue;
+      const before = owner.sources.length;
+      owner.sources = owner.sources.filter((s) => s.url !== url);
+      removed += before - owner.sources.length;
+      if (!owner.sources.length) delete owner.sources;
+    }
   }
   return removed;
 }
@@ -47,10 +58,12 @@ export function removeSourceLinks(people, url) {
 export function mergeImportedPeople(data, importedPeople) {
   const people = data.people;
   const idMap = new Map();
+  const allocated = new Set();
   for (const oldId of Object.keys(importedPeople)) {
     let id = oldId, n = 2;
-    while (people[id] || idMap.has(id)) id = `${oldId}_import${n > 2 ? n : ""}`, n++;
+    while (Object.hasOwn(people, id) || allocated.has(id)) id = `${oldId}_import${n > 2 ? n : ""}`, n++;
     idMap.set(oldId, id);
+    allocated.add(id);
   }
   const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
   const year = (s) => (String(s || "").match(/\d{4}/) || [""])[0];
@@ -63,7 +76,7 @@ export function mergeImportedPeople(data, importedPeople) {
     const id = idMap.get(oldId);
     const q = structuredClone(p);
     const newIds = new Set(idMap.values());
-    for (const key of ["parents", "children", "partners"]) {
+    for (const key of ["parents", "children", "partners", "siblings"]) {
       if (!q[key]) continue;
       q[key] = q[key].map((x) => idMap.get(x) || x).filter((x) => newIds.has(x) || people[x]);
       if (!q[key].length) delete q[key];
@@ -71,6 +84,8 @@ export function mergeImportedPeople(data, importedPeople) {
     if (q.partnerDetails) {
       q.partnerDetails = Object.fromEntries(Object.entries(q.partnerDetails).map(([k, v]) => [idMap.get(k) || k, v]));
     }
+    if (q.parentDetails) q.parentDetails = Object.fromEntries(Object.entries(q.parentDetails).map(([id, detail]) => [idMap.get(id) || id, detail]));
+    if (q.parentGroups) q.parentGroups = q.parentGroups.map(group => group.map(id => idMap.get(id) || id));
     people[id] = q;
     const hit = existingKeys.get(`${norm(p.name)}|${year(p.birth)}`);
     if (hit) duplicates.push({ importedId: id, existingId: hit, name: p.name });
@@ -81,18 +96,26 @@ export function mergeImportedPeople(data, importedPeople) {
 // Absorb a duplicate: dropId is dissolved into keepId.
 // Relationships, sources and notes are united, all references from
 // other persons to dropId are rewritten, then dropId is deleted.
+export function mergeNeedsReview(data, id) {
+  return Object.entries(data.people).some(([other, p]) => hasRelationshipMetadata(p)
+    && (other === id || ["parents", "partners", "children"].some(key => (p[key] || []).includes(id))));
+}
+
 export function absorbPerson(data, keepId, dropId) {
   const people = data.people;
   if (keepId === dropId) return { ok: false, reason: "same" };
   const keep = people[keepId], drop = people[dropId];
   if (!keep || !drop) return { ok: false, reason: "not_found" };
+  // A duplicate merge can collapse incompatible parent groups or pair facts.
+  // Until a conflict editor exists, reject affected annotated merges atomically.
+  if (mergeNeedsReview(data, keepId) || mergeNeedsReview(data, dropId)) return { ok: false, reason: "relationship_details" };
   // Absorbing the focus person transfers the focus to the kept person –
   // important for the create-dataset-then-import workflow, where the seed
   // person is merged into the imported "real" one.
   if (data.meta?.focusPersonId === dropId) data.meta.focusPersonId = keepId;
 
   const union = (a = [], b = []) => [...new Set([...a, ...b])].filter((x) => x !== keepId && x !== dropId);
-  for (const key of ["parents", "children", "partners"]) {
+  for (const key of ["parents", "children", "partners", "siblings"]) {
     const merged = union(keep[key], drop[key]);
     if (merged.length) keep[key] = merged; else delete keep[key];
   }
@@ -113,7 +136,7 @@ export function absorbPerson(data, keepId, dropId) {
 
   delete people[dropId];
   for (const p of Object.values(people)) {
-    for (const key of ["parents", "children", "partners"]) {
+    for (const key of ["parents", "children", "partners", "siblings"]) {
       if (!p[key]) continue;
       p[key] = [...new Set(p[key].map((x) => (x === dropId ? keepId : x)))];
       if (!p[key].length) delete p[key];

@@ -8,6 +8,7 @@ import { marked, Renderer } from "./vendor/marked.esm.js";
 // the frontmatter is deliberately limited to simple "key: value" lines.
 export function parseChapter(text) {
   const m = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  /** @type {Record<string, string>} */
   const frontmatter = {};
   let body = String(text);
   if (m) {

@@ -4,176 +4,135 @@
 
 ## Application structure
 
-The browser keeps local drafts and pending uploads. **Sync** sends changes
-to Netlify functions or the local server for validation and persistence.
-Git records published changes; the static site is rebuilt from that state.
+Svelte owns the UI and reactive workspace state. Pure modules select and lay
+out the graph. YAML, Markdown and files remain the durable archive; the local
+server and Netlify functions retain authentication and persistence.
 
-| Path | Purpose |
+| Path | Responsibility |
 | --- | --- |
-| `data/config.yaml` | Instance configuration |
-| `data/trees/*.yaml` | Datasets |
-| `public/chronicle/` | Markdown chapters |
-| `public/sources/` | Source documents |
-| `public/photos/` | Portraits |
-| `public/assets/` | Browser app |
-| `scripts/` | Build and tests |
-| `netlify/` | Hosted authentication and sync |
-| `server.mjs` | Local server |
+| `src/components/`, `src/views/` | Svelte rendering and interactions |
+| `src/state/workspace.svelte.ts` | One editable workspace, drafts and pending files |
+| `src/state/` | View selection, center and camera persistence |
+| `src/data/` | Loading, explicit model commands, upload/sync/download |
+| `src/domain/` | Pure projections, family layout, relationship presentation |
+| `public/assets/model.js`, `relationships.js`, `dataset-validation.js` | Shared model commands, relationship rules and validation |
+| `public/assets/graph.js` | Shared ordering engine and historical compact projection |
+| `public/assets/chronicle.js`, `gedcom.js` | Markdown processing and GEDCOM exchange |
+| `data/`, `public/chronicle/`, `public/photos/`, `public/sources/` | Instance content |
+| `scripts/`, `tests/` | Builds, data checks and isolated tests |
+| `server.mjs`, `netlify/` | Local and hosted authentication and writes |
 
-## Non-goals
+`index.html` is the source entry. Vite builds to `dist/`; the build copies its
+hashed assets and entry into `public/`, without emptying content directories.
+Generated `public/index.html` and `public/assets/ui/` are ignored. `/legacy.html`
+only redirects, preserving query and fragment. There is no second UI or iframe.
 
-Things stammgit deliberately does not do. If you need them, use
-[Gramps](https://gramps-project.org) — it's excellent.
+No database, SvelteKit, external graph layout library, individual accounts,
+WYSIWYG editor or social features. Git remains the collaboration model.
 
-- No database or large application backend: static files with serverless
-  functions or the small local server handle authentication and sync.
-- No frontend build step, no framework, no layout library.
-- No user accounts or per-person permissions. One admin; Git is the
-  collaboration model.
-- No WYSIWYG or rich text. Data is YAML, prose is Markdown.
-- No social features: comments, feeds, notifications.
-- No media management beyond portraits and plain image files.
+## Graph rules
 
-## Tree graph rules
+These rules are the specification. Update them before changing behavior.
 
-The rules below are the specification of the graph view. They were decided
-deliberately; change them here first, then in code. The layout engine is
-written from scratch as a pure, DOM-free module in `public/assets/graph.js`
-(no Graphviz, dagre, ELK or d3; the only runtime dependencies are `yaml`
-and `jszip`). It follows the classic Sugiyama framework — layer assignment,
-crossing minimization by ordering, coordinate assignment — and runs
-unchanged in the browser and in the Node test suite. Rendering lives in
-`public/assets/app.js`.
+- One card per person, including people with multiple partnerships.
+- Family shows the center, parents, siblings, partners and children.
+- Ancestors & descendants (hourglass) combines any number of roots, their
+  ancestor lines, descendants and included partners without duplicating people.
+- Ancestors and descendants also have their own modes. There is no full view;
+  old stored `full` selections fall back to family.
+- Children connect to their documented parent family. Explicit `parentGroups`
+  distinguish families; missing relationship types are unknown, never inferred
+  as marriage or biological parenthood merely for display.
+- Partnerships and parent families are junctions. One child line leaves the
+  family junction; with one known parent it leaves that parent's card.
+- Documented marriage/biological relationships are solid; unmarried/divorced
+  partnerships and adoption use distinct patterns. Multiple partners alone do
+  not change a marriage's style. Mixed parent types are labelled per parent.
 
-## Pipeline
+### Generations and layout
 
-1. **Visibility** (`computeVisible`, `computeHourglass`): which persons the
-   view shows. The hourglass view follows the direct parent chain of each
-   root and always includes every partner of each ancestor on the line
-   (second marriages stay visible; their own kin is not pulled in).
-   Several roots show the union of their hourglass views; the first root
-   sets the generation origin and the initial highlight. Which roots a view
-   starts with is configuration, see [configuration.md](configuration.md).
-2. **Boxes and rings** (`buildFamGraph`): persons become marriage boxes,
-   further marriages become ring links, children get descent edges.
-3. **Generations** (`computeGenerations`): BFS from the focus person —
-   parents −1, children +1, partners level. On conflicts the first visit
-   wins, so the assignment depends on the focus. Disconnected components
-   keep their own generation origin.
-4. **Layout** (`layoutGraph`): layers by generation, ordering by crossing
-   minimization, x positions by iterative relaxation.
-5. **Rendering** (`app.js`): boxes, gray descent curves, pink ring lines.
+Ancestry takes precedence over partnership. Consistent parent chains place
+children exactly one level below their parents, independently of the center.
+If path lengths conflict, longest-parent-chain ordering keeps parents above
+children and may introduce gaps. Cyclic invalid ancestry terminates safely.
+Explicit adoption, guardianship and other parent types remain visible but do
+not constrain generation levels; missing/unknown types use ordinary ancestry.
+Partners with visible ancestry are not forced onto the same level. A partner
+without ancestry may align with the other partner when this is conflict-free.
 
-## Box rule: one box per marriage
+`family.ts` creates the projection; `family-layout.ts` sets generations and uses
+`graph.js` for ordering. Svelte renders its coordinates. Large layouts can run
+in `family-layout.worker.ts`; the worker uses the same algorithm. No generation
+or relationship decisions are made by DOM event handlers.
 
-A box holds at most one couple. Pairing is **mutual first choice, iterated
-to a fixpoint**: a couple shares a box only if each is the other's
-first-listed still-free partnership (partner order in the YAML is the
-control — reorder it to change the boxes). Whoever is left over stays in a
-single box and keeps all marriages as rings.
+The historical compact marriage-box projection remains only as a reference
+adapter for domain tests and metrics. Its mutual-first-partner pairing does not
+control the Svelte cards or define a primary marriage. Do not change partner
+order when migrating data.
 
-Example (the case that shaped the rule): Carla (partners: Schmidt, Ulrich)
-and Elisabeth (partners: Gretler, Ulrich) both box up with their first
-husbands; Ulrich's first choices are taken, so he stands alone between two
-ring lines.
+### Connections
 
-## Ring links
+Connections is a mode in the tree tab. It starts with the center and accepts
+any number of selected people. **Connection with …** in a person dialog searches
+for a second person and replaces the previous selection with that pair. Cancel
+keeps the previous selection; people can also be removed from the selection.
+An intermediate person may remain visible after being deselected.
 
-Every partnership whose two persons do not share a box is a **ring link**:
-a pink line docked at the two person rows, with a double-ring symbol at the
-midpoint. Short rings (neighbouring boxes) are straight; long rings sag as
-a smooth curve into the free corridor below the layer band instead of
-cutting through boxes.
+Show the union of all simple paths between selected pairs in the **person / family
+junction graph**, including partnership and adoption. Neither a person nor a
+junction can repeat within one path. There is no shortest-path or depth cutoff.
+A cycle with only one attachment and no selected person inside disappears;
+alternative paths between multiple attachments remain. Unselected leaf children
+are omitted. Adult cards of retained junctions remain as context, without
+expanding their other families. Filtered child lines are not restored.
 
-## Descent anchors
+This is a strict subgraph of the complete family projection: no invented sibling
+shortcuts, duplicate lines or duplicated cards. Empty selection shows search;
+one selected person shows only that card. Disconnected selections remain visible.
+The iterative block-cut algorithm is tested against exhaustive simple-path
+enumeration and a 12,000-person chain.
 
-A child descends from its parents' **marriage anchor** with a single gray
-edge:
+### Camera and navigation
 
-- both parents in one box → bottom edge of that box,
-- parents in two boxes but married (ring) → the ring midpoint
-  (a second, invisible layout-only edge keeps the attraction to the other
-  parent's box),
-- otherwise (single known parent, or unmarried parents in two boxes) →
-  one edge per parent box.
+One `localStorage.graphZoom` value applies to every mode and dataset. Changing
+the center or mode preserves it; **Fit** explicitly changes it. The first family
+view without a saved zoom fits vertically. Center, mode, roots and connection
+selection are stored per dataset. The graph frame is taller than before on
+mobile and desktop; the header scrolls away normally.
 
-Half-siblings are therefore distinguishable at a glance: they hang from
-different anchors.
+## Editing and persistence
 
-## Color semantics
+Model commands update one workspace. Local drafts use dataset-scoped storage;
+pending uploads/deletions are scoped by dataset too. Navigating between views
+does not introduce another editable copy. Sync uploads files, saves YAML with
+an optimistic content hash, then performs queued deletions. Conflicts retain the
+local draft. This existing multi-request sequence is not atomic across files.
 
-One meaning per visual dimension:
-
-- **Color = relationship kind.** Descent gray, marriage pink. No further
-  static line colors (branch coloring does not scale and is arbitrary).
-- **Dashing = evidence status.** Dashed lines mean placeholder/unverified
-  (placeholder ancestors); solid means recorded.
-
-## Layout rules
-
-- **Sibling blocks**: children of the same parents form an indivisible
-  block ordered under their parents; crossing minimization swaps blocks and
-  neighbours, evaluated by total crossings with total horizontal span as
-  the tie-breaker (rings count in the span, so ring-linked boxes prefer to
-  be close).
-- **Key scales** (`groupSortDown`): nodes with parents sort on the parent
-  index scale (×1000). Parentless nodes have no key on that scale — they
-  anchor to their current left neighbour and only order among themselves by
-  their children. (Sorting them on their raw own index tore every
-  married-in single to the far left of its layer.)
-- **Ring adjacency pass** (after ordering): a ring partner without any own
-  edges (married in, no kin, no children) cannot cause a crossing and moves
-  unconditionally next to its partner box; it also follows that box in the
-  x relaxation. Movers with few edges (≤3) may pay up to 2 crossings for
-  adjacency — a short local crossing beats a layer-wide ring line. Everyone
-  else moves only if crossings do not increase.
-- **X positions**: iterative relaxation toward the average of parents and
-  children, with symmetric overlap resolution; the order never changes in
-  this phase.
-- **Effort scales with graph size**: above 150 nodes the ordering runs
-  fewer optimization rounds, and above 400 nodes the expensive stages
-  (cascade transpose, extra restarts) are skipped entirely — a few more
-  crossings, but seconds instead of minutes. Below these thresholds the
-  quality is unchanged.
+The browser and backend share dataset validation. Local saves also run content
+checks and roll back invalid YAML. Optional local Git commits use the checked-out
+branch. Hosted writes require explicit repository credentials; the public demo
+without those credentials cannot write to GitHub.
 
 ## Chronicle
 
-The chronicle is the narrative layer on top of data (YAML) and evidence
-(sources): per dataset a folder `public/chronicle/<tree>/` with an
-`index.yaml` (chapter order) and chapters as Markdown files. Frontmatter
-carries only `title` and optional `date`; person and source links live in
-the text as `[[p:person_id]]` and `[[s:source_url]]` tokens — the build
-extracts them into `public/data/chronicle-<tree>.json`, so there is one
-source of truth. The tab only appears when an index exists; without an
-index order the tab would sort by date (blog behaviour as a fallback, not
-a mode). The person dialog lists "mentioned in" chapters from the same
-index. The validator enforces: every token resolves, internal source
-files exist, every chapter cites at least one source, no chapter carries
-raw HTML, and persons mentioned in chapters cannot be deleted.
+Each dataset has one ordered `public/chronicle/<tree>/index.yaml` and Markdown
+chapters. `[[p:id]]`, `[[s:url]]` and `[[c:file#section]]` tokens link people,
+sources and chapters. Generated JSON is an index, not another editable source.
+The editor stages Markdown and the index through the same pending-file store.
 
-Chapters are the one place where content can enter the site without the
-admin password — through a pull request or a scoped GitHub token. They are
-therefore treated as untrusted input: raw HTML is rejected by the build and
-escaped by the renderer, and only `http(s):`, `mailto:` and relative link
-targets survive. Deliberately not included: comments, feeds, WYSIWYG (see
-[Non-goals](#non-goals)).
+Content is untrusted: raw HTML is rejected/escaped and links allow only safe
+schemes. Builds validate references, source files and citations (unless explicitly
+`unsourced: true`). People mentioned in chapters cannot be deleted. Figures,
+captions and chapter navigation share the same reader and editor-preview renderer.
+See [chronicle.md](chronicle.md).
 
-## Measuring changes
+## Verification
 
-`npm run metrics` (manual only, never wired into build/test/CI) reports
-drawn crossings, ring gaps, the widest in-layer hole and the total width
-for a dataset, and `--check <file>` evaluates thresholds against it — see
-`scripts/layout-checks.example.yaml`. Run it before and after touching
-`graph.js`; keep a dataset-specific checks file next to private data.
+`npm run build` runs existing integrity/GEDCOM/model/chronicle checks, Svelte and
+TypeScript checks, unit tests and the production build. Browser tests use synthetic
+content in a fresh temporary Git repository without remotes or real credentials.
 
-## Known limitations
-
-- A ring between two boxes that are both anchored in distant family blocks
-  stays long (e.g. a woman boxed with her first husband in family A whose
-  second husband is boxed in family B). The sagging curve keeps it
-  readable; adjacency would cost crossings and is refused.
-- Deep ancestor towers of unrelated lines stand far apart on the top
-  layers. That is tree geometry, not a bug: those layers only contain the
-  towers themselves.
-- Generation assignment is focus-dependent when marriages connect
-  generations inconsistently.
+Before/after graph changes, run `npm run metrics -- data/trees/napoleon.yaml`.
+These manual metrics measure the historical compact reference, not the Svelte
+card layout; card geometry has separate unit and browser checks. Instance-specific
+limits can use `--check`; never publish private datasets or their thresholds.

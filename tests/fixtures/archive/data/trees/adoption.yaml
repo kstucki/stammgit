@@ -1,0 +1,29 @@
+meta:
+  title: Dokumentierte Elternbeziehungen
+  focusPersonId: child
+people:
+  child:
+    name: Kind Beispiel
+    parents: [a, b, c, d]
+    parentGroups: [[a, b], [c], [d]]
+    parentDetails:
+      a: {type: biological}
+      b: {type: biological}
+      c:
+        type: adoptive
+        sources: [{label: Beleg zur Adoption, url: /sources/test.pdf}]
+  a:
+    name: Elternteil A
+    children: [child]
+  b:
+    name: Elternteil B
+    children: [child]
+  c:
+    name: Elternteil C
+    children: [child]
+    partners: [d]
+    partnerDetails: {d: {kind: marriage, start: "1950"}}
+  d:
+    name: Elternteil D
+    children: [child]
+    partners: [c]

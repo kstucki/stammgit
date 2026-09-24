@@ -1,0 +1,25 @@
+meta:
+  title: Testfamilie
+  focusPersonId: person_a
+people:
+  person_a:
+    name: Test Anna
+    birth: "1980"
+    occupation: Testberuf
+    partners: [person_b]
+    children: [person_c]
+    notes: [Eine vorhandene Notiz.]
+    sources:
+      - {label: Testquelle, url: /sources/test.pdf}
+  person_b:
+    name: Test Bruno
+    birth: "1981"
+    partners: [person_a]
+    children: [person_c]
+  person_c:
+    name: Test Clara
+    birth: "2010"
+    parents: [person_a, person_b]
+  person_d:
+    name: Test Dora
+    birth: "1950"

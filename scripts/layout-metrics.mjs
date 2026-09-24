@@ -33,7 +33,7 @@ const treeFile = fileArgs[0] || path.join("data", "trees", `${config.defaultTree
 const d = YAML.parse(fs.readFileSync(path.join(root, treeFile), "utf8"));
 const people = d.people;
 
-// Box measure — keep in sync with measureNode in public/assets/app.js.
+// Box measure — keep in sync with the node measurement in src/domain/compact.ts.
 const yr = (x) => (String(x || "").match(/\d{4}/) || [""])[0];
 const yearsOf = (p) => {
   const b = yr(p.birth), dd = yr(p.death);

@@ -15,16 +15,11 @@ browser, on your phone as well as on a desktop.
 password `admin` (editing) or `user` (read-only).
 Edits stay in your browser; the repository is unchanged.
 
-<p align="center">
-<img src="docs/screenshots/overview-iphone.jpeg" width="290" alt="Overview: direct line of Napoleon I with the Beauharnais double connection">
-&emsp;&emsp;
-<img src="docs/screenshots/person-dialog-iphone.jpeg" width="290" alt="Person dialog: Napoleon III with parents, sources and view actions">
-</p>
-
 ## Features
 
-- Direct line (hourglass), full family and descendant views; several
-  hourglass views can be combined.
+- Family, ancestors, descendants and combined ancestors & descendants views.
+- Connections between any number of people, including longer routes, partnerships
+  and adoption; shared people appear once.
 - Edit people and relationships in the browser, including merge and delete.
   Changes stay on your device until **Sync**.
 - Portraits, source documents and Markdown chronicle chapters linked to people.
@@ -36,7 +31,7 @@ Edits stay in your browser; the repository is unchanged.
 Use a **private repository** for real family data — see the
 [setup guide](docs/setup.md) for your own copy, local hosting and Netlify.
 
-Try it locally:
+Try it locally with Node 24 LTS:
 
 ```bash
 git clone https://github.com/kstucki/stammgit.git
@@ -56,8 +51,8 @@ build becomes a commit you can read like any other diff.
 
 ## What it is not
 
-No database, no build step, no framework, no accounts, no WYSIWYG, no social
-features. Single admin; Git is the collaboration model. Details and the
+Svelte + TypeScript, built with Vite. No database, individual accounts, WYSIWYG
+or social features. Single admin; Git is the collaboration model. Details and the
 graph rules in [architecture](docs/architecture.md). If you need a full
 genealogy suite, [Gramps](https://gramps-project.org) is excellent.
 
