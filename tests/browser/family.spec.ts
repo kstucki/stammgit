@@ -70,7 +70,8 @@ test('family defaults, distinct parent families, cards and complete person windo
   await card(page, 'lea').getByRole('button', { name: 'Person öffnen: Lea Beispiel', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Lea Beispiel' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.person-actions > *')).toHaveCount(2);
+  await expect(dialog.locator('.person-actions > *')).toHaveCount(3);
+  await expect(dialog.getByRole('button', { name: 'Verbindung mit …', exact: true })).toBeVisible();
   await expect(dialog.getByRole('link', { name: 'In Stammbaum anzeigen', exact: true })).toHaveAttribute('href', /view=family&person=lea&action=family$/);
   await expect(dialog.locator('.person-actions').getByRole('link', { name: 'Bearbeiten', exact: true })).toHaveAttribute('href', /person=lea&action=edit$/);
   await expect(dialog.getByRole('button', { name: 'Zum Zentrum machen', exact: true })).toHaveCount(0);
@@ -288,7 +289,7 @@ test('standard GEDCOM import identifies the single adopter beside one neutral sh
   await expect(page.locator('#gedImportStatus')).toContainText('3');
   await page.getByRole('link', { name: 'Stammbaum', exact: true }).click();
   await page.getByLabel('Zentrumperson suchen und auswählen').fill('Importkind');
-  await page.locator('#family-results').getByRole('button', { name: 'Importkind', exact: true }).click();
+  await page.locator('#family-search-results').getByRole('button', { name: 'Importkind', exact: true }).click();
   await expect(card(page, 'importkind')).toHaveCount(1);
   await expect(page.locator('path[data-child="importkind"]')).toHaveCount(1);
   await expect(page.locator('path[data-child="importkind"]')).toHaveClass('relation-default');
@@ -306,7 +307,7 @@ test('search and separate card actions change the center and keep the identity u
   await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'child_old');
   await expect(card(page, 'child_old')).toHaveCount(1);
   await page.getByLabel('Zentrumperson suchen und auswählen').fill('Einzelperson');
-  await page.locator('#family-results').getByRole('button', { name: 'Einzelperson' }).click();
+  await page.locator('#family-search-results').getByRole('button', { name: 'Einzelperson' }).click();
   await expect(page.locator('[data-family-person]')).toHaveCount(1);
   await expect(page.getByText('Keine weiteren Angehörigen erfasst.')).toBeVisible();
   await page.reload();
@@ -325,7 +326,7 @@ test('person actions reach the existing editor, preserve a draft and return to t
   await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'old');
   await expect(card(page, 'old')).toContainText('Entwurf aus dem Personenfenster');
   await card(page, 'old').getByRole('button', { name: 'Person öffnen: Alex Beispiel', exact: true }).click();
-  await expect(page.getByRole('dialog').locator('.person-actions > *')).toHaveCount(2);
+  await expect(page.getByRole('dialog').locator('.person-actions > *')).toHaveCount(3);
   await page.locator('#personDialog .dialog-close').click();
   await selectGraphView(page, 'hourglass');
   await expect(page.locator('[data-family-person="old"]')).toBeVisible();
