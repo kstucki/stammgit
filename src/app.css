@@ -58,7 +58,7 @@ h1 { font: 500 clamp(2rem, 5vw, 3.3rem)/1.15 ui-serif, Georgia, serif; margin: 2
 .family-results button:hover { background: #edf0e7; }
 .family-results span { color: #56665e; margin-left: .5rem; }
 .family-view h2 { font: 500 clamp(1.6rem, 3vw, 2rem)/1.25 ui-serif, Georgia, serif; }
-.graph-frame { height: clamp(26rem, 93.6dvh, 83.2rem); margin-top: .8rem; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid #cdd2c6; background: #eaece2; border-radius: .75rem; }
+.graph-frame { --graph-height: clamp(26rem, 93.6dvh, 83.2rem); height: calc(var(--graph-height) + var(--connection-controls-height, 0px)); margin-top: .8rem; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid #cdd2c6; background: #eaece2; border-radius: .75rem; }
 .graph-canvas { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; border-radius: 0 0 .7rem .7rem; overflow: hidden; }
 .family-viewport { min-height: 0; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; touch-action: pan-x pan-y; }
 .family-viewport:focus-visible { outline-offset: -3px; }
@@ -119,3 +119,9 @@ h1 { font: 500 clamp(2rem, 5vw, 3.3rem)/1.15 ui-serif, Georgia, serif; margin: 2
 }
 
 .person-relations button { padding: .15rem 0; border: 0; background: transparent; color: #254c38; text-decoration: underline; text-align: left; }
+
+/* Selected people and status messages extend the frame, preserving the canvas. */
+.connection-controls { display: flow-root; }
+@media (min-width: 601px) {
+  .graph-frame { --graph-height: clamp(24.7rem, 88.92dvh, 79.04rem); }
+}

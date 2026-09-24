@@ -18,6 +18,7 @@
   let { archive, session, person = null, action = null, overview = false }: {
     archive: ArchiveSnapshot; session: FamilySession; person?: string | null; action?: string | null; overview?: boolean;
   } = $props();
+  let connectionControlsHeight = $state(0);
   const descriptions: Record<GraphMode, string> = {
     family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription',
     ancestors: 'graphAncestorsDescription', connections: 'graphConnectionsDescription',
@@ -86,7 +87,7 @@
 </script>
 
 <section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode}>
-  <div class="graph-frame">
+  <div class="graph-frame" style:--connection-controls-height={`${connections ? connectionControlsHeight : 0}px`}>
     <div class="graph-tools">
       <div class="family-toolbar">
         <GraphViewSwitcher bind:mode {t} />
@@ -94,13 +95,15 @@
           <PersonSearch people={dataset.people} {t} inputId="connection-search" label={t.get('connectionAdd')} exclude={connections.selected} oncenter={id => connectionSelection = [...connections!.selected, id]} />
         {:else}<PersonSearch people={dataset.people} {t} oncenter={chooseCenter} onadd={mode === 'hourglass' ? addRoot : undefined} />{/if}
       </div>
-      {#if connections}
-        <div class="graph-roots">{#each connections.selected as id}
-          <button data-connection-selected={id} aria-label={t.get('connectionRemove', { name: dataset.people[id].name || id })} onclick={() => connectionSelection = connections!.selected.filter(other => other !== id)}>{dataset.people[id].name || id} ×</button>
-        {/each}</div>
-        {#if connections.selected.length < 2}<p role="status">{t.get('connectionPrompt')}</p>{/if}
-        {#if connections.components.length > 1}<p role="status">{t.get('connectionDisconnected', { groups: connections.components.map(ids => ids.map(id => dataset.people[id].name || id).join(', ')).join(' / ') })}</p>{/if}
-      {/if}
+      <div class="connection-controls" bind:clientHeight={connectionControlsHeight}>
+        {#if connections}
+          <div class="graph-roots">{#each connections.selected as id}
+            <button data-connection-selected={id} aria-label={t.get('connectionRemove', { name: dataset.people[id].name || id })} onclick={() => connectionSelection = connections!.selected.filter(other => other !== id)}>{dataset.people[id].name || id} ×</button>
+          {/each}</div>
+          {#if connections.selected.length < 2}<p role="status">{t.get('connectionPrompt')}</p>{/if}
+          {#if connections.components.length > 1}<p role="status">{t.get('connectionDisconnected', { groups: connections.components.map(ids => ids.map(id => dataset.people[id].name || id).join(', ')).join(' / ') })}</p>{/if}
+        {/if}
+      </div>
       {#if mode === 'hourglass' && activeRoots.length > 1}
         <div class="graph-roots">{#each activeRoots as id}<button disabled={id === activeCenter} aria-label={t.get('graphRemoveRoot', { name: dataset.people[id].name || id })} onclick={() => roots = roots.filter(root => root !== id)}>{dataset.people[id].name || id}{id !== activeCenter ? ' ×' : ''}</button>{/each}</div>
       {/if}

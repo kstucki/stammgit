@@ -97,8 +97,10 @@ enumeration and a 12,000-person chain.
 One `localStorage.graphZoom` value applies to every mode and dataset. Changing
 the center or mode preserves it; **Fit** explicitly changes it. The first family
 view without a saved zoom fits vertically. Center, mode, roots and connection
-selection are stored per dataset. The graph frame is taller than before on
-mobile and desktop; the header scrolls away normally.
+selection are stored per dataset. The mobile frame uses `clamp(26rem, 93.6dvh, 83.2rem)`. Above 600px the
+desktop frame is 5% shorter: `clamp(24.7rem, 88.92dvh, 79.04rem)`. Connection
+selections and status messages add their measured height to the frame, pushing
+the canvas down without shrinking it when names wrap. The header scrolls away normally.
 
 ## Editing and persistence
 

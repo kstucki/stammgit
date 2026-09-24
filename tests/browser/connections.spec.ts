@@ -178,3 +178,29 @@ test('a loop attached at one family point disappears and returns when selected',
   await page.reload();
   await expect(page.locator('[data-family-person]')).toHaveCount(3);
 });
+
+
+test('wrapped connection selections extend the frame without shrinking the canvas', async ({ page }) => {
+  await login(page);
+  const ids = Array.from({ length: 12 }, (_, i) => `selected_${i}`);
+  const people = Object.fromEntries(ids.map((id, i) => [id, {
+    name: `Selected person ${i} with a deliberately long fixture name`,
+    partners: ids.filter((_, j) => Math.abs(i - j) === 1),
+  }]));
+  await page.route('**/data/trees/demo.json', route => route.fulfill({ json: { meta: { focusPersonId: ids[0] }, people } }));
+  const open = async (count: number) => {
+    await page.goto('/?view=family&action=connections&' + ids.slice(0, count).map(id => `connect=${id}`).join('&'));
+    await expect(page.locator('[data-connection-selected]')).toHaveCount(count);
+    await expect.poll(() => page.locator('.graph-frame').evaluate(el =>
+      Math.abs(parseFloat(el.style.getPropertyValue('--connection-controls-height')) - el.querySelector('.connection-controls')!.clientHeight)
+    )).toBeLessThan(1);
+    return page.locator('.family-viewport').boundingBox();
+  };
+  const before = (await open(2))!;
+  const expanded = (await open(12))!;
+  expect(expanded.y).toBeGreaterThan(before.y + 20);
+  expect(expanded.height).toBeCloseTo(before.height, 0);
+  const restored = (await open(2))!;
+  expect(restored.y).toBeCloseTo(before.y, 0);
+  expect(restored.height).toBeCloseTo(before.height, 0);
+});
