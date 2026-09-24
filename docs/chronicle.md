@@ -34,7 +34,7 @@ person's name, opening their dialog. Cite sources as
 [[s:/sources/file.pdf]] or [[s:https://…]]. Link other chapters or their
 sections as [[c:other.md]] or [[c:other.md#section-slug]] — the slug is
 the heading in lowercase with dashes. Every token accepts an optional
-display label: [[p:friedrich_weber_1870|Fritz]]. A deliberately
+display label: [[p:napoleon_i_bonaparte|Napoleon]]. A deliberately
 source-free chapter (an epilogue, say) sets `unsourced: true` in its
 frontmatter. Images are normal Markdown images
 on /photos/… paths.

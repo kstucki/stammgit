@@ -1,3 +1,9 @@
-node_modules/
+node_modules
 .env
 public/data/
+
+dist/
+public/index.html
+public/assets/ui/
+test-results/
+playwright-report/

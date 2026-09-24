@@ -278,6 +278,7 @@ export function buildFamGraph(people, visible, { placeholderRoots = [] } = {}) {
 }
 
 // Layers from fixed generations (relative to the focus person), then barycenter ordering.
+/** @param {Map<string, number> | null} personGen */
 export function layoutGraph(graph, measure, personGen = null) {
   const { nodes, edges } = graph;
   const rings = graph.rings || [];
@@ -502,7 +503,7 @@ export function layoutGraph(graph, measure, personGen = null) {
   // Effort scaling: very large graphs skip the expensive optimization stages
   // (cascade transpose, extra starts) – a few more crossings, but seconds
   // instead of minutes. Quality is unchanged below the threshold.
-  const hugeGraph = nodes.length > 400;
+  const hugeGraph = nodes.length > 600;
   const permLimit = 6;
   const transposeIters = 8;
   const transpose = (withPerms = true) => {

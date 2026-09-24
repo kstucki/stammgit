@@ -1,0 +1,49 @@
+/* Archive views and editors; the shared graph surface is styled in app.css. */
+.workspace { color: #24392f; }
+.workspace input, .workspace select, .workspace textarea { font: inherit; color: inherit; background: #fffef9; padding: .6rem; border: 1px solid #9cae9d; border-radius: .4rem; max-width: 100%; min-width: 0; }
+.workspace label { display: grid; gap: .3rem; margin: .8rem 0; }
+.workspace label input, .workspace label textarea { width: 100%; }
+.workspace button, .workspace .button-link { font: inherit; border: 1px solid #aab8a8; border-radius: .4rem; padding: .55rem .85rem; background: #eef2e7; color: #254c38; text-decoration: none; }
+.workspace button:disabled { opacity: .5; cursor: default; }
+.workspace .danger { color: #8c2a28; border-color: #c58a7d; }
+.workspace .card, .workspace .relation-box { border: 1px solid #cdd2c6; padding: 1rem; border-radius: .6rem; background: #fffef9; margin: 1rem 0; }
+.workspace h2 { font: 500 1.8rem/1.3 ui-serif, Georgia, serif; }
+.workspace .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .7rem 0; }
+.workspace .toolbar > input, .workspace .toolbar > select { flex: 1; min-width: min(12rem, 100%); }
+.workspace .editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .7rem; }
+.workspace fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.workspace .search-holder { position: relative; flex: 1; min-width: min(18rem, 100%); }
+.workspace .search-holder input { width: 100%; }
+.workspace .search-suggest { position: absolute; z-index: 5; background: white; border: 1px solid #9cae9d; box-shadow: 0 4px 10px #0002; width: 100%; }
+.workspace .search-suggest button { display: block; width: 100%; text-align: left; border: 0; background: white; }
+.workspace .search-suggest button:hover { background: #edf0e7; }
+.workspace .picker-list { display: grid; gap: .3rem; max-height: 55dvh; overflow: auto; margin: 1rem 0; }
+.workspace.native-dialog { width: min(52rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); border: 1px solid #93a38f; border-radius: .8rem; padding: 1.5rem; background: #fffef9; }
+.workspace.native-dialog::backdrop { background: #0c211bb8; }
+.workspace .dialog-close { position: sticky; top: 0; float: right; z-index: 10; font-size: 1.4rem; }
+.workspace .portrait { width: 90px; height: 90px; object-fit: cover; }
+.workspace .photo-crop canvas { width: min(260px, 100%); aspect-ratio: 1; border-radius: .5rem; touch-action: none; cursor: grab; }
+.workspace .relation-annotation { padding: .7rem 0; border-bottom: 1px solid #d9ded2; }
+.workspace .chronicle-chapter, .workspace .chronicle { max-width: 54rem; margin: 1.5rem auto; }
+.chronicle-workspace { max-width: 54rem; margin-inline: auto; }
+.workspace .chronicle img { max-width: 100%; }
+.workspace .chapter-content { overflow-wrap: anywhere; }
+.workspace .chapter-content img { max-width: 100%; height: auto; }
+.workspace .chronicle-figure { width: min(100%, 42rem); margin: 2rem auto; }
+.workspace .chronicle-figure img { display: block; width: 100%; height: 28rem; object-fit: contain; background: #e8e9df; border-radius: .5rem; }
+.workspace .chronicle-figure figcaption { padding: .65rem .25rem 0; color: #56665e; font-size: .875rem; line-height: 1.55; text-align: left; }
+.workspace .chronicle-nav { justify-content: center; gap: .75rem; margin: 2rem auto .75rem; padding-top: 1.25rem; border-top: 1px solid #d5d5c8; }
+.workspace .chronicle-nav button { max-width: 20rem; min-height: 2.75rem; overflow-wrap: anywhere; }
+.workspace .chronicle-edit { text-align: center; }
+.workspace .chronicle-preview { border: 1px solid #cdd2c6; padding: 1rem; margin: 1rem 0; }
+.workspace .chronicle-broken { color: #a12d2d; text-decoration: underline wavy; }
+@media (max-width: 600px) {
+  .workspace .chronicle-figure { margin-block: 1.5rem; }
+  .workspace .chronicle-figure img { height: auto; }
+  .workspace .chronicle-nav button { flex: 1 1 8rem; }
+}
+
+.connection-picker { display: flex; align-items: flex-start; gap: .5rem; margin: 1rem 0; }
+.connection-picker .family-search { flex: 1; min-width: 0; }
+.connections-view .graph-tools p { margin: .5rem 0; }
+.connections-view .graph-roots button { min-height: 44px; }

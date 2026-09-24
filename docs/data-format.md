@@ -26,9 +26,16 @@ See the [complete demo dataset](../data/trees/napoleon.yaml) for examples.
 
 ## Relationships
 
-Keep parent/child and partner references reciprocal. Partner order matters:
-the graph uses mutual first choices to form marriage boxes; further partners
-remain connected by rings. See the [graph rules](architecture.md#box-rule-one-box-per-marriage).
+Keep parent/child and partner references reciprocal and preserve partner order.
+Every person has one card, with all documented partnerships and parent families.
+See the [graph rules](architecture.md#graph-rules).
+
+Optional `parentDetails` records each parent edge (`type`, `label`, `sources`);
+`parentGroups` explicitly groups parent IDs into families. Supported parent types
+are `biological`, `adoptive`, `guardian`, `other` and `unknown`. Optional
+`partnerDetails` records `kind` (`marriage`, `partnership`, `unknown`), `status`,
+`start` and `end` per partner. Missing types stay unknown; editing another field
+does not fill them in. GEDCOM roundtrips preserve supported relationship metadata.
 
 Keep existing IDs when correcting a name. Notes are lists of text entries.
 Attach sources to the people whose facts they support; leave unknown details

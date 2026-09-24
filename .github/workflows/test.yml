@@ -10,6 +10,35 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run build
+      - run: npm run test:server
+  browser:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: desktop, mode: production, engine: chromium }
+          - { project: mobile, mode: production, engine: webkit }
+          - { project: desktop, mode: dev, engine: chromium }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - run: npm run test:e2e -- --project=${{ matrix.project }}
+        env:
+          STAMMGIT_TEST_MODE: ${{ matrix.mode }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failures-${{ matrix.project }}-${{ matrix.mode }}
+          path: test-results/
+          retention-days: 7

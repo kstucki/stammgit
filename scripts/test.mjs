@@ -6,6 +6,7 @@ import YAML from "yaml";
 import { exportGedcom, importGedcom } from "../public/assets/gedcom.js";
 import { buildFamGraph, layoutGraph, computeGenerations } from "../public/assets/graph.js";
 import { validateDataset } from "../netlify/shared/validate.mjs";
+import { personSources } from "../public/assets/relationships.js";
 import { resolveTarget } from "../netlify/shared/upload-rules.mjs";
 
 import { lineRootIds, validateExtraLines, defaultRootIds, validateDefaultPersons } from "../public/assets/view-config.js";
@@ -33,6 +34,9 @@ const ids = new Set(Object.keys(data.people || {}));
 for (const [tid, tree] of Object.entries(trees)) {
   for (const problem of validateDataset(tree, { label: tid })) check(false, problem);
   for (const [pid, p] of Object.entries(tree.people || {})) {
+    for (const source of personSources(p)) {
+      if (source.url.startsWith("/sources/")) check(fs.existsSync(path.join(root, "public", source.url)), `${tid}: '${pid}' source ${source.url} is missing.`);
+    }
     const m = p.photo !== undefined && String(p.photo).match(/^\/photos\/([a-zA-Z0-9._-]+\.(?:png|jpe?g))$/);
     if (m) {
       check(fs.existsSync(path.join(root, "public", "photos", m[1])),
@@ -76,42 +80,17 @@ for (const [tid, tree] of Object.entries(trees)) {
   }
 }
 
-// --- 3) app.js: every called own function is defined ---
+// --- 3) Native entry and compatibility links ---
+// The old regex for app.js calls is superseded by svelte-check + tsc in build.
+// Vite fingerprints native JS/CSS; the manually synchronized ?v= chain is gone.
 {
-  const appJs = fs.readFileSync(path.join(root, "public", "assets", "app.js"), "utf8");
-  const defined = new Set([...appJs.matchAll(/function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(m => m[1]));
-  for (const m of appJs.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\(|function)/g)) defined.add(m[1]);
-  for (const imp of appJs.matchAll(/import\s*\{([^}]+)\}\s*from/g)) {
-    imp[1].split(",").forEach(n => defined.add(n.trim().split(/\s+as\s+/).pop()));
-  }
-  const calls = new Set([...appJs.matchAll(/(?<![.\w$])([a-z][\w$]*)\s*\(/g)].map(m => m[1]));
-  const builtins = new Set(["fetch","alert","confirm","prompt","esc","require","import","parseInt","parseFloat",
-    "setTimeout","clearTimeout","structuredClone","btoa","atob","encodeURIComponent","decodeURIComponent",
-    "isNaN","String","Number","Boolean","unique","years"]);
-  for (const c of calls) {
-    if (defined.has(c) || builtins.has(c)) continue;
-    if (["if","for","while","switch","catch","return","new","function","async","await","typeof"].includes(c)) continue;
-    if (/^(render|open|wire|zoom|person|couple|ancestor|root|top|is|get|to|directAncestor|branch|download|partner|export|import|split|gedcom|local|save|load|update|apply|remove|merge|absorb|count|known|resolve|draft|strings)/.test(c)) {
-      check(defined.has(c), `app.js calls undefined function '${c}()'.`);
-    }
-  }
-}
-
-// --- 3b) Cache busters move together ---
-// Bumping index.html but not the module imports (or the other way round) has
-// silently shipped stale assets more than once. One version for all of them.
-{
-  const files = ["public/index.html", "public/assets/app.js"];
-  const found = new Map();
-  for (const rel of files) {
-    const text = fs.readFileSync(path.join(root, rel), "utf8");
-    for (const m of text.matchAll(/\/assets\/[a-zA-Z.-]+\?v=(\d+)/g)) {
-      found.set(`${rel}: ${m[0]}`, m[1]);
-    }
-  }
-  const versions = new Set(found.values());
-  check(versions.size <= 1,
-    `cache busters disagree (${[...versions].join(", ")}): ${[...found.keys()].join(" | ")}`);
+  const entry = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const legacy = fs.readFileSync(path.join(root, "public/legacy.html"), "utf8");
+  const redirect = fs.readFileSync(path.join(root, "public/assets/legacy-redirect.js"), "utf8");
+  check(entry.includes('/src/main.ts'), "native entry must load the typed Svelte application.");
+  check(!fs.existsSync(path.join(root, "public/assets/app.js")), "legacy DOM owner must stay removed.");
+  check(!legacy.includes('app.js') && legacy.includes('legacy-redirect.js'), "old URLs must only redirect.");
+  check(redirect.includes('location.search') && redirect.includes('location.hash'), "compatibility redirect must preserve query and anchor.");
 }
 
 // --- 4) Model operations (shared with the app) ---
@@ -377,35 +356,35 @@ for (const [tid, tree] of Object.entries(trees)) {
 {
   const fail = (msg) => check(false, msg);
   const ppl = {
-    // Mutual first choice: eli+greg and carla+smith box up; uli's first
+    // Mutual first choice: partner_c+partner_d and partner_b+partner_e box up; partner_a's first
     // choices are both taken, he stays single with two rings. kid1
-    // descends from the carla+smith box, kid2 from the carla+uli ring.
-    eli:   { name: "Eli",   partners: ["greg", "uli"] },
-    greg:  { name: "Greg",  partners: ["eli"] },
-    uli:   { name: "Uli",   partners: ["carla", "eli"], children: ["kid2"] },
-    carla: { name: "Carla", partners: ["smith", "uli"], children: ["kid1", "kid2"] },
-    smith: { name: "Smith", partners: ["carla"], children: ["kid1"] },
-    kid1:  { name: "Kid1", parents: ["carla", "smith"] },
-    kid2:  { name: "Kid2", parents: ["carla", "uli"] }
+    // descends from the partner_b+partner_e box, kid2 from the partner_b+partner_a ring.
+    partner_c:   { name: "Partner C",   partners: ["partner_d", "partner_a"] },
+    partner_d:  { name: "Partner D",  partners: ["partner_c"] },
+    partner_a:   { name: "Partner A",   partners: ["partner_b", "partner_c"], children: ["kid2"] },
+    partner_b: { name: "Partner B", partners: ["partner_e", "partner_a"], children: ["kid1", "kid2"] },
+    partner_e: { name: "Partner E", partners: ["partner_b"], children: ["kid1"] },
+    kid1:  { name: "Kid1", parents: ["partner_b", "partner_e"] },
+    kid2:  { name: "Kid2", parents: ["partner_b", "partner_a"] }
   };
   const vis = new Set(Object.keys(ppl));
   const g = buildFamGraph(ppl, vis, {});
   const sizes = g.nodes.map((n) => n.persons.length);
   if (Math.max(...sizes) > 2) fail("marriage boxes: a box must hold at most one couple.");
-  if (g.homeOf.get("eli") !== g.homeOf.get("greg")) fail("marriage boxes: eli+greg must share a box (first-listed partnership).");
-  if (g.homeOf.get("carla") !== g.homeOf.get("smith")) fail("marriage boxes: carla+smith must share a box (mutual first choice).");
-  if (g.nodes.find((n) => n.persons.includes("uli")).persons.length !== 1) fail("marriage boxes: uli must stay single.");
+  if (g.homeOf.get("partner_c") !== g.homeOf.get("partner_d")) fail("marriage boxes: partner_c+partner_d must share a box (first-listed partnership).");
+  if (g.homeOf.get("partner_b") !== g.homeOf.get("partner_e")) fail("marriage boxes: partner_b+partner_e must share a box (mutual first choice).");
+  if (g.nodes.find((n) => n.persons.includes("partner_a")).persons.length !== 1) fail("marriage boxes: partner_a must stay single.");
   const ringKey = (a, b) => `ring:${[a, b].sort().join("|")}`;
   const ringIds = new Set(g.rings.map((r) => r.id));
-  if (!ringIds.has(ringKey("eli", "uli")) || !ringIds.has(ringKey("carla", "uli")) || g.rings.length !== 2) {
+  if (!ringIds.has(ringKey("partner_c", "partner_a")) || !ringIds.has(ringKey("partner_b", "partner_a")) || g.rings.length !== 2) {
     fail("marriage boxes: exactly the two leftover marriages must become rings.");
   }
   const drawn = g.edges.filter((e) => !e.layoutOnly);
   const toKid1 = drawn.filter((e) => e.to === g.homeOf.get("kid1"));
-  if (toKid1.length !== 1 || toKid1[0].ring) fail("marriage boxes: kid1 must descend from the carla+smith box (one edge).");
+  if (toKid1.length !== 1 || toKid1[0].ring) fail("marriage boxes: kid1 must descend from the partner_b+partner_e box (one edge).");
   const toKid2 = drawn.filter((e) => e.to === g.homeOf.get("kid2"));
-  if (toKid2.length !== 1 || toKid2[0].ring !== ringKey("carla", "uli")) {
-    fail("marriage boxes: kid2 must descend from the carla+uli ring (one edge).");
+  if (toKid2.length !== 1 || toKid2[0].ring !== ringKey("partner_b", "partner_a")) {
+    fail("marriage boxes: kid2 must descend from the partner_b+partner_a ring (one edge).");
   }
   const count = new Map();
   for (const n of g.nodes) for (const pid of n.persons) count.set(pid, (count.get(pid) || 0) + 1);

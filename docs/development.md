@@ -2,38 +2,44 @@
 
 [Back to README](../README.md)
 
-Install dependencies with `npm install` and configure `.env` as described
-in the [setup guide](setup.md). Then:
+Use Node 24 LTS (supported versions are in `package.json`). Install with
+`npm ci` and configure `.env` as described in [setup.md](setup.md).
 
 ```bash
-npm test         # dataset integrity, GEDCOM roundtrip, model ops, auth, layout
-npm run build    # tests plus generated data
-node server.mjs
+npm run dev       # authenticated local server + Vite, localhost:8888
+npm start         # production build + local server
+npm run build     # data checks/build, Svelte/TS, unit tests, Vite
+npm test          # data integrity, GEDCOM, model, auth, chronicle, compact layout
+npm run test:unit # pure graph, state, relationship and data-access tests
+npm run test:server # isolated local HTTP/save smoke checks
 ```
 
-## Changes and validation
-
-The working rules — build after every change, tests for new behavior,
-bilingual UI strings, consistent cache versions, data conventions — are in
-[AGENTS.md](../AGENTS.md); they apply to humans and agents alike. Graph
-behavior is specified in [architecture.md](architecture.md); change the
-rules there before the code.
-
-For graph changes, compare metrics before and after:
+Frontend code lives in `src/`; edit `index.html`, not generated
+`public/index.html`. Vite hashes browser assets. Keep `public/` content intact.
+Read [AGENTS.md](../AGENTS.md) and [architecture.md](architecture.md) before
+changing graph behavior. UI strings stay bilingual in `public/assets/strings.js`.
 
 ```bash
+npx playwright install --with-deps chromium webkit
+npm run test:e2e       # desktop Chromium and mobile WebKit, production build
+npm run test:e2e:dev   # desktop Chromium, Vite mode
 npm run metrics -- data/trees/napoleon.yaml
-# For an instance with accepted layout limits:
-npm run metrics -- data/trees/<tree>.yaml --check <checks.yaml>
 ```
 
-Metrics are manual, not part of build or CI. See
-[layout-checks.example.yaml](../scripts/layout-checks.example.yaml) for the format.
+Writable tests must use `scripts/serve-test.mjs`: it copies only source and
+synthetic fixtures into a temporary directory, clears GitHub credentials and
+initializes a fresh Git repository without remotes on `fixture-save`. It never
+copies `.env`, existing Git history or instance content. External browser requests
+are blocked. Never aim writing tests at a personal running server or the demo.
 
-## Editing and sync
+The screenshot references mask card text and cover synthetic connection geometry
+at a fixed viewport height; separate camera tests cover actual responsive sizing.
+Refresh references only after reviewing the resulting geometry.
 
-Drafts and pending uploads live in one browser profile until synced.
-A sync based on an outdated central state is rejected rather than
-overwriting newer changes. Git history keeps published states recoverable.
-Locally, Sync can write to the working directory; `LOCAL_GIT=1` also creates
-commits. See [local setup](setup.md#local).
+Metrics are manual, not part of CI. They measure the historical compact layout,
+not Svelte cards. Use `--check <file>` for instance-specific limits; see
+[scripts/layout-checks.example.yaml](../scripts/layout-checks.example.yaml).
+
+Drafts and pending uploads remain in one browser profile until Sync. Stale-base
+saves are rejected. Locally, Sync can write files; `LOCAL_GIT=1` also commits on
+the checked-out branch. See [setup.md](setup.md#local).

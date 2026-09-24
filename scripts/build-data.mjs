@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
+import { personSources } from "../public/assets/relationships.js";
 import { contentHash } from "../netlify/shared/content-hash.mjs";
 
 import { validateExtraLines, validateDefaultPersons } from "../public/assets/view-config.js";
@@ -25,7 +26,7 @@ for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).s
   index.push({ id, title: data.meta?.title || id, people: Object.keys(data.people || {}).length, contentHash: contentHash(raw) });
   for (const p of Object.values(data.people || {})) {
     if (p.photo) photoRefs.add(p.photo);
-    for (const s of p.sources || []) {
+    for (const s of personSources(p)) {
       sourceLinks[s.url] = sourceLinks[s.url] || {};
       sourceLinks[s.url][id] = (sourceLinks[s.url][id] || 0) + 1;
     }

@@ -2,7 +2,8 @@
 //   npm run build && node server.mjs   →  http://localhost:8888
 // Serves public/, mounts the same serverless handlers under
 // /.netlify/functions/* and enforces the auth cookie like the edge function.
-// Requires Node 18+. Configuration via environment variables or a .env file.
+// npm run dev adds Vite on the same authenticated origin. Configuration via
+// environment variables or a .env file; see package.json for supported Node.
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +27,8 @@ if (fs.existsSync(envFile)) {
 }
 
 const PORT = Number(process.env.PORT || 8888);
+const DEV = process.argv.includes("--dev");
+let vite = null;
 
 // --- Local write mode -------------------------------------------------------
 // When this standalone server runs WITHOUT GitHub credentials, "Sync" writes
@@ -92,7 +95,9 @@ const LOCAL_FNS = {
       return jsonResponse({ error: `Validation failed – nothing was saved:\n${output}` }, 422);
     }
     const git = gitCommit(`Update dataset ${tree} (local)`);
-    return jsonResponse({ ok: true, mode: "local", contentHash: contentHash(YAML.stringify(data, { lineWidth: 0 })), ...git });
+    const branch = spawnSync("git", ["branch", "--show-current"], { cwd: root, encoding: "utf8" });
+    return jsonResponse({ ok: true, mode: "local", branch: branch.status === 0 ? branch.stdout.trim() || null : null,
+      contentHash: contentHash(YAML.stringify(data, { lineWidth: 0 })), ...git });
   },
   "upload-source": async (request) => {
     const forbidden = await requireAdmin(request);
@@ -173,7 +178,7 @@ async function sessionRole(req) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const pathname = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    const pathname = path.posix.normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
 
     // Serverless handlers
     const fnMatch = pathname.match(/^\/\.netlify\/functions\/([a-z0-9-]+)$/);
@@ -196,10 +201,17 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
         return res.end("FAMILY_TREE_PASSWORD is not set (environment or .env file).");
       }
-      if (!(await sessionRole(req))) {
+      const role = await sessionRole(req);
+      if (!role) {
         res.writeHead(302, { location: "/login.html" });
         return res.end();
       }
+    }
+
+    if (vite && (pathname === "/" || pathname === "/index.html")) {
+      const html = await vite.transformIndexHtml(pathname, fs.readFileSync(path.join(root, "index.html"), "utf8"));
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      return res.end(html);
     }
 
     // Static files from public/
@@ -210,6 +222,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(403); return res.end();
     }
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      if (vite) {
+        return vite.middlewares(req, res, () => {
+          res.writeHead(404); res.end("Not found");
+        });
+      }
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       return res.end("Not found");
     }
@@ -224,6 +241,15 @@ const server = http.createServer(async (req, res) => {
     res.end("Internal error");
   }
 });
+
+if (DEV) {
+  const { createServer } = await import("vite");
+  vite = await createServer({
+    appType: "custom",
+    server: { middlewareMode: true, hmr: { server } },
+  });
+  server.on("close", () => { void vite.close(); });
+}
 
 server.listen(PORT, () => {
   console.log(`stammgit running at http://localhost:${PORT}`);

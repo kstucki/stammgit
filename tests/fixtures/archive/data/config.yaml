@@ -1,0 +1,8 @@
+language: de
+title: Testarchiv
+eyebrow: Familienarchiv
+defaultTree: demo
+overview:
+  heading: Testarchiv
+  intro: Eine kleine Testfamilie.
+  extraLines: []

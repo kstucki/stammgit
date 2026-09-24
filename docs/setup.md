@@ -13,6 +13,8 @@ Forks of public repositories are public, so use a private copy for family data.
 
 ## Local
 
+Use Node 24 LTS; `package.json` lists supported Node versions.
+
 ```bash
 git clone https://github.com/kstucki/stammgit.git
 cd stammgit
@@ -42,6 +44,9 @@ Connect your private repository to Netlify and set:
 
 For a **public demo**, set only the two passwords and never `GITHUB_*`:
 everyone gets the admin experience, nothing can be written.
+
+Netlify still builds with `npm run build` and publishes `public/`. Its build
+environment uses Node 24; generated assets do not replace your content folders.
 
 Static-only hosts are not supported: authentication and sync need the local
 server or Netlify functions. Drafts, including uploads, live in one browser

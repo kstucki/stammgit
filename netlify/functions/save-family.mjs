@@ -100,6 +100,8 @@ export default async (request) => {
 
   return Response.json({
     ok: true,
+    mode: "github",
+    branch,
     commit: result?.commit?.sha?.slice(0, 10) || null,
     contentHash: contentHash(yamlText)
   });
