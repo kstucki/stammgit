@@ -2,14 +2,13 @@
   import type { Workspace } from '../state/workspace.svelte';
   import { sourceDocuments } from '../domain/sources';
   import { sourceUrl } from '../data/family';
-  let { store, onperson }: { store: Workspace; onperson(id: string): void } = $props();
-  let query = $state('');
+  let { store, onperson, query = $bindable('') }: { store: Workspace; onperson(id: string): void; query?: string } = $props();
+  $effect(() => { history.replaceState({ ...history.state, sourcesQuery: query }, ''); });
   let entries = $derived(sourceDocuments(store.dataset.people));
   let shown = $derived(entries.filter(doc => [doc.label, doc.url, ...doc.persons.map(id => store.dataset.people[id].name || id)].some(text => text.toLowerCase().includes(query.trim().toLowerCase()))));
 </script>
 <section class="workspace" aria-busy={store.fileBusy > 0}>
   <h2>{store.t.get('sources')}</h2>
-  <input id="sourcesSearch" type="search" bind:value={query} aria-label={store.t.get('sourcesSearchPlaceholder')} placeholder={store.t.get('sourcesSearchPlaceholder')} />
   {#if !shown.length}<p>{store.t.get('noHits')}</p>{/if}
   {#each shown as doc (doc.url)}
     <section class="card source-doc">

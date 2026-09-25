@@ -1,16 +1,23 @@
-// Native scrolling and mouse dragging only. Zoom belongs to the visible controls.
-export function cardCamera(viewport: HTMLElement) {
+// Native scrolling/mouse dragging, with pinch delegated to the shared zoom owner.
+interface PinchZoom { getScale(): number; zoom(scale: number, anchor: { x: number; y: number }): void }
+export function cardCamera(viewport: HTMLElement, zoom?: PinchZoom) {
   const abort = new AbortController(), signal = abort.signal;
   let moved = false;
+  let pinch: { distance: number; scale: number } | null = null;
+  let gestureScale = 1;
+  const anchor = (x: number, y: number) => { const r = viewport.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; };
+  const distance = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
   let drag: { x: number; y: number; left: number; top: number } | null = null;
   viewport.addEventListener('wheel', event => {
     // Trackpad pinch arrives as Ctrl-wheel in Chromium. Ordinary wheel events
     // keep their native two-axis scroll behavior, including momentum.
-    if (event.ctrlKey) event.preventDefault();
+    if (event.ctrlKey) { event.preventDefault(); zoom?.zoom(zoom.getScale() * Math.exp(-event.deltaY * .01), anchor(event.clientX, event.clientY)); }
   }, { passive: false, signal });
-  for (const type of ['gesturestart', 'gesturechange']) {
-    viewport.addEventListener(type, event => event.preventDefault(), { passive: false, signal });
-  }
+  viewport.addEventListener('gesturestart', event => { event.preventDefault(); gestureScale = zoom?.getScale() || 1; }, { passive: false, signal });
+  viewport.addEventListener('gesturechange', event => {
+    event.preventDefault(); const gesture = event as Event & { scale: number; clientX: number; clientY: number };
+    if (!pinch) zoom?.zoom(gestureScale * gesture.scale, anchor(gesture.clientX, gesture.clientY));
+  }, { passive: false, signal });
   viewport.addEventListener('pointerdown', event => {
     moved = false;
     if (event.pointerType !== 'touch' && event.button === 0) {
@@ -29,11 +36,19 @@ export function cardCamera(viewport: HTMLElement) {
   }, { capture: true, signal });
   viewport.addEventListener('dragstart', event => event.preventDefault(), { signal });
   viewport.addEventListener('touchstart', event => {
-    if (event.touches.length > 1) moved = true;
-  }, { passive: true, signal });
+    if (event.touches.length === 2) {
+      moved = true; event.preventDefault();
+      pinch = { distance: distance(event.touches), scale: zoom?.getScale() || 1 };
+    }
+  }, { passive: false, signal });
   viewport.addEventListener('touchmove', event => {
     moved = true;
-    if (event.touches.length > 1) event.preventDefault();
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      if (pinch && pinch.distance) zoom?.zoom(pinch.scale * distance(event.touches) / pinch.distance,
+        anchor((event.touches[0].clientX + event.touches[1].clientX) / 2, (event.touches[0].clientY + event.touches[1].clientY) / 2));
+    }
   }, { passive: false, signal });
-  return { destroy: () => abort.abort() };
+  for (const type of ['touchend', 'touchcancel']) viewport.addEventListener(type, () => { pinch = null; }, { signal });
+  return { update(value: PinchZoom) { zoom = value; }, destroy: () => abort.abort() };
 }

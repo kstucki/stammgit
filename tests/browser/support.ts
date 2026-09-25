@@ -19,7 +19,7 @@ export async function login(page: Page, password = 'fixture-admin') {
   await page.goto('/');
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('heading', { name: 'Testarchiv', exact: true })).toBeVisible();
+  await expect(page.locator('.archive-navigation')).toBeVisible();
 }
 
 export async function openGraphPerson(page: Page, id: string, touch = false) {
@@ -47,6 +47,16 @@ export async function expectFamilyHeightFits(page: Page) {
 }
 
 export async function selectGraphView(page: Page, mode: string) {
-  const labels: Record<string, string> = { family: 'Familie', hourglass: 'Vorfahren & Nachkommen', descendants: 'Nachkommen', ancestors: 'Vorfahren', connections: 'Verbindungen' };
+  const labels: Record<string, string> = { family: 'Familie', hourglass: 'Sanduhr', descendants: 'Nachkommen', ancestors: 'Ahnen', connections: 'Verbindung' };
   await page.getByRole('radiogroup', { name: 'Ansicht', exact: true }).getByRole('radio', { name: labels[mode], exact: true }).check();
+}
+
+export async function changeZoom(page: Page, factor: number) {
+  const button = page.getByRole('button', { name: factor > 1 ? 'Vergrössern' : 'Verkleinern', exact: true });
+  if (await button.isVisible()) { await button.click(); return; }
+  await page.locator('.family-viewport').evaluate((v, factor) => {
+    const box = v.getBoundingClientRect();
+    v.dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: -Math.log(factor) * 100,
+      clientX: box.left + v.clientWidth / 2, clientY: box.top + v.clientHeight / 2, bubbles: true, cancelable: true }));
+  }, factor);
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm run build:data && npm run check && npm run test:unit && node scripts/build-frontend.mjs",
     "build:data": "npm test && node scripts/build-data.mjs",
-    "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.tools.json",
+    "check": "node scripts/check-design.mjs && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.tools.json",
     "test": "node scripts/test.mjs",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
@@ -14,7 +14,8 @@
     "start": "npm run build && node server.mjs",
     "dev": "npm run build:data && node server.mjs --dev",
     "metrics": "node scripts/layout-metrics.mjs",
-    "test:server": "node scripts/test-server.mjs"
+    "test:server": "node scripts/test-server.mjs",
+    "thumbnails": "node scripts/thumbnails.mjs"
   },
   "engines": {
     "node": "^20.19.0 || ^22.12.0 || >=24.0.0"

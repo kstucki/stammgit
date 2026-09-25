@@ -8,14 +8,15 @@
   import { freeResize } from '../data/images.js';
   import ChapterContent from './ChapterContent.svelte';
   let { store, file, chapters, ondone, oncancel, onperson }: { store: Workspace; file: string; chapters: ChronicleIndex; ondone(file: string): void; oncancel(): void; onperson(id: string): void } = $props();
-  let title = $state(''), date = $state(''), body = $state(''), unsourced = $state(false), loading = $state(true), busy = $state(false), status = $state(''), preview = $state(false);
+  let frontmatter = $state<Record<string, string>>({});
+  let title = $state(''), subtitle = $state(''), date = $state(''), body = $state(''), unsourced = $state(false), loading = $state(true), busy = $state(false), status = $state(''), preview = $state(false);
   let personQuery = $state(''), source = $state(''), photos = $state<FileList>(), area: HTMLTextAreaElement;
   let documents = $derived(sourceDocuments(store.dataset.people));
   let matches = $derived(personQuery.trim() ? Object.keys(store.dataset.people).filter(id => (store.dataset.people[id].name || id).toLowerCase().includes(personQuery.trim().toLowerCase())).sort((a, b) => (store.dataset.people[a].name || a).localeCompare(store.dataset.people[b].name || b)).slice(0, 8) : []);
   onMount(() => {
     const controller = new AbortController();
     async function load() {
-      try { if (file) { const parsed = parseChapter(await chapterText(store.tree, file, controller.signal)); if (controller.signal.aborted) return; title = parsed.frontmatter.title || ''; date = parsed.frontmatter.date || ''; unsourced = parsed.frontmatter.unsourced === 'true'; body = parsed.body.trim(); } loading = false; }
+      try { if (file) { const parsed = parseChapter(await chapterText(store.tree, file, controller.signal)); if (controller.signal.aborted) return; frontmatter = parsed.frontmatter; subtitle = parsed.frontmatter.subtitle || ''; title = parsed.frontmatter.title || ''; date = parsed.frontmatter.date || ''; unsourced = parsed.frontmatter.unsourced === 'true'; body = parsed.body.trim(); } loading = false; }
       catch (error) { if (!controller.signal.aborted) status = store.t.get('chronicleLoadFailed'); }
     }
     void load(); return () => controller.abort();
@@ -37,7 +38,7 @@
   async function save() {
     busy = true;
     try {
-      const candidate = chapterCandidate({ file, title, date, body, unsourced }, store.snapshot(), chapters, store.t);
+      const candidate = chapterCandidate({ file, title, date, body, unsourced, frontmatter: { ...frontmatter, subtitle: subtitle.trim() } }, store.snapshot(), chapters, store.t);
       await stageChapter(store.tree, candidate); await store.refreshFiles();
       store.chronicle = { ...store.chronicle, ...candidate.set };
       store.edit(() => {}); ondone(candidate.file);
@@ -49,6 +50,7 @@
   {#if loading && !status}<p role="status">{store.t.get('chronicleLoading')}</p>{/if}
   <fieldset disabled={loading || busy}>
     <label>{store.t.get('chapterTitle')}<input id="chTitle" bind:value={title} /></label>
+    <label>{store.t.get('chapterSubtitle')}<input id="chSubtitle" bind:value={subtitle} /></label>
     <label>{store.t.get('chapterDate')}<input id="chDate" type="date" bind:value={date} /></label><button type="button" id="chDateClear" onclick={() => date = ''}>{store.t.get('chapterDateClear')}</button>
     <div class="toolbar"><div class="search-holder"><input id="chPerson" bind:value={personQuery} placeholder={store.t.get('chapterPersonPh')} aria-label={store.t.get('chapterPersonPh')} autocomplete="off" />
       {#if personQuery.trim()}<div id="chPersonResults" class="search-suggest">{#each matches as id}<button type="button" data-suggest={id} onclick={() => { void insert(`[[p:${id}]]`); personQuery = ''; }}>{store.dataset.people[id].name || id}</button>{/each}</div>{/if}</div>

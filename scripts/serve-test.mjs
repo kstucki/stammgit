@@ -22,7 +22,7 @@ for (const item of ['package.json', 'package-lock.json', 'server.mjs', 'index.ht
 fs.symlinkSync(path.join(source, 'node_modules'), path.join(fixture, 'node_modules'), 'dir');
 fs.mkdirSync(path.join(fixture, 'public/assets'), { recursive: true });
 for (const entry of fs.readdirSync(path.join(source, 'public/assets'), { withFileTypes: true })) {
-  if (entry.name === 'vendor' || /\.(js|css)$/.test(entry.name)) {
+  if (entry.name === 'vendor' || entry.name === 'source-thumbnails.json' || /\.(js|css)$/.test(entry.name)) {
     fs.cpSync(path.join(source, 'public/assets', entry.name), path.join(fixture, 'public/assets', entry.name), { recursive: true });
   }
 }

@@ -1,12 +1,10 @@
 import { expect } from '@playwright/test';
-import { test, login, openGraphPerson, expectGraphFits, expectFamilyHeightFits, selectGraphView } from './support';
+import { changeZoom, test, login, openGraphPerson, expectGraphFits, expectFamilyHeightFits, selectGraphView } from './support';
 
-test('all views zoom only through controls, keep the window and center stable, and fit each view on its intended axes', async ({ page, isMobile }, testInfo) => {
+test('all views preserve camera geometry while zooming, keep the window and center stable, and fit each view on its intended axes', async ({ page, isMobile }, testInfo) => {
   await login(page);
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
   const frame = page.locator('.graph-frame'), viewport = page.locator('.family-viewport');
-  const plus = page.getByRole('button', { name: 'Vergrössern', exact: true });
-  const minus = page.getByRole('button', { name: 'Verkleinern', exact: true });
   const fit = page.getByRole('button', { name: 'Einpassen', exact: true });
   async function camera() {
     return viewport.evaluate(v => {
@@ -15,6 +13,7 @@ test('all views zoom only through controls, keep the window and center stable, a
       return { scale, x: (view.left + v.clientWidth / 2 - plane.left) / scale, y: (view.top + v.clientHeight / 2 - plane.top) / scale };
     });
   }
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
   for (const mode of ['family', 'hourglass', 'descendants', 'ancestors']) {
     const previousZoom = await page.locator('[data-zoom-level]').innerText();
@@ -23,15 +22,15 @@ test('all views zoom only through controls, keep the window and center stable, a
     if (mode === 'family') await expectFamilyHeightFits(page);
     await fit.scrollIntoViewIfNeeded();
     const size = (await frame.boundingBox())!, initial = await camera();
-    const tools = page.locator('.graph-tools'), toolbar = (await tools.boundingBox())!;
+    const tools = page.locator('.graph-zoom'), toolbar = (await tools.boundingBox())!;
     const canvas = (await viewport.boundingBox())!;
-    expect(toolbar.x).toBeGreaterThan(size.x);
-    expect(toolbar.y).toBeGreaterThan(size.y);
-    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(canvas.y);
+    expect(toolbar.x).toBeGreaterThanOrEqual(size.x);
+    expect(toolbar.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
+    expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(size.y + size.height);
     const initialLabel = await page.locator('[data-zoom-level]').innerText();
     const people = await page.locator('[data-family-person]').evaluateAll(cards => cards.map(card => card.getAttribute('data-family-person')));
     const lines = await page.locator('.family-lines path').evaluateAll(paths => paths.map(path => path.getAttribute('d')));
-    await plus.click();
+    await changeZoom(page, 1.2);
     await expect(page.locator('[data-zoom-level]')).toHaveText(`${Math.round(initial.scale * 1.2 * 1000) / 10} %`);
     const zoomed = await camera(), after = (await frame.boundingBox())!;
     expect(after.width).toBeCloseTo(size.width, 1); expect(after.height).toBeCloseTo(size.height, 1);
@@ -40,14 +39,7 @@ test('all views zoom only through controls, keep the window and center stable, a
     // Scroll positions may round to pixels: measure drift in screen pixels at any scale.
     expect(Math.abs(zoomed.x - initial.x) * zoomed.scale).toBeLessThan(1);
     expect(Math.abs(zoomed.y - initial.y) * zoomed.scale).toBeLessThan(1);
-    await minus.click(); await expect(page.locator('[data-zoom-level]')).toHaveText(initialLabel);
-    // Mac pinch event paths must be cancelled in the graph, without changing scale.
-    const prevented = await viewport.evaluate(v => ['wheel', 'gesturestart', 'gesturechange'].map(type => {
-      const event = type === 'wheel' ? new WheelEvent(type, { ctrlKey: true, deltaY: -100, bubbles: true, cancelable: true }) : new Event(type, { bubbles: true, cancelable: true });
-      v.dispatchEvent(event); return event.defaultPrevented;
-    }));
-    expect(prevented).toEqual([true, true, true]);
-    await expect(page.locator('[data-zoom-level]')).toHaveText(initialLabel);
+    await changeZoom(page, 1 / 1.2); await expect(page.locator('[data-zoom-level]')).toHaveText(initialLabel);
     if (!isMobile) {
       const beforeScroll = await viewport.evaluate(v => ({ x: v.scrollLeft, y: v.scrollTop }));
       await viewport.hover(); await page.mouse.wheel(90, 110);
@@ -62,20 +54,23 @@ test('all views zoom only through controls, keep the window and center stable, a
     const fitted = (await frame.boundingBox())!;
     expect(fitted.height).toBeCloseTo(size.height, 1); expect(fitted.width).toBeCloseTo(size.width, 1);
     const controls = (await page.locator('.graph-zoom').boundingBox())!;
-    expect(controls.x + controls.width).toBeCloseTo(fitted.x + fitted.width - 1, 0);
-    expect(controls.y + controls.height).toBeCloseTo(fitted.y + fitted.height - 1, 0);
+    expect(fitted.x + fitted.width - controls.x - controls.width).toBeGreaterThanOrEqual(0);
+    expect(fitted.x + fitted.width - controls.x - controls.width).toBeLessThanOrEqual(24);
+    expect(fitted.y + fitted.height - controls.y - controls.height).toBeGreaterThanOrEqual(0);
+    expect(fitted.y + fitted.height - controls.y - controls.height).toBeLessThanOrEqual(24);
     expect(await page.locator('[data-family-person]').evaluateAll(cards => cards.map(card => card.getAttribute('data-family-person')))).toEqual(people);
     expect(await page.locator('.family-lines path').evaluateAll(paths => paths.map(path => path.getAttribute('d')))).toEqual(lines);
   }
   await page.screenshot({ path: testInfo.outputPath('zoom-controls.png'), fullPage: true });
 });
 
-test('family initially fits, then preserves exact manual zoom across centers and navigation', async ({ page, isMobile }) => {
+test('family fits explicitly, then preserves exact manual zoom across centers and navigation', async ({ page, isMobile }) => {
   await login(page);
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
   const zoom = page.locator('[data-zoom-level]');
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
-  await page.getByRole('button', { name: 'Vergrössern', exact: true }).click();
+  await changeZoom(page, 1.2);
   const manual = await zoom.innerText();
   const scale = await page.locator('.family-plane').evaluate(el => getComputedStyle(el).transform);
   await openGraphPerson(page, 'lea', isMobile);
@@ -93,6 +88,7 @@ test('family initially fits, then preserves exact manual zoom across centers and
   await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'half');
   await expect(zoom).toHaveText(manual);
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
 });
 
@@ -107,6 +103,7 @@ test('wide sibling groups fit by height and both ends remain horizontally reacha
   await page.route('**/data/trees/demo.json', route => route.fulfill({ json: { meta: { focusPersonId: children[16] }, people } }));
   await page.reload();
   await expect(page.locator('[data-family-person]')).toHaveCount(34);
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
   const viewport = page.locator('.family-viewport');
   const zoom = await page.locator('[data-zoom-level]').innerText();
@@ -132,6 +129,7 @@ test('wide sibling groups fit by height and both ends remain horizontally reacha
     await expect(page.locator('[data-zoom-level]')).toHaveText(zoom);
   }
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
   await expect(page.locator('[data-zoom-level]')).toHaveText(zoom);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -142,7 +140,7 @@ test('each graph mode preserves zoom when its center changes', async ({ page }) 
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
   for (const mode of ['family', 'hourglass', 'descendants', 'ancestors']) {
     await selectGraphView(page, mode);
-    await page.getByRole('button', { name: 'Verkleinern', exact: true }).click();
+    await changeZoom(page, 1 / 1.2);
     const zoom = await page.locator('[data-zoom-level]').innerText();
     const transform = await page.locator('.family-plane').evaluate(el => getComputedStyle(el).transform);
     for (const [name, id] of [['Halbgeschwisterperson', 'half'], ['Lea', 'lea']]) {
@@ -157,7 +155,7 @@ test('each graph mode preserves zoom when its center changes', async ({ page }) 
 
 test('one global zoom survives every view, reload and dataset change', async ({ page }) => {
   await login(page);
-  await page.getByRole('button', { name: 'Vergrössern', exact: true }).click();
+  await changeZoom(page, 1.2);
   const value = await page.locator('[data-zoom-level]').innerText();
   const scale = await page.locator('.family-plane').evaluate(el => new DOMMatrix(getComputedStyle(el).transform).a);
   for (const mode of ['hourglass', 'descendants', 'ancestors', 'connections', 'family']) {

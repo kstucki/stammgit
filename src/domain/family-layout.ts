@@ -4,7 +4,8 @@ import type { FamilySlice } from './family';
 export const CARD_WIDTH = 228;
 export const CARD_HEIGHT = 174;
 const ROW = 310;
-const PAD = 36;
+// Keep the external 44px expansion controls and their 8px gap inside the canvas.
+const PAD = 60;
 export interface Point { x: number; y: number }
 export interface FamilyOrder { width: number; nodes: { id: string; x: number; gen: number }[] }
 export interface FamilyLayout {

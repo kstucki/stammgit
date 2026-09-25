@@ -24,6 +24,11 @@ people:
 
 See the [complete demo dataset](../data/trees/napoleon.yaml) for examples.
 
+Optional `gender` is `m`, `f` or `d`; omit it (or leave it empty) when unknown.
+The editor offers a selection. Unknown/diverse gender produces neutral relationship
+terms. GEDCOM uses `SEX M/F` and a private `_GENDER d` extension; merging conflicting known genders requires
+resolution rather than silently overwriting either value.
+
 ## Relationships
 
 Keep parent/child and partner references reciprocal and preserve partner order.

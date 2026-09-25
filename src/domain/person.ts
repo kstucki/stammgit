@@ -25,6 +25,10 @@ export interface Dataset {
   people: Record<string, Person>;
 }
 export interface Chapter {
+  subtitle?: string;
+  cover?: string;
+  author?: string;
+  year?: string;
   file: string;
   title: string;
   persons: string[];

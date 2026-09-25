@@ -1,6 +1,6 @@
 // Chronicle chapters: pure parsing and rendering, no DOM (testable in Node).
 // A chapter is a Markdown file with a small YAML-ish frontmatter block
-// (title, optional date) and [[p:person_id]] / [[s:source_url]] tokens in
+// (title, optional date/subtitle/cover/author/year) and person/source tokens in
 // the text that link into the tree.
 import { marked, Renderer } from "./vendor/marked.esm.js";
 

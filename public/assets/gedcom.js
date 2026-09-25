@@ -69,6 +69,7 @@ export function exportGedcom(data) {
     const p = people[id], { given, surname } = splitName(p.name);
     lines.push(`0 ${pointer(id)} INDI`, `1 NAME ${given} /${surname}/`);
     if (["m", "f"].includes(p.gender)) lines.push(`1 SEX ${p.gender.toUpperCase()}`);
+    if (p.gender === "d") lines.push("1 _GENDER d");
     if (p.birth) lines.push("1 BIRT", `2 DATE ${gedcomDate(p.birth)}`);
     if (p.death) lines.push("1 DEAT", `2 DATE ${gedcomDate(p.death)}`);
     if (p.occupation) lines.push(`1 OCCU ${p.occupation}`);
@@ -141,6 +142,7 @@ export function importGedcom(text) {
     }
     const occupation = textOf(find(record, "OCCU")); if (occupation) p.occupation = occupation;
     const sex = find(record, "SEX")?.value; if (["M", "F"].includes(sex)) p.gender = sex.toLowerCase();
+    if (find(record, "_GENDER")?.value === "d") p.gender = "d";
     const notes = all(record, "NOTE").map(textOf).filter(Boolean); if (notes.length) p.notes = notes;
     people[id] = p; byXref.set(record.xref, id); nodes.set(id, record);
     const detail = extension(record, "_STAMMBAUM_REL");

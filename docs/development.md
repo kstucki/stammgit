@@ -8,7 +8,7 @@ Use Node 24 LTS (supported versions are in `package.json`). Install with
 ```bash
 npm run dev       # authenticated local server + Vite, localhost:8888
 npm start         # production build + local server
-npm run build     # data checks/build, Svelte/TS, unit tests, Vite
+npm run build     # data, tokens/contrast, Svelte/TS, unit tests, Vite
 npm test          # data integrity, GEDCOM, model, auth, chronicle, compact layout
 npm run test:unit # pure graph, state, relationship and data-access tests
 npm run test:server # isolated local HTTP/save smoke checks
@@ -24,6 +24,7 @@ npx playwright install --with-deps chromium webkit
 npm run test:e2e       # desktop Chromium and mobile WebKit, production build
 npm run test:e2e:dev   # desktop Chromium, Vite mode
 npm run metrics -- data/trees/napoleon.yaml
+npm run thumbnails    # local PDF previews with Poppler; never in the hosted build
 ```
 
 Writable tests must use `scripts/serve-test.mjs`: it copies only source and

@@ -20,14 +20,14 @@ export async function hydrateChronicle(tree: string, published: ChronicleIndex |
     const chapters: Chapter[] = [];
     for (const file of config.chapters || []) {
       const text = await chapterText(tree, file), parsed = parseChapter(text);
-      chapters.push({ file, title: parsed.frontmatter.title || file, date: parsed.frontmatter.date || undefined,
+      chapters.push({ subtitle: parsed.frontmatter.subtitle, cover: parsed.frontmatter.cover, author: parsed.frontmatter.author, year: parsed.frontmatter.year, file, title: parsed.frontmatter.title || file, date: parsed.frontmatter.date || undefined,
         ...extractTokens(text), sections: extractHeadings(text).map(h => ({ id: h.id, text: h.text })) });
     }
     index = { chapters };
   }
   return index.chapters.length ? index : published;
 }
-export function chapterCandidate(input: { file: string; title: string; date: string; body: string; unsourced: boolean }, data: Dataset, set: ChronicleIndex, t: { get(key: string, values?: Record<string, string | number>): string }) {
+export function chapterCandidate(input: { file: string; title: string; date: string; body: string; unsourced: boolean; frontmatter?: Record<string, string> }, data: Dataset, set: ChronicleIndex, t: { get(key: string, values?: Record<string, string | number>): string }) {
   if (!input.title.trim()) throw new Error(t.get('chapterNeedTitle'));
   const tokens = extractTokens(input.body), unknown = tokens.persons.filter(id => !data.people[id]);
   if (unknown.length) throw new Error(t.get('chapterBadPersons', { ids: unknown.join(', ') }));
@@ -45,8 +45,9 @@ export function chapterCandidate(input: { file: string; title: string; date: str
   });
   if (bad.length) throw new Error(t.get('chapterBadRefs', { refs: bad.join(', ') }));
   // Keep the existing frontmatter format and normalize multiline titles.
-  const text = `---\ntitle: ${input.title.trim().replace(/[\r\n]/g, ' ')}\n${input.date ? `date: ${input.date}\n` : ''}${input.unsourced ? 'unsourced: true\n' : ''}---\n\n${input.body.trim()}\n`;
-  const entry: Chapter = { file, title: input.title.trim(), date: input.date || undefined, ...tokens, sections };
+  const extras = Object.entries(input.frontmatter || {}).filter(([key]) => !['title', 'date', 'unsourced'].includes(key)).map(([key, value]) => `${key}: ${value.replace(/[\r\n]/g, ' ')}`).join('\n');
+  const text = `---\ntitle: ${input.title.trim().replace(/[\r\n]/g, ' ')}\n${input.date ? `date: ${input.date}\n` : ''}${input.unsourced ? 'unsourced: true\n' : ''}${extras ? extras + '\n' : ''}---\n\n${input.body.trim()}\n`;
+  const entry: Chapter = { subtitle: input.frontmatter?.subtitle, cover: input.frontmatter?.cover, author: input.frontmatter?.author, year: input.frontmatter?.year, file, title: input.title.trim(), date: input.date || undefined, ...tokens, sections };
   const chapters = [...set.chapters.filter((ch, i, all) => all.findIndex(other => other.file === ch.file) === i)];
   const at = chapters.findIndex(ch => ch.file === file); if (at < 0) chapters.push(entry); else chapters[at] = entry;
   return { file, text, set: { ...set, chapters }, index: YAML.stringify({ chapters: chapters.map(ch => ch.file) }) };

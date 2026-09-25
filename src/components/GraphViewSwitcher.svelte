@@ -6,19 +6,9 @@
     family: 'graphFamilyShort', hourglass: 'graphHourglassShort', descendants: 'graphDescendantsShort',
     ancestors: 'graphAncestorsShort', connections: 'tabConnections',
   };
-  let bar = $state<HTMLDivElement>();
-  let viewportWidth = $state(0);
-  $effect(() => {
-    const selected = bar?.querySelector<HTMLInputElement>(`input[value="${mode}"]`)?.parentElement;
-    if (!bar || !selected || !viewportWidth) return;
-    const item = selected.getBoundingClientRect(), bounds = bar.getBoundingClientRect();
-    // Reveal keyboard selections and direct-link modes without scrolling the page.
-    if (item.left < bounds.left + 4) bar.scrollLeft += item.left - bounds.left - 4;
-    else if (item.right > bounds.left + viewportWidth - 4) bar.scrollLeft += item.right - bounds.left - viewportWidth + 4;
-  });
 </script>
 
-<div class="graph-view-switcher" role="radiogroup" aria-label={t.get('graphView')} bind:this={bar} bind:clientWidth={viewportWidth}>
+<div class="graph-view-switcher" role="radiogroup" aria-label={t.get('graphView')}>
   {#each graphModes as value}
     <label class="graph-mode">
       <input type="radio" name="graph-mode" aria-label={t.get(labels[value]).replace(/\s+/g, ' ')} {value} bind:group={mode} />
@@ -48,7 +38,7 @@
             <circle cx="5" cy="18" r="2" /><circle cx="19" cy="6" r="2" />
           {/if}
         </svg>
-        <span class:graph-mode-multiline={value === 'hourglass'}>{t.get(labels[value])}</span>
+        <span>{t.get(labels[value])}</span>
       </span>
     </label>
   {/each}

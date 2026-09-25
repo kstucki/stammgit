@@ -94,7 +94,7 @@ test('photo crop and source upload survive draft reload, real sync and queued de
 test('chronicle editor preserves drafts, validates links and persists Markdown and index', async ({ page }, testInfo) => {
   await login(page); await page.goto('/?view=chronicle');
 
-  await page.locator('[data-chapter=""]').click(); await page.locator('#chapterNew').click();
+  await page.locator('#chapterNew').click();
   const title = `New ${testInfo.project.name}`, filename = `new-${testInfo.project.name}.md`;
   await page.locator('#chTitle').fill(title);
   await page.locator('#chDate').fill('2001-02-03'); await page.locator('#chDateClear').click();

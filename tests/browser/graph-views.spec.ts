@@ -1,18 +1,18 @@
 import { expect } from '@playwright/test';
-import { test, login, expectFamilyHeightFits, selectGraphView } from './support';
+import { changeZoom, test, login, expectFamilyHeightFits, selectGraphView } from './support';
 
 test('compact header and five shared card views keep the center and hourglass selection', async ({ page }, testInfo) => {
   await login(page);
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
-  await expect(page.locator('.archive-identity')).toHaveText('Testarchiv');
-  await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page.locator('.archive-identity')).toHaveCount(0);
+  await expect(page.locator('h1')).toHaveCount(0);
   await expect(page.locator('.dataset-summary, #family-heading, [data-view="overview"]')).toHaveCount(0);
   await expect(page.getByText('Eine kleine Testfamilie.', { exact: true })).toHaveCount(0);
   const selector = page.getByRole('radiogroup', { name: 'Ansicht', exact: true });
-  await expect(page.locator('.graph-frame').getByRole('radiogroup', { name: 'Ansicht', exact: true })).toBeVisible();
-  await expect(page.locator('.graph-frame #family-search')).toBeVisible();
+  await expect(page.locator('.graph-tools').getByRole('radiogroup', { name: 'Ansicht', exact: true })).toBeVisible();
+  await expect(page.locator('.archive-header #family-search')).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Ansicht', exact: true })).toHaveCount(0);
-  await expect(selector.locator('.graph-mode-face > span')).toHaveText(['Familie', 'Vorfahren & Nachkommen', 'Nachkommen', 'Vorfahren', 'Verbindungen']);
+  await expect(selector.locator('.graph-mode-face > span')).toHaveText(['Familie', 'Sanduhr', 'Nachkommen', 'Ahnen', 'Verbindung']);
   await expect(selector.locator('svg')).toHaveCount(5);
   for (const [mode, count] of [['family', 11], ['hourglass', 8], ['descendants', 6], ['ancestors', 3], ['connections', 1]] as const) {
     await selectGraphView(page, mode);
@@ -38,7 +38,7 @@ test('compact header and five shared card views keep the center and hourglass se
 
 test('larger portrait and a very long name remain fully inside a growing card with connected lines', async ({ page }, testInfo) => {
   await login(page);
-  const name = 'Alexandria Frederike Maximiliane Descendant A Charlotte von Beispielhausen und Musterberg mit einem besonders langen vollständig sichtbaren Familiennamen';
+  const name = 'Alexandria Frederike Maximiliane Elisabeth Charlotte von Beispielhausen und Musterberg mit einem besonders langen vollständig sichtbaren Familiennamen';
   await page.evaluate(() => { sessionStorage.removeItem('graphState:demo'); localStorage.removeItem('graphZoom'); });
   await page.route('**/data/trees/demo.json', async route => {
     const data = await (await route.fetch()).json();
@@ -49,13 +49,14 @@ test('larger portrait and a very long name remain fully inside a growing card wi
   const card = page.locator('[data-family-person="person_a"]');
   await expect(card.locator('strong')).toHaveText(name);
   const sizes = await card.evaluate(el => {
-    const title = el.querySelector('strong')!, photo = el.querySelector('img')!, footer = el.querySelector('.center-marker')!;
+    const title = el.querySelector('strong')!, photo = el.querySelector('img')!, footer = el.querySelector('.person-open')!;
     return { height: el.clientHeight, clipped: title.scrollHeight > title.clientHeight,
       titleBottom: title.getBoundingClientRect().bottom, footerTop: footer.getBoundingClientRect().top,
       photo: [photo.clientWidth, photo.clientHeight] };
   });
   expect(sizes.photo).toEqual([62, 73]); expect(sizes.height).toBeGreaterThan(174);
   expect(sizes.clipped).toBe(false); expect(sizes.titleBottom).toBeLessThan(sizes.footerTop);
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
   await expect.poll(async () => page.locator('[data-family-connection]').evaluate(bridge => {
     const path = bridge as SVGPathElement, point = path.getPointAtLength(0).matrixTransform(path.getScreenCTM()!);
@@ -66,20 +67,18 @@ test('larger portrait and a very long name remain fully inside a growing card wi
   await card.locator('.person-open').click(); await expect(page.locator('#personDialog')).toContainText(name);
 });
 
-test('view bar supports keyboard selection and reveals views inside its own mobile scroll area', async ({ page, isMobile }) => {
+test('view bar supports keyboard selection without horizontal scrolling', async ({ page, isMobile }) => {
   await login(page);
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
   const bar = page.getByRole('radiogroup', { name: 'Ansicht', exact: true });
   const geometry = await bar.evaluate(el => ({ width: el.clientWidth, content: el.scrollWidth }));
-  if (isMobile) expect(geometry.content).toBeGreaterThan(geometry.width);
-  else expect(geometry.content).toBe(geometry.width);
+  expect(geometry.content).toBe(geometry.width);
   const bounds = (await bar.boundingBox())!, search = (await page.locator('#family-search').boundingBox())!;
-  if (isMobile) expect(search.y).toBeGreaterThanOrEqual(bounds.y + bounds.height);
-  else expect(Math.abs(search.y - bounds.y)).toBeLessThan(5);
+  expect(search.y + search.height).toBeLessThanOrEqual(bounds.y);
 
   await bar.getByRole('radio', { name: 'Familie', exact: true }).focus();
   const pageTop = await page.evaluate(() => scrollY);
-  for (const [label, count] of [['Vorfahren & Nachkommen', 8], ['Nachkommen', 6], ['Vorfahren', 3], ['Verbindungen', 1]] as const) {
+  for (const [label, count] of [['Sanduhr', 8], ['Nachkommen', 6], ['Ahnen', 3], ['Verbindung', 1]] as const) {
     await page.keyboard.press('ArrowRight');
     const selected = bar.getByRole('radio', { name: label, exact: true });
     await expect(selected).toBeChecked(); await expect(selected).toBeFocused();
@@ -92,12 +91,13 @@ test('view bar supports keyboard selection and reveals views inside its own mobi
     const hitArea = (await selected.boundingBox())!;
     expect(hitArea.width).toBeGreaterThanOrEqual(44); expect(hitArea.height).toBeGreaterThanOrEqual(44);
   }
-  if (isMobile) expect(await bar.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  expect(await bar.evaluate(el => el.scrollLeft)).toBe(0);
   expect(await page.evaluate(() => scrollY)).toBe(pageTop);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // Native WebKit radios stop at the end; return using the opposite direction.
   for (let step = 0; step < 4; step++) await page.keyboard.press('ArrowLeft');
   await expect(bar.getByRole('radio', { name: 'Familie', exact: true })).toBeChecked();
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
 
   await page.goto('/?person=lea&action=descendants');
@@ -139,7 +139,7 @@ test('hourglass roots, mode and zoom survive section changes, reload and a new c
   await selectGraphView(page, 'hourglass');
   await page.locator('#family-search').fill('Halbgeschwisterperson');
   await page.getByRole('button', { name: 'Zur Sanduhr hinzufügen: Halbgeschwisterperson', exact: true }).click();
-  await page.getByRole('button', { name: 'Verkleinern', exact: true }).click();
+  await changeZoom(page, 1 / 1.2);
   const zoom = await page.locator('[data-zoom-level]').innerText();
   const ids = await page.locator('[data-family-person]').evaluateAll(cards => cards.map(card => card.getAttribute('data-family-person')).sort());
   await page.locator('[data-view="admin"]').click();

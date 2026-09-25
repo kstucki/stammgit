@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ChronicleBookExport from '../components/ChronicleBookExport.svelte';
   import YAML from 'yaml';
   import type { Workspace } from '../state/workspace.svelte';
   import { exportGedcom, importGedcom } from '../../public/assets/gedcom.js';
@@ -10,6 +11,9 @@
   let { store }: { store: Workspace } = $props();
   let importFiles = $state<FileList>(), status = $state(''), zipBusy = $state(false);
   let t = $derived(store.t);
+  let bookBusy = $state(false), bookError = $state('');
+  let bookPrinter = $state<{ printBook(): Promise<void> }>();
+  let bookAvailable = $derived(store.chronicle?.chapters.length);
   const draftCount = (id: string) => { try { return Object.keys(JSON.parse(localStorage.getItem(`familyTreeDraft:${id}`) || 'null')?.people || {}).length || null; } catch { return null; } };
   let localTrees = $derived(Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '').filter(key => key.startsWith('familyTreeDraft:')).map(key => key.slice(16)).filter(id => !store.index.trees.some(tree => tree.id === id)).sort());
   function createTree() {
@@ -41,7 +45,7 @@
     finally { zipBusy = false; }
   }
 </script>
-<section class="workspace" aria-busy={store.saving}>
+<section class="workspace admin-workspace" aria-busy={store.saving}>
   <h2>{t.get('adminTitle')}</h2>{#if store.legacyPending}<p role="alert">{t.get('legacyPendingUnassigned')}</p>{/if}<p>{t.get('adminSubtitle')}</p>
   <section class="card"><h3>{t.get('draftCard')}</h3><p>{t.get(store.draft ? 'draftActive' : 'draftNone')}</p>
     {#if store.files.length || store.deletions.length}<p>{t.get('pendingInfo', { u: store.files.length, d: store.deletions.length })}</p>{/if}
@@ -60,5 +64,10 @@
     <div class="toolbar"><button id="exportYaml" onclick={() => downloadText(`${store.tree}.yaml`, YAML.stringify(store.snapshot(), { lineWidth: 0 }), 'text/yaml')}>YAML</button><button id="exportJson" onclick={() => downloadText(`${store.tree}.json`, JSON.stringify(store.snapshot(), null, 2), 'application/json')}>JSON</button>
       <button id="exportGedcomBtn" onclick={() => { if (confirm(t.get('gedcomExportWarning'))) downloadText(`${store.tree}.ged`, exportGedcom(store.snapshot())); }}>GEDCOM</button>
       <button id="downloadSourcesZip" disabled={zipBusy} onclick={zip}>{t.get(zipBusy ? 'zipCreating' : 'downloadsZip')}</button></div>
+    {#if store.chronicle}<div class="toolbar book-export-controls">
+      <button data-print-book disabled={bookBusy || !bookAvailable} onclick={() => bookPrinter?.printBook()}>{t.get(bookBusy ? 'bookPreparing' : 'bookPrint')}</button>
+    </div>{#if bookError}<p role="alert">{bookError}</p>{/if}{/if}
   </section></fieldset>
 </section>
+
+{#if store.admin && store.chronicle}<ChronicleBookExport bind:this={bookPrinter} {store} bind:busy={bookBusy} bind:error={bookError} />{/if}

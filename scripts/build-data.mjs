@@ -75,8 +75,9 @@ for (const tree of index.map((t) => t.id)) {
     if (!fs.existsSync(full)) continue; // test.mjs turns this into a failure
     const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
     for (const m of body.matchAll(/\/photos\/[a-zA-Z0-9._-]+/g)) photoRefs.add(m[0]);
+    if (frontmatter.cover?.startsWith("/photos/")) photoRefs.add(frontmatter.cover);
     const tokens = extractTokens(body);
-    chapters.push({ file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources, sections: extractHeadings(body).map((h) => ({ id: h.id, text: h.text })) });
+    chapters.push({ subtitle: frontmatter.subtitle, cover: frontmatter.cover, author: frontmatter.author, year: frontmatter.year, file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources, sections: extractHeadings(body).map((h) => ({ id: h.id, text: h.text })) });
   }
   fs.writeFileSync(path.join(root, "public", "data", `chronicle-${tree}.json`), JSON.stringify({ chapters }, null, 2));
   console.log(`chronicle ${tree}: ${chapters.length} chapter(s)`);

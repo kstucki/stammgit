@@ -13,7 +13,8 @@ export function formatChapterMedia(root: HTMLElement) {
     if (hasCaption && !/^\s*\n/.test(following[0]?.textContent || '')) continue;
 
     const figure = document.createElement('figure');
-    figure.className = 'chronicle-figure';
+    figure.className = image.getAttribute('title') === 'schmal' ? 'chronicle-figure chronicle-figure-narrow' : 'chronicle-figure';
+    image.removeAttribute('title');
     figure.append(first);
     const caption = document.createElement('figcaption');
     if (hasCaption) caption.append(...following);

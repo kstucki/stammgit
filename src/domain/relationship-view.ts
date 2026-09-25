@@ -1,5 +1,5 @@
 import { parentType, partnerDetail } from '../../public/assets/relationships.js';
-import type { Dataset, ParentType, PartnerDetail } from './person';
+import type { Dataset, ParentType, PartnerDetail, Source } from './person';
 import { parentDescription, partnershipDescription, siblingDescription } from '../../public/assets/relationship-text.js';
 export type LineStyle = 'default' | 'adoptive' | 'guardian' | 'other' | 'unmarried' | 'ended';
 export const lineLabel: Record<LineStyle, string> = {
@@ -32,10 +32,10 @@ export function partnerStyle(dataset: Dataset, a: string, b: string): LineStyle 
   return 'default';
 }
 
-// One person-dialog projection for graph, chronicle, sources and map.
+// One person-dialog projection for graph, chronicle and sources.
 import { familyIndex, siblingsFor } from './family';
 import { orderedPartners } from '../../public/assets/relationships.js';
-export function personRelations(dataset: Dataset, id: string, t: { get(key: string, values?: Record<string, string | number>): string }) {
+export function personRelations(dataset: Dataset, id: string, t: { get(key: string, values?: Record<string, string | number>): string }): { key: string; items: { id: string; description: string; sources?: Source[] }[] }[] {
   const person = dataset.people[id]; if (!person) return [];
   const index = familyIndex(dataset);
   const byName = (ids: string[] = []) => [...new Set(ids)].sort((a, b) => (dataset.people[a]?.name || a).localeCompare(dataset.people[b]?.name || b));

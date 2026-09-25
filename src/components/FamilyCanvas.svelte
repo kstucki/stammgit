@@ -5,13 +5,15 @@
   import GraphViewport from './GraphViewport.svelte';
   import type { FamilyOrder } from '../domain/family-layout';
   import { childConnection, partnerStyle, lineLabel } from '../domain/relationship-view';
+  import { hiddenRelatives, type Direction } from '../domain/graph-expansion';
   import PersonCard from './PersonCard.svelte';
-  let { family, dataset, assets, t, onopen, oncenter, generations, mode = 'family', initialScale, onscale, selectedIds }: {
-    selectedIds?: string[]; family: FamilySlice; dataset: Dataset; assets: ReadonlyMap<string, string>;
+  let { family, dataset, assets, t, onopen, oncenter, generations, mode = 'family', initialScale, onscale, selectedIds, onexpand }: {
+    onexpand(id: string, direction: Direction): void; selectedIds?: string[]; family: FamilySlice; dataset: Dataset; assets: ReadonlyMap<string, string>;
     generations?: Map<string, number>; mode?: string; initialScale?: number; onscale(value: number): void;
     t: { get(key: string, values?: Record<string, string | number>): string };
     onopen(id: string): void; oncenter(id: string): void;
   } = $props();
+  let hidden = $derived(hiddenRelatives(dataset, family));
   let heights = $state<ReadonlyMap<string, number>>(new Map());
   // Geometry is published with its exact selection. An editor command may
   // replace people/groups before the ordering effect or worker has run.
@@ -47,7 +49,7 @@
   <p role="alert">{t.get('graphLayoutFailed')} <button onclick={() => retry++}>{t.get('archiveRetry')}</button></p>
 {:else if !layout}<p role="status">{t.get('loading')}</p>
 {:else}
-<GraphViewport width={layout.width} height={layout.height} {initialScale} {onscale} {t} fitOnOpen={mode === 'family' || mode === 'connections'} fitAxis={mode === 'family' ? 'height' : 'both'} ready={family.people.every(id => heights.has(id))}
+<GraphViewport initialFit={mode === 'family'} info={mode === 'connections' ? undefined : t.get(({ family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} fitAxis={mode === 'family' ? 'height' : 'both'} ready={family.people.every(id => heights.has(id))}
   center={{ x: layout.people.get(family.center)!.x + CARD_WIDTH / 2, y: layout.people.get(family.center)!.y + (heights.get(family.center) || CARD_HEIGHT) / 2 }}>
     <svg class="family-lines" width={layout.width} height={layout.height} aria-hidden="true">
       {#each family.groups as group}
@@ -65,7 +67,9 @@
               {#if connection.style !== 'default'}<title>{t.get(lineLabel[connection.style])}</title>{/if}
             </path>
         {/each}
-        <circle cx={anchor.x} cy={anchor.y} r="4" class="family-anchor" />
+        {#if group.children.length > 0}
+          <circle cx={anchor.x} cy={anchor.y} r="4" class="family-anchor" />
+        {/if}
         </g>
       {/each}
     </svg>
@@ -83,7 +87,7 @@
     {#each family.people as id (id)}
       {@const point = layout.people.get(id)!}
       <div class="family-node" use:measure={id} style:left={`${point.x}px`} style:top={`${point.y}px`} style:width={`${CARD_WIDTH}px`}>
-        <PersonCard {id} person={dataset.people[id]} center={selectedIds ? selectedIds.includes(id) : id === family.center} marker={selectedIds ? t.get('connectionSelected') : undefined} centerAction={selectedIds ? t.get('showInTree') : undefined} {assets} {t} {onopen} {oncenter} />
+        <PersonCard hidden={hidden.get(id)!} onexpand={direction => onexpand(id, direction)} {id} person={dataset.people[id]} center={selectedIds ? selectedIds.includes(id) : id === family.center} marker={selectedIds ? t.get('connectionSelected') : undefined} centerAction={selectedIds ? t.get('showInTree') : undefined} {assets} {t} {onopen} {oncenter} />
       </div>
     {/each}
 </GraphViewport>

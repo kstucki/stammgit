@@ -12,7 +12,15 @@
 
   let loadState = $state<ArchiveState>({ status: 'loading' });
   let controller: AbortController | undefined;
-  const fallbackStrings = getT('de');
+  function initialLanguage(): 'de' | 'en' {
+    try {
+      const saved = localStorage.getItem('archiveLanguage');
+      if (saved === 'de' || saved === 'en') return saved;
+    } catch { /* Language persistence is optional. */ }
+    return navigator.language.toLowerCase().startsWith('en') ? 'en' : 'de';
+  }
+  let language = $state<'de' | 'en'>(initialLanguage());
+  let fallbackStrings = $derived(getT(language));
 
   async function load() {
     controller?.abort();
@@ -24,6 +32,9 @@
     try {
       const archive = await loadArchive({ storage, cookie: document.cookie, signal: request.signal });
       if (request.signal.aborted) return;
+      language = archive.config.language === 'en' ? 'en' : 'de';
+      document.documentElement.lang = language;
+      try { storage?.setItem('archiveLanguage', language); } catch { /* Optional persistence. */ }
       const session = await loadFamilySession(archive, { storage, signal: request.signal });
       if (request.signal.aborted) return;
       const store = new Workspace(archive, session);

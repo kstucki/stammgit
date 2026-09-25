@@ -22,7 +22,9 @@ Edits stay in your browser; the repository is unchanged.
   and adoption; shared people appear once.
 - Edit people and relationships in the browser, including merge and delete.
   Changes stay on your device until **Sync**.
-- Portraits, source documents and Markdown chronicle chapters linked to people.
+- Compact person panels, relationship descriptions and source evidence.
+- Markdown chronicles with subtitles, document cards and book printing.
+- Responsive desktop/mobile navigation, local fonts and accessible colour tokens.
 - GEDCOM import/export, multiple datasets, YAML/JSON/GEDCOM/ZIP downloads.
 - Admin and read-only roles with server-side checks; English and German UI.
 
@@ -64,6 +66,7 @@ genealogy suite, [Gramps](https://gramps-project.org) is excellent.
 - [Chronicle](docs/chronicle.md) — writing and linking chapters
 - [Architecture](docs/architecture.md) — non-goals, design decisions and graph rules
 - [Development](docs/development.md) — tests, layout metrics and editing workflow
+- [Changelog](docs/CHANGELOG.md)
 - [Agent instructions](AGENTS.md)
 
 ## License
