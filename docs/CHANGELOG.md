@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-26
+
+- TypeScript selection and layout modules preserve the established optimizer;
+  the JS implementation remains a parity-test and compact-metrics reference.
+- Recorded partners form adjacent chains where possible. Whole partner chains
+  can move outside unrelated sibling groups without reversing sibling-bearing
+  chains or worsening another group. No additional age/YAML sibling sorting.
+- All five views and both access roles use this layout by default, including
+  worker layouts. There is no temporary engine comparison control.
+- Generic regression tests cover partner chains, sibling groups, generations,
+  immutable inputs, legacy parity, role defaults, reload and expansion.
+
+Validation: build, type checks and 169 unit tests passed. Six focused browser
+cases passed on desktop and mobile Chromium emulation, with the expanded-parent
+case rerun after adding its assertion. No full browser-suite, WebKit or physical-device run is claimed. Public-demo compact metrics are unchanged: 0 crossings,
+maximum hole 622px, width 7463px. No instance data or private history transferred.
+
 ## 2026-09-25
 
 - Responsive archive navigation: fixed viewport tree, mobile bottom navigation,

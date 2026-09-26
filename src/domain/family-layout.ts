@@ -1,5 +1,9 @@
-import { layoutGraph } from '../../public/assets/graph.js';
+import { layoutGraph } from './graph/layout';
+import type { LayoutGraph } from './graph/types';
+import { layoutGraph as legacyLayoutGraph } from '../../public/assets/graph.js';
 import type { FamilySlice } from './family';
+
+export type LayoutEngine = 'legacy' | 'typescript';
 
 export const CARD_WIDTH = 228;
 export const CARD_HEIGHT = 174;
@@ -99,8 +103,12 @@ export function consistentGenerations(family: FamilySlice, preferred: Map<string
 // Reuse the existing crossing minimization, ring adjacency and compaction.
 // Never call buildFamGraph: every person stays a separate card, and a parent
 // family is independent of the legacy first-partner box selection.
-export function orderFamily(family: FamilySlice, generations = familyGenerations(family)): FamilyOrder {
-  const graph = {
+export function orderFamily(
+  family: FamilySlice,
+  generations = familyGenerations(family),
+  engine: LayoutEngine = 'typescript',
+): FamilyOrder {
+  const graph: LayoutGraph = {
     nodes: family.people.map(id => ({ id, type: 'single', persons: [id] })),
     edges: family.groups.flatMap(group => group.children.flatMap(child =>
       group.adults.filter(parent => parent !== child).map(parent => ({ from: parent, to: child, dashed: false })))),
@@ -109,7 +117,13 @@ export function orderFamily(family: FamilySlice, generations = familyGenerations
       id: group.id, a: group.adults[0], b: group.adults[1], na: group.adults[0], nb: group.adults[1],
     })),
   };
-  const { width, nodes } = layoutGraph(graph, () => ({ w: CARD_WIDTH, h: CARD_HEIGHT }), consistentGenerations(family, generations));
+  const levels = consistentGenerations(family, generations);
+  const measure = () => ({ w: CARD_WIDTH, h: CARD_HEIGHT });
+  const { width, nodes } = engine === 'legacy' ? legacyLayoutGraph(graph, measure, levels) : layoutGraph(graph, measure, levels, {
+    siblingGroups: family.groups.map(group => group.children),
+    partners: family.groups.filter(group => group.partnership && group.adults.length === 2)
+      .map(group => [group.adults[0], group.adults[1]] as const),
+  });
   return { width, nodes };
 }
 

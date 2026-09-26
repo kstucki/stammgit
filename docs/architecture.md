@@ -16,7 +16,8 @@ server and Netlify functions retain authentication and persistence.
 | `src/data/` | Loading, explicit model commands, upload/sync/download |
 | `src/domain/` | Pure projections, family layout, relationship presentation |
 | `public/assets/model.js`, `relationships.js`, `dataset-validation.js` | Shared model commands, relationship rules and validation |
-| `public/assets/graph.js` | Shared ordering engine and historical compact projection |
+| `src/domain/graph/` | Typed selection, layout and partner adjacency |
+| `public/assets/graph.js` | Unchanged JS test reference and historical compact projection |
 | `public/assets/chronicle.js`, `gedcom.js` | Markdown processing and GEDCOM exchange |
 | `data/`, `public/chronicle/`, `public/photos/`, `public/sources/` | Instance content |
 | `scripts/`, `tests/` | Builds, data checks and isolated tests |
@@ -61,7 +62,7 @@ Partners with visible ancestry are not forced onto the same level. A partner
 without ancestry may align with the other partner when this is conflict-free.
 
 `family.ts` creates the projection; `family-layout.ts` sets generations and uses
-`graph.js` for ordering. Svelte renders its coordinates. Large layouts can run
+`graph/layout.ts` for ordering. Svelte renders its coordinates. Large layouts can run
 in `family-layout.worker.ts`; the worker uses the same algorithm. No generation
 or relationship decisions are made by DOM event handlers.
 
@@ -69,6 +70,32 @@ The historical compact marriage-box projection remains only as a reference
 adapter for domain tests and metrics. Its mutual-first-partner pairing does not
 control the Svelte cards or define a primary marriage. Do not change partner
 order when migrating data.
+
+### Active layout engine
+
+All five views use the TypeScript engine for both admin and read-only roles,
+including worker layouts. There is no engine comparison control or stored/URL
+engine preference. Selection, generation rules, camera and relationship styles
+remain independent of ordering.
+
+The typed port preserves the established crossing optimizer and its effort
+thresholds. Without the optional partner repair it matches the JS reference
+coordinates exactly. The active path adds a repair after ordering:
+
+- Join same-generation recorded partners into adjacent chains, preferring pairs
+  already close in the established order; stable IDs break ties.
+- Merge compatible chain endpoints only, without duplicating people or breaking
+  accepted partner neighbors. Multiple partnerships may prevent full adjacency.
+- Move an intrusive partner chain to a boundary of a foreign sibling group when
+  this reduces interruptions without worsening another sibling group or reversing
+  sibling-bearing chains. A sibling's own partner may remain between siblings.
+- Keep adjacent partners at a 28px card gap. Do not sort siblings by birth date
+  or YAML rank; the established optimizer still determines their order.
+
+The repair uses documented parent-family child membership and runs outside the
+optimizer's candidate loop. It does not guarantee globally minimal crossings.
+Unit tests cover partner chains, foreign siblings, generation preservation and
+JS/TypeScript parity; browser tests cover the default engine for both roles.
 
 ### Connections
 

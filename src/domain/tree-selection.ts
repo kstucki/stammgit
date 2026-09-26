@@ -1,4 +1,4 @@
-import { computeVisible, computeHourglass, computeGenerations } from '../../public/assets/graph.js';
+import { computeVisible, computeHourglass, computeGenerations } from './graph/selection';
 import { defaultRootIds } from '../../public/assets/view-config.js';
 import type { Dataset } from './person';
 import type { ArchiveConfig } from './archive';
@@ -26,7 +26,7 @@ export function selectGraph(data: Dataset, center: string, mode: Exclude<GraphMo
   } else {
     visible = treeVisibility(data, { title: '' }, '', mode, roots, mode === 'descendants' ? center : null).visible;
   }
-  return { family: projectFamily(index, center, visible), generations: computeGenerations(data.people, visible, center) as Map<string, number> };
+  return { family: projectFamily(index, center, visible), generations: computeGenerations(data.people, visible, center) };
 }
 
 // Shared with the historical compact adapter: selection stays independent of rendering.

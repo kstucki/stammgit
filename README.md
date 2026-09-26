@@ -18,6 +18,8 @@ Edits stay in your browser; the repository is unchanged.
 ## Features
 
 - Family, ancestors, descendants and combined ancestors & descendants views.
+- Partner-aware layouts that keep couples together and avoid splitting unrelated
+  sibling groups, without imposing a birth-date order.
 - Connections between any number of people, including longer routes, partnerships
   and adoption; shared people appear once.
 - Edit people and relationships in the browser, including merge and delete.

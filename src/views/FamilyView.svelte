@@ -1,7 +1,7 @@
 <script lang="ts">
   import { describeConnections } from '../domain/kinship';
   import { expandGraph, type Expansion, type Direction } from '../domain/graph-expansion';
-  import { computeGenerations } from '../../public/assets/graph.js';
+  import { computeGenerations } from '../domain/graph/selection';
   import { readConnections, rememberConnections } from '../state/connections';
   import { selectConnections } from '../domain/connections';
   import { untrack } from 'svelte';
@@ -16,11 +16,13 @@
   import type { PanelLevel } from '../components/ResponsivePanel.svelte';
   import type { GraphSearch } from '../state/graph-search';
   import PersonDialog from '../components/PersonDialog.svelte';
+  import type { LayoutEngine } from '../domain/family-layout';
   import FamilyCanvas from '../components/FamilyCanvas.svelte';
   import GraphViewSwitcher from '../components/GraphViewSwitcher.svelte';
   let { archive, session, person = null, action = null, overview = false, onsearch }: {
     onsearch(value: GraphSearch): void; archive: ArchiveSnapshot; session: FamilySession; person?: string | null; action?: string | null; overview?: boolean;
   } = $props();
+  const engine: LayoutEngine = 'typescript';
   let panelLevel = $state<PanelLevel>('collapsed');
   let panelHeight = $state(0);
   let dataset = $derived(session.dataset);
@@ -54,7 +56,7 @@
   let descriptionsByPair = $derived(connections ? describeConnections(dataset, connections.selected, t) : []);
   let baseScene = $derived(mode === 'connections' ? {
     family: connections!.family,
-    generations: connections!.family ? computeGenerations(dataset.people, new Set(connections!.family.people), connections!.family.center) as Map<string, number> : undefined,
+    generations: connections!.family ? computeGenerations(dataset.people, new Set(connections!.family.people), connections!.family.center) : undefined,
   } : selectGraph(dataset, activeCenter, mode, activeRoots));
   let expansionContext = $derived(JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots]));
   let expansion = $state<{ context: string; steps: Expansion[] }>({ context: '', steps: [] });
@@ -104,8 +106,9 @@
 
 </script>
 
-<section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode} style:--sheet-height={`${connections ? panelHeight : 0}px`}>
-  <div class="graph-tools"><GraphViewSwitcher bind:mode {t} /></div>
+<section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode} data-layout-engine={engine} style:--sheet-height={`${connections ? panelHeight : 0}px`}>
+  <div class="graph-tools"><GraphViewSwitcher bind:mode {t} />
+  </div>
   <div class="graph-workspace">
     <div class="graph-frame">
       {#if mode === 'hourglass' && activeRoots.length > 1}
@@ -113,7 +116,7 @@
       {/if}
       {#if scene.family}
         {#key JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots])}
-          <FamilyCanvas onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} initialScale={scale} onscale={value => scale = value} {dataset} assets={session.assets} {t} onopen={id => selected = id} oncenter={chooseCenter} />
+          <FamilyCanvas {engine} onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} initialScale={scale} onscale={value => scale = value} {dataset} assets={session.assets} {t} onopen={id => selected = id} oncenter={chooseCenter} />
         {/key}
       {/if}
     </div>

@@ -44,3 +44,12 @@ not Svelte cards. Use `--check <file>` for instance-specific limits; see
 Drafts and pending uploads remain in one browser profile until Sync. Stale-base
 saves are rejected. Locally, Sync can write files; `LOCAL_GIT=1` also commits on
 the checked-out branch. See [setup.md](setup.md#local).
+
+## Typed layout checks
+
+The active engine is `src/domain/graph/layout.ts`. Run
+`npm run test:unit -- src/domain/graph` for typed-port parity and partner/sibling
+regressions, and `npx playwright test tests/browser/graph-engines.spec.ts` for
+default-engine and expansion checks. All public cases use demo or synthetic
+content. The unchanged JS engine remains a test/metrics reference, not a second
+user-selectable mode. Never relax geometry assertions to make a port pass.

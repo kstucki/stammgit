@@ -3,13 +3,13 @@
   import type { FamilySlice } from '../domain/family';
   import { layoutFamily, orderFamily, childPath, familyBridgePath, CARD_WIDTH, CARD_HEIGHT } from '../domain/family-layout';
   import GraphViewport from './GraphViewport.svelte';
-  import type { FamilyOrder } from '../domain/family-layout';
+  import type { FamilyOrder, LayoutEngine } from '../domain/family-layout';
   import { childConnection, partnerStyle, lineLabel } from '../domain/relationship-view';
   import { hiddenRelatives, type Direction } from '../domain/graph-expansion';
   import PersonCard from './PersonCard.svelte';
-  let { family, dataset, assets, t, onopen, oncenter, generations, mode = 'family', initialScale, onscale, selectedIds, onexpand }: {
+  let { family, dataset, assets, t, onopen, oncenter, generations, engine = 'typescript', mode = 'family', initialScale, onscale, selectedIds, onexpand }: {
     onexpand(id: string, direction: Direction): void; selectedIds?: string[]; family: FamilySlice; dataset: Dataset; assets: ReadonlyMap<string, string>;
-    generations?: Map<string, number>; mode?: string; initialScale?: number; onscale(value: number): void;
+    engine?: LayoutEngine; generations?: Map<string, number>; mode?: string; initialScale?: number; onscale(value: number): void;
     t: { get(key: string, values?: Record<string, string | number>): string };
     onopen(id: string): void; oncenter(id: string): void;
   } = $props();
@@ -17,21 +17,21 @@
   let heights = $state<ReadonlyMap<string, number>>(new Map());
   // Geometry is published with its exact selection. An editor command may
   // replace people/groups before the ordering effect or worker has run.
-  let ordered = $state.raw<{ family: FamilySlice; order: FamilyOrder } | null>(null);
+  let ordered = $state.raw<{ family: FamilySlice; order: FamilyOrder; engine: LayoutEngine } | null>(null);
   let error = $state(false);
   let retry = $state(0);
   $effect(() => {
-    const source = family, selected = $state.snapshot(source), levels = generations;
+    const source = family, selected = $state.snapshot(source), levels = generations, selectedEngine = engine;
     retry;
     error = false; ordered = null;
-    if (selected.people.length < 80) { ordered = { family: source, order: orderFamily(selected, levels) }; return; }
+    if (selected.people.length < 80) { ordered = { family: source, engine: selectedEngine, order: orderFamily(selected, levels, selectedEngine) }; return; }
     const worker = new Worker(new URL('../domain/family-layout.worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (event: MessageEvent<FamilyOrder>) => { ordered = { family: source, order: event.data }; worker.terminate(); };
+    worker.onmessage = (event: MessageEvent<FamilyOrder>) => { ordered = { family: source, engine: selectedEngine, order: event.data }; worker.terminate(); };
     worker.onerror = event => { event.preventDefault(); error = true; worker.terminate(); };
-    worker.postMessage({ family: selected, generations: levels });
+    worker.postMessage({ family: selected, generations: levels, engine: selectedEngine });
     return () => worker.terminate();
   });
-  let layout = $derived(ordered?.family === family ? layoutFamily(family, heights, ordered.order) : null);
+  let layout = $derived(ordered?.family === family && ordered.engine === engine ? layoutFamily(family, heights, ordered.order) : null);
   function measure(node: HTMLElement, id: string) {
     const observer = new ResizeObserver(() => {
       const height = node.offsetHeight;
