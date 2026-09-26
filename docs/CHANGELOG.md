@@ -2,6 +2,13 @@
 
 ## 2026-09-26
 
+- Optional combined evidence status (`unsicher`, `gut`, `gesichert`): admin
+  editing/clearing, shared validation, lossless application GEDCOM roundtrip
+  and conflict-aware merging. Only uncertain ratings appear in person information,
+  with a contrast-checked terracotta badge; notes no longer imply a rating.
+  Demo data remains unassessed. Tests use only synthetic people.
+  Verified with the full build, 171 unit tests and four targeted desktop/mobile
+  Chromium browser cases. WebKit and the full browser suite were not rerun.
 - TypeScript selection and layout modules preserve the established optimizer;
   the JS implementation remains a parity-test and compact-metrics reference.
 - Recorded partners form adjacent chains where possible. Whole partner chains

@@ -52,6 +52,10 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
       fail(`'${pid}'.gender must be m, f or d (or omitted when unknown).`);
     }
 
+    if (p.evidenceStatus !== undefined && !["unsicher", "gut", "gesichert"].includes(p.evidenceStatus)) {
+      fail(`'${pid}'.evidenceStatus must be unsicher, gut or gesichert (or omitted when unassessed).`);
+    }
+
     for (const rel of REL_KEYS) {
       if (p[rel] === undefined) continue;
       if (!Array.isArray(p[rel]) || p[rel].some((x) => typeof x !== "string")) {

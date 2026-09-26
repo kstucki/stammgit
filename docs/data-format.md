@@ -29,6 +29,24 @@ The editor offers a selection. Unknown/diverse gender produces neutral relations
 terms. GEDCOM uses `SEX M/F` and a private `_GENDER d` extension; merging conflicting known genders requires
 resolution rather than silently overwriting either value.
 
+## Evidence status
+
+Optional `evidenceStatus` accepts `unsicher` (uncertain), `gut` (good), or
+`gesichert` (confirmed). Omit the field when unassessed. These stored literals
+are the same in both UI languages. The rating assesses the person and their
+placement in the recorded lineage together; it is not inferred from notes,
+source counts or historical prominence.
+
+Only `unsicher` displays a terracotta badge, exclusively in person information.
+Good, confirmed and missing values display no badge. Admins can set or clear
+the rating in the person editor. Add a note explaining uncertainty when assigning
+it; the application does not manufacture research judgments or require a note.
+
+YAML/JSON retain the field. GEDCOM uses the custom `_STAMMBAUM_EVIDENCE` extension
+for this application's roundtrip; other genealogy tools may discard it.
+Merging retains a single existing rating; conflicting ratings block the merge
+until reconciled. Invalid values are rejected by the shared validator.
+
 ## Relationships
 
 Keep parent/child and partner references reciprocal and preserve partner order.

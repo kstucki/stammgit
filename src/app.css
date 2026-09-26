@@ -122,7 +122,7 @@ body.tree-page { overflow: hidden; overscroll-behavior: none; }
 .person-panel .person-info-head h2 { font: 600 19px/1.2 var(--font-serif); margin: 0 0 4px; padding: 0; }
 .person-info-head h2:focus { outline: none; }
 .person-info-subtitle { font: 400 12px/1.45 var(--font-sans); color: var(--text-muted); margin: 0; }
-.person-evidence { display: inline-block; margin-top: 4px; padding: 1px 6px; border-radius: 4px; background: var(--surface-muted); color: var(--text-muted); font-size: 11px; }
+.person-evidence { display: inline-block; margin-top: 4px; padding: 1px 6px; border: 1px solid var(--focus); border-radius: 4px; background: var(--focus-soft); color: var(--evidence-text); font-size: 11px; }
 .person-info-back { flex: 0 0 28px; width: 28px; padding: 0; border: 0; color: var(--primary); background: transparent; font-size: 23px; }
 .person-kinship { background: var(--surface-muted); border-radius: 7px; padding: 8px 10px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
 .person-kinship a { color: var(--primary); }

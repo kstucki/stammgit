@@ -15,7 +15,8 @@
   Git history or case-specific test labels from private installations.
 - Keep Svelte rendering, pure graph/domain logic, workspace state and backend
   persistence separate. No parallel legacy UI or second editable dataset.
-- Use `src/tokens.css` for colours; terracotta is only for selection/focus.
+- Use `src/tokens.css` for colours; terracotta is for selection/focus and the
+  explicit uncertain-evidence badge, using contrast-checked dark text.
   Keep fonts local and run the contrast/token build check.
 - Maintain German and English strings. Vite hashes assets; edit root `index.html`
   and `src/`, never generated `public/index.html` or `public/assets/ui/`.

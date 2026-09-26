@@ -9,7 +9,10 @@ it('keeps complete recorded dates and does not invent evidence ratings', () => {
   expect(personInitials('Alex Sample-Smith')).toBe('AS');
   expect(lowEvidence({})).toBe(false);
   expect(lowEvidence({ notes: ['Belegstufe 1.'] })).toBe(false);
-  expect(lowEvidence({ notes: ['Belegstufe 2: Originale ungeprüft.'] })).toBe(true);
+  expect(lowEvidence({ notes: ['Belegstufe 2: Originale ungeprüft.'] })).toBe(false);
+  expect(lowEvidence({ evidenceStatus: 'unsicher' })).toBe(true);
+  expect(lowEvidence({ evidenceStatus: 'gut' })).toBe(false);
+  expect(lowEvidence({ evidenceStatus: 'gesichert' })).toBe(false);
 });
 it('separates former marriage, marks adoption and keeps complete names', () => {
   const data: Dataset = { meta: { focusPersonId: 'a' }, people: {

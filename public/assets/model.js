@@ -110,6 +110,7 @@ export function absorbPerson(data, keepId, dropId) {
   // Until a conflict editor exists, reject affected annotated merges atomically.
   if (mergeNeedsReview(data, keepId) || mergeNeedsReview(data, dropId)) return { ok: false, reason: "relationship_details" };
   if (keep.gender && drop.gender && keep.gender !== drop.gender) return { ok: false, reason: "gender_conflict" };
+  if (keep.evidenceStatus && drop.evidenceStatus && keep.evidenceStatus !== drop.evidenceStatus) return { ok: false, reason: "evidence_conflict" };
   // Absorbing the focus person transfers the focus to the kept person –
   // important for the create-dataset-then-import workflow, where the seed
   // person is merged into the imported "real" one.
@@ -126,7 +127,7 @@ export function absorbPerson(data, keepId, dropId) {
   if (sources.length) keep.sources = sources;
   const notes = [...new Set([...(keep.notes || []), ...(drop.notes || [])])];
   if (notes.length) keep.notes = notes;
-  for (const key of ["birth", "death", "occupation", "photo", "gender"]) {
+  for (const key of ["birth", "death", "occupation", "photo", "gender", "evidenceStatus"]) {
     if (!keep[key] && drop[key]) keep[key] = drop[key];
   }
   if (drop.partnerDetails) {

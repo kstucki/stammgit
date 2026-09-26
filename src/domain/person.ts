@@ -2,7 +2,11 @@ export interface Source { label?: string; url: string }
 export type ParentType = 'biological' | 'adoptive' | 'guardian' | 'other' | 'unknown';
 export interface ParentDetail { type?: ParentType; label?: string; sources?: Source[] }
 export interface PartnerDetail { status?: string; kind?: 'marriage' | 'partnership' | 'unknown'; start?: string; end?: string }
+/** Assesses both the person and their placement in the recorded lineage. */
+export type EvidenceStatus = 'unsicher' | 'gut' | 'gesichert';
+
 export interface Person {
+  evidenceStatus?: EvidenceStatus;
   name?: string;
   birth?: string;
   death?: string;

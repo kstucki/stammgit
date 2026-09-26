@@ -86,6 +86,7 @@ export function exportGedcom(data) {
       }
     }
     for (const fam of fams.filter(fam => fam.adults.includes(id))) lines.push(`1 FAMS ${fam.xref}`);
+    if (p.evidenceStatus) writeExtension(lines, "_STAMMBAUM_EVIDENCE", p.evidenceStatus);
     writeExtension(lines, "_STAMMBAUM_ID", id);
     writeExtension(lines, "_STAMMBAUM_REL", { version: 1, ...mapRelationships(p, pointer) });
   }
@@ -139,6 +140,11 @@ export function importGedcom(text) {
     for (const [field, event] of [["birth", "BIRT"], ["death", "DEAT"]]) {
       const date = find(find(record, event), "DATE")?.value;
       if (date) p[field] = date;
+    }
+    const evidenceStatus = extension(record, "_STAMMBAUM_EVIDENCE");
+    if (evidenceStatus !== undefined) {
+      if (!["unsicher", "gut", "gesichert"].includes(evidenceStatus)) throw new Error("Invalid _STAMMBAUM_EVIDENCE status.");
+      p.evidenceStatus = evidenceStatus;
     }
     const occupation = textOf(find(record, "OCCU")); if (occupation) p.occupation = occupation;
     const sex = find(record, "SEX")?.value; if (["M", "F"].includes(sex)) p.gender = sex.toLowerCase();

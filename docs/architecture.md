@@ -156,6 +156,11 @@ Person information uses a full-height mobile sheet or desktop sidebar: portrait,
 life dates/occupation, relationship to center, actions, stories and family names.
 Show full names without collapsing relatives. Internal person navigation has its
 own Back stack; sources and chapter mentions are disclosures. Editing is admin-only.
+Optional `evidenceStatus` jointly rates person identity and lineage placement.
+Only explicit `unsicher` shows a badge in person information; cards and other
+statuses remain unlabelled. Notes never imply a rating. The editor supports
+setting/clearing the field; shared validation, merge conflict handling and the
+custom GEDCOM extension preserve it. See [data format](data-format.md#evidence-status).
 Connections use a three-height mobile sheet, initially collapsed, or an open
 sidebar on desktop. Selected-person chips live inside the panel.
 
@@ -194,7 +199,9 @@ See [chronicle.md](chronicle.md).
 
 `src/tokens.css` owns all UI colours. Warm neutral surfaces and green controls
 are shared across devices. Terracotta denotes center, connection selection and
-keyboard focus only. Source Serif 4 (400/600) and Inter (400/500/600) are hosted
+keyboard focus, plus the explicit uncertain-evidence badge. That badge uses
+`focus-soft` background, `focus` border and darker `evidence-text`, checked for
+4.5:1 text contrast. Source Serif 4 (400/600) and Inter (400/500/600) are hosted
 locally with swap loading and their licenses. The build rejects colour literals
 outside tokens and checks text contrast of at least 4.5:1.
 

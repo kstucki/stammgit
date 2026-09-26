@@ -39,6 +39,9 @@ for (const background of ['bg', 'surface', 'surface-muted', 'focus-soft']) {
   }
 }
 const inverse = contrast('primary-contrast', 'primary');
+const evidence = contrast('evidence-text', 'focus-soft');
+if (evidence < 4.5) throw new Error('Evidence label contrast below 4.5');
+console.log(`evidence-text/focus-soft: ${evidence.toFixed(2)}:1`);
 if (inverse < 4.5) throw new Error('Primary button contrast below 4.5');
 console.log(`primary-contrast/primary: ${inverse.toFixed(2)}:1`);
 console.log('Design check passed: no colour literals outside tokens.css; text contrast ≥ 4.5:1.');

@@ -9,10 +9,9 @@ export function personSubtitle(person: Person): string {
   const dates = person.birth ? `${person.birth} –${person.death ? ` ${person.death}` : ''}` : person.death ? `† ${person.death}` : '';
   return [dates, person.occupation].filter(Boolean).join(' · ');
 }
-// Existing evidence levels are explicit annotations in notes, not a model field.
-// Level 1 is a direct source; level 2 is a database finding with originals unchecked.
+// Missing status is unassessed; notes never imply a rating.
 export function lowEvidence(person: Person): boolean {
-  return (person.notes || []).some(note => /\bBelegstufe\s*[2-9]\b/i.test(note));
+  return person.evidenceStatus === 'unsicher';
 }
 export function familyChips(dataset: Dataset, id: string, t: T) {
   return personRelations(dataset, id, t).flatMap(section => {
