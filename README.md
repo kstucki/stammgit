@@ -18,7 +18,7 @@ Edits stay in your browser; the repository is unchanged.
 ## Features
 
 - Family, descendants and combined ancestors & descendants views.
-- Full-circle ancestor fan with 1–8 generations, visible gaps and person information.
+- Semicircular ancestor fan with 1–8 generations, visible gaps and person information.
 - Partner-aware layouts that keep couples together and avoid splitting unrelated
   sibling groups, without imposing a birth-date order.
 - Connections between any number of people, including longer routes, partnerships

@@ -23,7 +23,7 @@ for (const role of ['reader', 'admin']) test(`fan works for ${role} with fixed p
   await expect(page.locator('#family-person-title')).toHaveText('Alex Example');
   await page.locator('#personDialog .dialog-close').click();
   const svgSize = await page.locator('.fan-svg').evaluate(el => [el.getAttribute('width'), el.getAttribute('height')]);
-  expect(svgSize[0]).toBe(svgSize[1]);
+  expect(Number(svgSize[0])).toBeGreaterThan(Number(svgSize[1]));
   const father = page.locator('[data-fan-slot="2"]');
   await father.focus(); await page.keyboard.press('Enter');
   await expect(page.locator('#family-person-title')).toHaveText('Father Example');
@@ -44,6 +44,13 @@ for (const role of ['reader', 'admin']) test(`fan works for ${role} with fixed p
   await expect(page.locator('[data-fan-slot="1"]')).toHaveAttribute('data-fan-person', 'mother');
   await selectGraphView(page, 'family');
   await expect(page.locator('[data-zoom-level]')).toHaveText(cardZoom);
+  await page.locator('.graph-info summary').click();
+  await expect(page.locator('.graph-info p')).toContainText('ihre Familie ins Zentrum');
+  await expect(page.locator('.graph-info p')).toContainText('Pfeile');
+  await selectGraphView(page, 'connections');
+  await page.locator('.graph-info summary').click();
+  await expect(page.locator('.graph-info p')).toContainText('Füge Personen über die Suche hinzu');
+
   await selectGraphView(page, 'ancestors');
   await page.getByLabel('Generationen', { exact: true }).selectOption('3');
   await expectGraphFits(page);

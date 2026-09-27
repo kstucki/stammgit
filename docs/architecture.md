@@ -71,11 +71,15 @@ adapter for domain tests and metrics. Its mutual-first-partner pairing does not
 control the Svelte cards or define a primary marriage. Do not change partner
 order when migrating data.
 
+Family help explains centering, expansion arrows and the separate person-info
+action. Connections also offers help for search, connecting paths and removing
+selected people. The existing short hourglass explanation remains unchanged.
+
 ### Ancestor fan
 
 The `ancestors` mode uses `ancestor-fan.ts` and `AncestorFan.svelte`, a separate
-SVG renderer without the crossing optimizer or a worker. It is always a full
-circle, without a shape switch. The first parent branch fills the left half;
+SVG renderer without the crossing optimizer or a worker. It is always an upper
+semicircle, without a shape switch. The first parent branch fills the left half;
 the second fills the right. Radial labels are rotated to remain upright.
 
 - The center is generation 0; select 1–8 parent generations (default 5).

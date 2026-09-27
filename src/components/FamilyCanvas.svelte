@@ -49,7 +49,7 @@
   <p role="alert">{t.get('graphLayoutFailed')} <button onclick={() => retry++}>{t.get('archiveRetry')}</button></p>
 {:else if !layout}<p role="status">{t.get('loading')}</p>
 {:else}
-<GraphViewport initialFit={mode === 'family'} info={mode === 'connections' ? undefined : t.get(({ family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} fitAxis={mode === 'family' ? 'height' : 'both'} ready={family.people.every(id => heights.has(id))}
+<GraphViewport initialFit={mode === 'family'} info={t.get(({ connections: 'graphConnectionsDescription', family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} fitAxis={mode === 'family' ? 'height' : 'both'} ready={family.people.every(id => heights.has(id))}
   center={{ x: layout.people.get(family.center)!.x + CARD_WIDTH / 2, y: layout.people.get(family.center)!.y + (heights.get(family.center) || CARD_HEIGHT) / 2 }}>
     <svg class="family-lines" width={layout.width} height={layout.height} aria-hidden="true">
       {#each family.groups as group}

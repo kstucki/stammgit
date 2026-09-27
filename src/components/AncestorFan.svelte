@@ -9,7 +9,7 @@
   } = $props();
   let slots = $derived(ancestorFan(dataset, center, depth));
   let radius = $derived(FAN_CORE + FAN_RING * depth);
-  let width = $derived(2 * (radius + FAN_PAD)), height = $derived(width);
+  let width = $derived(2 * (radius + FAN_PAD)), height = $derived(radius + FAN_CORE + 2 * FAN_PAD);
   let known = $derived(slots.filter(slot => slot.generation && slot.id).length);
   let issues = $derived(slots.filter(slot => slot.issue));
   function open(event: KeyboardEvent, id: string) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onopen(id); } }

@@ -44,15 +44,14 @@ export function ancestorFan(data: Dataset, center: string, requestedDepth = 5): 
 export const FAN_CORE = 105, FAN_RING = 190, FAN_PAD = 24;
 export function fanGeometry(generation: number, index: number) {
   const inner = FAN_CORE + (generation - 1) * FAN_RING, outer = inner + FAN_RING;
-  const span = 2 * Math.PI / 2 ** generation;
-  // Start at the bottom: the first parent branch fills the left semicircle.
-  const start = Math.PI / 2 + index * span, end = start + span;
+  const span = Math.PI / 2 ** generation;
+  const start = -Math.PI + index * span, end = start + span;
   const point = (r: number, angle: number) => `${r * Math.cos(angle)},${r * Math.sin(angle)}`;
   const angle = (start + end) / 2, radius = (inner + outer) / 2;
   return {
     path: `M${point(inner, start)} L${point(outer, start)} A${outer},${outer} 0 0 1 ${point(outer, end)} L${point(inner, end)} A${inner},${inner} 0 0 0 ${point(inner, start)} Z`,
     x: radius * Math.cos(angle), y: radius * Math.sin(angle),
-    rotation: ((angle * 180 / Math.PI + 90) % 180) - 90,
+    rotation: angle * 180 / Math.PI + (angle < -Math.PI / 2 ? 180 : 0),
     narrow: radius * (end - start) < 36,
   };
 }

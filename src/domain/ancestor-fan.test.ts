@@ -30,14 +30,14 @@ describe('ancestor positions', () => {
     expect(slots.filter(s => s.issue === 'cycle')).toHaveLength(2);
     expect(slots.filter(s => s.generation === 4).every(s => !s.id)).toBe(true);
   });
-  it('fills a complete circle with the first parent on the left and upright labels', () => {
+  it('fills the upper semicircle with stable left and right branches and upright labels', () => {
     const left = fanGeometry(1, 0), right = fanGeometry(1, 1);
     expect(left.x).toBeLessThan(0); expect(right.x).toBeGreaterThan(0);
-    expect(left.y).toBeCloseTo(0); expect(right.y).toBeCloseTo(0);
+    expect(left.y).toBeLessThan(0); expect(right.y).toBeLessThan(0);
     for (let generation = 2; generation <= 8; generation++) {
       const sectors = Array.from({ length: 2 ** generation }, (_, i) => fanGeometry(generation, i));
       expect(sectors.some(s => s.y < 0)).toBe(true);
-      expect(sectors.some(s => s.y > 0)).toBe(true);
+      expect(sectors.every(s => s.y < 0)).toBe(true);
       for (const s of sectors) { expect(s.rotation).toBeGreaterThanOrEqual(-90); expect(s.rotation).toBeLessThan(90); }
     }
   });

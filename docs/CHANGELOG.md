@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-27 — Semicircular fan and view help
+
+- Restore the semicircular ancestor fan and matching icon, without a shape switch.
+- Family help explains centering a person's family, expansion arrows and person
+  information. Connections gains help for search, paths and removing selections.
+  The brief hourglass text stays unchanged; German and English remain aligned.
+- Full build and 177 unit tests passed. Four focused browser cases passed on
+  desktop and mobile Chromium emulation, including opening both help panels.
+  No full browser-suite, WebKit or physical-device run. No data changes.
+
 ## 2026-09-27
 
 - Full-circle ancestor fan replaces the ancestor card view, with 1–8 generations,
