@@ -27,7 +27,10 @@
               <circle cx="12" cy="12" r="2" />
             </g>
           {:else if value === 'ancestors'}
-            <path d="M2 20a10 10 0 0 1 20 0H2ZM6 20a6 6 0 0 1 12 0M12 10v10M5 13l7 7 7-7" />
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <path d="M12 2v8M12 14v8M2 12h8M14 12h8M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
           {:else if value === 'descendants'}
             <g>
               <path d="M12 6.5V12M4 17v-5h16v5M12 12v5" />
