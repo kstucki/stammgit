@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-27
+
+- Full-circle ancestor fan replaces the ancestor card view, with 1–8 generations,
+  visible gaps, repeated ancestor positions, person panels and center search.
+- Explicit adoption/guardianship is excluded; unknown parent types remain marked.
+  Ambiguous ancestry and cycles are reported rather than silently resolved.
+- Independent pan/zoom/Fit, session-persisted depth, reload-safe links and
+  readable label orientation. No shape switch or new dependency.
+- Architecture, bilingual strings and synthetic interaction/domain tests updated.
+
+Validation: full build, 177 unit tests and 16 targeted browser cases passed
+(desktop and mobile Chromium emulation). Compact demo metrics are unchanged:
+0 crossings, maximum hole 622px, width 7463px. No full browser-suite, WebKit or
+physical-device run. No private data, identifiers, preview cases or history copied.
+
 ## 2026-09-26
 
 - Optional combined evidence status (`unsicher`, `gut`, `gesichert`): admin

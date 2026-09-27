@@ -18,6 +18,8 @@
   import PersonDialog from '../components/PersonDialog.svelte';
   import type { LayoutEngine } from '../domain/family-layout';
   import FamilyCanvas from '../components/FamilyCanvas.svelte';
+  import AncestorFan from '../components/AncestorFan.svelte';
+  import { fanDepth as clampFanDepth } from '../domain/ancestor-fan';
   import GraphViewSwitcher from '../components/GraphViewSwitcher.svelte';
   let { archive, session, person = null, action = null, overview = false, onsearch }: {
     onsearch(value: GraphSearch): void; archive: ArchiveSnapshot; session: FamilySession; person?: string | null; action?: string | null; overview?: boolean;
@@ -32,9 +34,13 @@
   let zoomStorage: Storage | undefined;
   try { zoomStorage = window.localStorage; } catch { /* Optional zoom persistence. */ }
   let scale = $state(untrack(() => readZoom(archive.tree.id, zoomStorage, storage)));
+  let fanDepth = $state(untrack(() => {
+    try { const saved = storage?.getItem(`fanDepth:${archive.tree.id}`); return saved ? clampFanDepth(Number(saved)) : 5; } catch { return 5; }
+  }));
+  $effect(() => { try { storage?.setItem(`fanDepth:${archive.tree.id}`, String(fanDepth)); } catch { /* Optional preference. */ } });
   $effect(() => rememberZoom(scale, zoomStorage));
   let center = $state(untrack(() => {
-    if (person && dataset.people[person] && ['family', 'tree', 'descendants'].includes(action || '')) {
+    if (person && dataset.people[person] && ['family', 'tree', 'descendants', 'ancestors'].includes(action || '')) {
       if (action === 'family') rememberCenter(archive.tree.id, person, storage);
       return person;
     }
@@ -42,7 +48,7 @@
       .find((id: string) => dataset.people[id]) || dataset.meta.focusPersonId;
     return initialCenter(dataset, archive.tree.id, storage);
   }));
-  let mode = $state<GraphMode>(untrack(() => action === 'connections' ? 'connections' : action === 'family' ? 'family' : action === 'descendants' ? 'descendants' : action === 'tree' || (overview && !action) ? 'hourglass' : restored.mode));
+  let mode = $state<GraphMode>(untrack(() => action === 'connections' ? 'connections' : action === 'ancestors' ? 'ancestors' : action === 'family' ? 'family' : action === 'descendants' ? 'descendants' : action === 'tree' || (overview && !action) ? 'hourglass' : restored.mode));
   let roots = $state<string[]>(untrack(() => overview && !person ? defaultRootIds(archive.config, archive.tree.id, center).filter((id: string) => dataset.people[id]) : person ? [center] : restored.roots.length ? restored.roots : [center]));
   let selected = $state<string | null>(null);
   let t = $derived(getT(archive.config.language === 'en' ? 'en' : 'de'));
@@ -57,7 +63,7 @@
   let baseScene = $derived(mode === 'connections' ? {
     family: connections!.family,
     generations: connections!.family ? computeGenerations(dataset.people, new Set(connections!.family.people), connections!.family.center) : undefined,
-  } : selectGraph(dataset, activeCenter, mode, activeRoots));
+  } : mode === 'ancestors' ? { family: null, generations: undefined } : selectGraph(dataset, activeCenter, mode, activeRoots));
   let expansionContext = $derived(JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots]));
   let expansion = $state<{ context: string; steps: Expansion[] }>({ context: '', steps: [] });
   let steps = $derived(expansion.context === expansionContext ? expansion.steps : []);
@@ -80,6 +86,10 @@
       url.searchParams.delete('person');
       for (const id of connections.selected) url.searchParams.append('connect', id);
       if (!connections.selected.length) url.searchParams.set('connectEmpty', '1');
+    } else if (mode === 'ancestors') {
+      url.searchParams.set('view', 'family'); url.searchParams.set('action', 'ancestors'); url.searchParams.set('person', activeCenter);
+    } else if (url.searchParams.get('action') === 'ancestors') {
+      url.searchParams.set('view', 'family'); url.searchParams.delete('action'); url.searchParams.delete('person');
     } else if (url.searchParams.get('action') === 'connections' || url.searchParams.get('view') === 'connections') {
       url.searchParams.set('view', 'family'); url.searchParams.delete('action');
     }
@@ -106,15 +116,18 @@
 
 </script>
 
-<section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode} data-layout-engine={engine} style:--sheet-height={`${connections ? panelHeight : 0}px`}>
+<section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode} data-layout-engine={mode === 'ancestors' ? 'fan' : engine} style:--sheet-height={`${connections ? panelHeight : 0}px`}>
   <div class="graph-tools"><GraphViewSwitcher bind:mode {t} />
+    {#if mode === 'ancestors'}<label class="fan-depth">{t.get('fanGenerations')} <select aria-label={t.get('fanGenerations')} bind:value={fanDepth}>{#each [1, 2, 3, 4, 5, 6, 7, 8] as n}<option value={n}>{n}</option>{/each}</select></label>{/if}
   </div>
   <div class="graph-workspace">
     <div class="graph-frame">
       {#if mode === 'hourglass' && activeRoots.length > 1}
         <div class="graph-roots hourglass-roots">{#each activeRoots as id}<button disabled={id === activeCenter} aria-label={t.get('graphRemoveRoot', { name: dataset.people[id].name || id })} onclick={() => roots = roots.filter(root => root !== id)}>{dataset.people[id].name || id}{id !== activeCenter ? ' ×' : ''}</button>{/each}</div>
       {/if}
-      {#if scene.family}
+      {#if mode === 'ancestors'}
+        {#key `${activeCenter}:${fanDepth}`}<AncestorFan {dataset} center={activeCenter} depth={fanDepth} {t} onopen={id => selected = id} />{/key}
+      {:else if scene.family}
         {#key JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots])}
           <FamilyCanvas {engine} onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} initialScale={scale} onscale={value => scale = value} {dataset} assets={session.assets} {t} onopen={id => selected = id} oncenter={chooseCenter} />
         {/key}

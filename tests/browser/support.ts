@@ -47,7 +47,7 @@ export async function expectFamilyHeightFits(page: Page) {
 }
 
 export async function selectGraphView(page: Page, mode: string) {
-  const labels: Record<string, string> = { family: 'Familie', hourglass: 'Sanduhr', descendants: 'Nachkommen', ancestors: 'Ahnen', connections: 'Verbindung' };
+  const labels: Record<string, string> = { family: 'Familie', hourglass: 'Sanduhr', descendants: 'Nachkommen', ancestors: 'Fächer', connections: 'Verbindung' };
   await page.getByRole('radiogroup', { name: 'Ansicht', exact: true }).getByRole('radio', { name: labels[mode], exact: true }).check();
 }
 

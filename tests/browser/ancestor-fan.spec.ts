@@ -1,0 +1,52 @@
+import { expect } from '@playwright/test';
+import { test, login, changeZoom, expectGraphFits, selectGraphView } from './support';
+const family = { meta: { focusPersonId: 'child' }, people: {
+  child: { name: 'Alex Example', parents: ['father', 'mother', 'adoptive'], parentDetails: { father: { type: 'biological' }, mother: { type: 'biological' }, adoptive: { type: 'adoptive' } } },
+  father: { name: 'Father Example', gender: 'm', parents: ['shared'], children: ['child'], birth: '1960' },
+  mother: { name: 'Mother Example', gender: 'f', parents: ['shared'], children: ['child'], birth: '1965' },
+  adoptive: { name: 'Adoptive Example', children: ['child'] }, shared: { name: 'Shared Ancestor', children: ['father', 'mother'], birth: '1930', death: '2010' },
+} };
+for (const role of ['reader', 'admin']) test(`fan works for ${role} with fixed positions, generation expansion and person information`, async ({ page }, info) => {
+  await login(page, `fixture-${role}`);
+  await page.route('**/data/trees/demo.json', route => route.fulfill({ json: family }));
+  await page.goto('/?view=family&person=child&action=family');
+  await changeZoom(page, 1.2);
+  const cardZoom = await page.locator('[data-zoom-level]').innerText();
+  await selectGraphView(page, 'ancestors');
+  await expect(page.locator('.family-view')).toHaveAttribute('data-layout-engine', 'fan');
+  await page.getByLabel('Generationen', { exact: true }).selectOption('3');
+  await expect(page.locator('[data-fan-slot]')).toHaveCount(15);
+  await expect(page.locator('[data-fan-person="shared"]')).toHaveCount(2);
+  await expect(page.locator('[data-fan-person="adoptive"]')).toHaveCount(0);
+  await expectGraphFits(page);
+  await page.locator('[data-fan-slot="1"] circle').click();
+  await expect(page.locator('#family-person-title')).toHaveText('Alex Example');
+  await page.locator('#personDialog .dialog-close').click();
+  const svgSize = await page.locator('.fan-svg').evaluate(el => [el.getAttribute('width'), el.getAttribute('height')]);
+  expect(svgSize[0]).toBe(svgSize[1]);
+  const father = page.locator('[data-fan-slot="2"]');
+  await father.focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('#family-person-title')).toHaveText('Father Example');
+  await page.locator('#personDialog .dialog-close').click();
+  await page.getByLabel('Generationen', { exact: true }).selectOption('8');
+  await expect(page.locator('[data-fan-slot]')).toHaveCount(511);
+  await expect(page.locator('[data-fan-slot="2"]')).toHaveAttribute('data-fan-person', 'father');
+  await expectGraphFits(page);
+  const scale = await page.locator('[data-zoom-level]').innerText();
+  await changeZoom(page, 1.2);
+  await expect(page.locator('[data-zoom-level]')).not.toHaveText(scale);
+  await page.getByRole('button', { name: 'Einpassen', exact: true }).click(); await expectGraphFits(page);
+  await page.reload();
+  await expect(page.locator('#personDialog')).toHaveCount(0);
+  await expect(page.locator('.ancestor-fan')).toHaveAttribute('data-fan-depth', '8');
+  await page.locator('#family-search').fill('Mother Example');
+  await page.locator('[data-search-person="mother"]').click();
+  await expect(page.locator('[data-fan-slot="1"]')).toHaveAttribute('data-fan-person', 'mother');
+  await selectGraphView(page, 'family');
+  await expect(page.locator('[data-zoom-level]')).toHaveText(cardZoom);
+  await selectGraphView(page, 'ancestors');
+  await page.getByLabel('Generationen', { exact: true }).selectOption('3');
+  await expectGraphFits(page);
+  await page.screenshot({ path: info.outputPath('ancestor-fan.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

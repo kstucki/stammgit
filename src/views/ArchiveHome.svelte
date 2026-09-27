@@ -28,7 +28,7 @@
   onMount(() => { if (view !== 'family' && view !== 'chronicle') void tick().then(restorePagePosition); });
   $effect(() => { document.body.classList.toggle('tree-page', view === 'family'); return () => document.body.classList.remove('tree-page'); });
   const person = params.get('person'), action = params.get('action');
-  let selected = $state<string | null>(untrack(() => person && store.dataset.people[person] && !['edit', 'family', 'tree', 'descendants'].includes(action || '') ? person : null));
+  let selected = $state<string | null>(untrack(() => person && store.dataset.people[person] && !['edit', 'family', 'tree', 'descendants', 'ancestors'].includes(action || '') ? person : null));
   let editing = $state<string | null>(untrack(() => store.admin && person && store.dataset.people[person] && action === 'edit' ? person : null));
   const labels: Record<string, string> = { family: 'archiveTree', overview: 'archiveTree', chronicle: 'tabChronicle', sources: 'tabSources', admin: 'tabAdmin' };
   let archive = $derived({ ...store.archive, hasDraft: store.draft, hasChronicle: !!store.chronicle?.chapters.length });

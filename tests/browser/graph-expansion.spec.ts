@@ -39,7 +39,7 @@ test('card focuses, info opens, and one-hop arrows preserve zoom and connection 
   await expect(page.locator('[data-connection-selected="a"]')).toHaveCount(1);
   await expect(page.locator('[data-connection-selected="b"]')).toHaveCount(1);
 });
-for (const mode of ['Familie', 'Ahnen', 'Nachkommen', 'Sanduhr']) {
+for (const mode of ['Familie', 'Nachkommen', 'Sanduhr']) {
   test(`expansion works in ${mode} and resets on view changes`, async ({ page }) => {
     await login(page);
     await page.route('**/data/trees/demo.json', route => route.fulfill({ json: data }));

@@ -53,3 +53,11 @@ regressions, and `npx playwright test tests/browser/graph-engines.spec.ts` for
 default-engine and expansion checks. All public cases use demo or synthetic
 content. The unchanged JS engine remains a test/metrics reference, not a second
 user-selectable mode. Never relax geometry assertions to make a port pass.
+
+## Ancestor fan checks
+
+Run `npm run test:unit -- src/domain/ancestor-fan.test.ts` for fixed positions,
+missing/ambiguous ancestry, repeated ancestors, cycles and full-circle geometry.
+Run `npx playwright test tests/browser/ancestor-fan.spec.ts tests/browser/graph-views.spec.ts`
+for both access roles, generation changes, person panels, search, reload, zoom
+isolation and mode switching. Public tests use only synthetic people.

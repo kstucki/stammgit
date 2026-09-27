@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { changeZoom, test, login, expectFamilyHeightFits, selectGraphView } from './support';
 
-test('compact header and five shared card views keep the center and hourglass selection', async ({ page }, testInfo) => {
+test('compact header and five views keep the center and hourglass selection', async ({ page }, testInfo) => {
   await login(page);
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
   await expect(page.locator('.archive-identity')).toHaveCount(0);
@@ -12,11 +12,16 @@ test('compact header and five shared card views keep the center and hourglass se
   await expect(page.locator('.graph-tools').getByRole('radiogroup', { name: 'Ansicht', exact: true })).toBeVisible();
   await expect(page.locator('.archive-header #family-search')).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Ansicht', exact: true })).toHaveCount(0);
-  await expect(selector.locator('.graph-mode-face > span')).toHaveText(['Familie', 'Sanduhr', 'Nachkommen', 'Ahnen', 'Verbindung']);
+  await expect(selector.locator('.graph-mode-face > span')).toHaveText(['Familie', 'Sanduhr', 'Nachkommen', 'Fächer', 'Verbindung']);
   await expect(selector.locator('svg')).toHaveCount(5);
   for (const [mode, count] of [['family', 11], ['hourglass', 8], ['descendants', 6], ['ancestors', 3], ['connections', 1]] as const) {
     await selectGraphView(page, mode);
     await expect(selector.locator('input:checked')).toHaveValue(mode);
+    if (mode === 'ancestors') {
+      await expect(page.locator('[data-fan-person]')).toHaveCount(count);
+      await expect(page.locator('[data-fan-slot="1"]')).toHaveAttribute('data-fan-person', 'lea');
+      continue;
+    }
     await expect(page.locator('[data-family-person]')).toHaveCount(count);
     await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'lea');
     await expect(page.locator('[data-family-person="lea"] img')).toHaveAttribute('src', '/photos/test.png');
@@ -78,12 +83,12 @@ test('view bar supports keyboard selection without horizontal scrolling', async 
 
   await bar.getByRole('radio', { name: 'Familie', exact: true }).focus();
   const pageTop = await page.evaluate(() => scrollY);
-  for (const [label, count] of [['Sanduhr', 8], ['Nachkommen', 6], ['Ahnen', 3], ['Verbindung', 1]] as const) {
+  for (const [label, count] of [['Sanduhr', 8], ['Nachkommen', 6], ['Fächer', 3], ['Verbindung', 1]] as const) {
     await page.keyboard.press('ArrowRight');
     const selected = bar.getByRole('radio', { name: label, exact: true });
     await expect(selected).toBeChecked(); await expect(selected).toBeFocused();
     await expect(bar.locator('input:checked')).toHaveCount(1);
-    await expect(page.locator('[data-family-person]')).toHaveCount(count);
+    await expect(page.locator(label === 'Fächer' ? '[data-fan-person]' : '[data-family-person]')).toHaveCount(count);
     await expect.poll(() => selected.evaluate(el => {
       const item = el.getBoundingClientRect(), bar = el.closest('.graph-view-switcher')!, area = bar.getBoundingClientRect();
       return item.left >= area.left && item.right <= area.left + bar.clientWidth;
@@ -116,7 +121,7 @@ test('large selections render through a worker and can be replaced by a local fa
   await page.reload();
   await expect(page.locator('[data-family-person]')).toHaveCount(2);
   await expect(page.locator('.person-count')).toHaveCount(0);
-  await selectGraphView(page, 'ancestors');
+  await page.goto('/?view=family&person=n0&action=descendants');
   await expect(page.locator('[data-family-person]')).toHaveCount(100);
   expect(workers).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
@@ -156,7 +161,7 @@ test('hourglass roots, mode and zoom survive section changes, reload and a new c
 
 test('removed full mode is absent and a saved full selection falls back safely', async ({ page }) => {
   await login(page);
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     sessionStorage.setItem('graphState:demo', JSON.stringify({ mode: 'full', roots: ['person_a'], scales: { full: .1 } }));
     localStorage.setItem('graphZoom', JSON.stringify(.42));
   });

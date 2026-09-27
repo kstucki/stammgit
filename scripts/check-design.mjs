@@ -29,7 +29,7 @@ function contrast(a, b) {
   const values = [luminance(tokens[a]), luminance(tokens[b])].sort((a, b) => b - a);
   return (values[0] + .05) / (values[1] + .05);
 }
-for (const background of ['bg', 'surface', 'surface-muted', 'focus-soft']) {
+for (const background of ['bg', 'surface', 'surface-muted', 'focus-soft', 'fan-branch']) {
   for (const foreground of ['text', 'text-muted', 'primary']) {
     // Selection surfaces deliberately use normal text, never muted text.
     if (background === 'focus-soft' && foreground === 'text-muted') continue;

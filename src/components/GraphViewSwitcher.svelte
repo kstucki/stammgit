@@ -26,8 +26,10 @@
               <circle cx="4" cy="21" r="1.25" /><circle cx="12" cy="21" r="1.25" /><circle cx="20" cy="21" r="1.25" />
               <circle cx="12" cy="12" r="2" />
             </g>
-          {:else if value === 'descendants' || value === 'ancestors'}
-            <g transform={value === 'ancestors' ? 'rotate(180 12 12)' : undefined}>
+          {:else if value === 'ancestors'}
+            <path d="M2 20a10 10 0 0 1 20 0H2ZM6 20a6 6 0 0 1 12 0M12 10v10M5 13l7 7 7-7" />
+          {:else if value === 'descendants'}
+            <g>
               <path d="M12 6.5V12M4 17v-5h16v5M12 12v5" />
               <circle cx="12" cy="4" r="2.5" fill="currentColor" />
               <circle cx="4" cy="19" r="2" /><circle cx="12" cy="19" r="2" /><circle cx="20" cy="19" r="2" />

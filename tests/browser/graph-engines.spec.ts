@@ -8,13 +8,13 @@ async function geometry(page: Page) {
     x: (node as HTMLElement).style.left, y: (node as HTMLElement).style.top,
   })));
 }
-for (const role of ['admin', 'reader']) test(`${role} uses TypeScript in every view without a comparison control`, async ({ page }) => {
+for (const role of ['admin', 'reader']) test(`${role} uses TypeScript in every card view without a comparison control`, async ({ page }) => {
   await login(page, `fixture-${role}`);
   await page.evaluate(() => localStorage.setItem('activeTree', 'complex'));
   await page.goto('/?view=family&layoutEngine=legacy');
   await changeZoom(page, 1.2);
   const zoom = await page.locator('[data-zoom-level]').innerText();
-  for (const mode of ['family', 'hourglass', 'descendants', 'ancestors', 'connections']) {
+  for (const mode of ['family', 'hourglass', 'descendants', 'connections']) {
     await selectGraphView(page, mode);
     await expect(page.locator('.family-view')).toHaveAttribute('data-layout-engine', 'typescript');
     await expect(page.locator('[data-family-person]').first()).toBeVisible();

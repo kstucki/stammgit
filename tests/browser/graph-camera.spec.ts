@@ -15,7 +15,7 @@ test('all views preserve camera geometry while zooming, keep the window and cent
   }
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
   await expectFamilyHeightFits(page);
-  for (const mode of ['family', 'hourglass', 'descendants', 'ancestors']) {
+  for (const mode of ['family', 'hourglass', 'descendants']) {
     const previousZoom = await page.locator('[data-zoom-level]').innerText();
     await selectGraphView(page, mode);
     await expect(page.locator('[data-zoom-level]')).toHaveText(previousZoom);
@@ -138,7 +138,7 @@ test('wide sibling groups fit by height and both ends remain horizontally reacha
 test('each graph mode preserves zoom when its center changes', async ({ page }) => {
   await login(page);
   await page.evaluate(() => { localStorage.setItem('activeTree', 'complex'); localStorage.removeItem('graphZoom'); }); await page.reload();
-  for (const mode of ['family', 'hourglass', 'descendants', 'ancestors']) {
+  for (const mode of ['family', 'hourglass', 'descendants']) {
     await selectGraphView(page, mode);
     await changeZoom(page, 1 / 1.2);
     const zoom = await page.locator('[data-zoom-level]').innerText();
@@ -153,12 +153,12 @@ test('each graph mode preserves zoom when its center changes', async ({ page }) 
   }
 });
 
-test('one global zoom survives every view, reload and dataset change', async ({ page }) => {
+test('one card zoom survives card views, reload and dataset change', async ({ page }) => {
   await login(page);
   await changeZoom(page, 1.2);
   const value = await page.locator('[data-zoom-level]').innerText();
   const scale = await page.locator('.family-plane').evaluate(el => new DOMMatrix(getComputedStyle(el).transform).a);
-  for (const mode of ['hourglass', 'descendants', 'ancestors', 'connections', 'family']) {
+  for (const mode of ['hourglass', 'descendants', 'connections', 'family']) {
     await selectGraphView(page, mode);
     await expect(page.locator('[data-zoom-level]')).toHaveText(value);
     expect(await page.locator('.family-plane').evaluate(el => new DOMMatrix(getComputedStyle(el).transform).a)).toBeCloseTo(scale, 5);

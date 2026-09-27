@@ -35,11 +35,11 @@ WYSIWYG editor or social features. Git remains the collaboration model.
 
 These rules are the specification. Update them before changing behavior.
 
-- One card per person, including people with multiple partnerships.
+- Card views show one card per person, including people with multiple partnerships.
 - Family shows the center, parents, siblings, partners and children.
 - Ancestors & descendants (hourglass) combines any number of roots, their
   ancestor lines, descendants and included partners without duplicating people.
-- Ancestors and descendants also have their own modes. There is no full view;
+- The ancestor fan and descendants have their own modes. There is no full view;
   old stored `full` selections fall back to family.
 - Children connect to their documented parent family. Explicit `parentGroups`
   distinguish families; missing relationship types are unknown, never inferred
@@ -71,9 +71,36 @@ adapter for domain tests and metrics. Its mutual-first-partner pairing does not
 control the Svelte cards or define a primary marriage. Do not change partner
 order when migrating data.
 
+### Ancestor fan
+
+The `ancestors` mode uses `ancestor-fan.ts` and `AncestorFan.svelte`, a separate
+SVG renderer without the crossing optimizer or a worker. It is always a full
+circle, without a shape switch. The first parent branch fills the left half;
+the second fills the right. Radial labels are rotated to remain upright.
+
+- The center is generation 0; select 1–8 parent generations (default 5).
+  Eight generations contain 510 ancestor positions plus the center. Coverage
+  counts occupied positions, not unique people or confirmed evidence ratings.
+- Positions are fixed: each has two parent positions, and missing ancestors
+  leave visible gaps. Increasing depth preserves existing positions. Shared
+  ancestors repeat on each path. Actual cycles stop only the affected path.
+- Follow biological and unspecified parent links. Explicit adoptive, guardian
+  and other nonbiological links are excluded. Unspecified links have dashed
+  borders and an explanation, without inferring biological parenthood.
+- Recorded gender reserves father-left/mother-right where possible; otherwise
+  preserve parent order. More than two eligible parents produce a visible
+  warning and empty outer positions rather than an arbitrary selection.
+- Click, Enter or Space opens person information; search changes the center.
+  Complete names remain in accessible labels/tooltips. Narrow segments shorten
+  names and omit dates. Evidence badges remain confined to person information.
+- Depth is session-persisted per dataset. Mode/center are reflected in the URL;
+  reload does not open a person panel. The separate fan camera supports pan,
+  pinch/Ctrl-wheel and Fit. Center/depth changes refit automatically, without
+  changing the shared card zoom. Branch shading uses checked design tokens.
+
 ### Active layout engine
 
-All five views use the TypeScript engine for both admin and read-only roles,
+The four card views use the TypeScript layout engine for both admin and read-only roles,
 including worker layouts. There is no engine comparison control or stored/URL
 engine preference. Selection, generation rules, camera and relationship styles
 remain independent of ordering.
@@ -137,7 +164,7 @@ sentences; longer routes form chains, with the underlying path available as evid
 
 ### Camera and navigation
 
-One `localStorage.graphZoom` value applies to every mode and dataset. Changing
+One `localStorage.graphZoom` value applies to every card mode and dataset. Changing
 the center or mode preserves it; **Fit** explicitly changes it. The first family
 view without a saved zoom fits both width and height. Explicit family Fit uses
 height; other modes use both dimensions. Center, mode, roots and connection
