@@ -28,8 +28,17 @@ for (const role of ['reader', 'admin']) test(`fan works for ${role} with fixed p
   await father.focus(); await page.keyboard.press('Enter');
   await expect(page.locator('#family-person-title')).toHaveText('Father Example');
   await page.locator('#personDialog .dialog-close').click();
-  await page.getByLabel('Generationen', { exact: true }).selectOption('8');
-  await expect(page.locator('[data-fan-slot]')).toHaveCount(511);
+  for (let depth = 1; depth <= 10; depth++) {
+    await page.getByLabel('Generationen', { exact: true }).selectOption(String(depth));
+    await expect(page.locator('[data-fan-slot]')).toHaveCount(2 ** (depth + 1) - 1);
+    await expectGraphFits(page);
+    await expect(page.locator('[data-fan-slot="2"] title')).toHaveText('Father Example, * 1960');
+    if (depth > 1) await expect(page.locator('[data-fan-slot="4"] title')).toHaveText('Shared Ancestor, 1930–2010');
+    await changeZoom(page, 1.2);
+  }
+  await page.getByLabel('Generationen', { exact: true }).selectOption('9');
+  await page.getByLabel('Generationen', { exact: true }).selectOption('10');
+  await expect(page.locator('[data-fan-slot]')).toHaveCount(2047);
   await expect(page.locator('[data-fan-slot="2"]')).toHaveAttribute('data-fan-person', 'father');
   await expectGraphFits(page);
   const scale = await page.locator('[data-zoom-level]').innerText();
@@ -38,7 +47,7 @@ for (const role of ['reader', 'admin']) test(`fan works for ${role} with fixed p
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click(); await expectGraphFits(page);
   await page.reload();
   await expect(page.locator('#personDialog')).toHaveCount(0);
-  await expect(page.locator('.ancestor-fan')).toHaveAttribute('data-fan-depth', '8');
+  await expect(page.locator('.ancestor-fan')).toHaveAttribute('data-fan-depth', '10');
   await page.locator('#family-search').fill('Mother Example');
   await page.locator('[data-search-person="mother"]').click();
   await expect(page.locator('[data-fan-slot="1"]')).toHaveAttribute('data-fan-person', 'mother');

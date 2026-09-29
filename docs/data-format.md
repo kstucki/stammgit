@@ -29,6 +29,26 @@ The editor offers a selection. Unknown/diverse gender produces neutral relations
 terms. GEDCOM uses `SEX M/F` and a private `_GENDER d` extension; merging conflicting known genders requires
 resolution rather than silently overwriting either value.
 
+## Names and life events
+
+`name` is the complete recorded name. Optional `displayName` is a chosen label
+for graph cards, fan segments and unlabelled chronicle person links. Search
+matches both names; results and person information keep the full name. Clearing
+the display name restores the full-name fallback. A merge preserves one supplied
+display name and rejects conflicting nonempty names until reconciled. GEDCOM
+retains the full `NAME` and roundtrips the label through `_STAMMBAUM_DISPLAY_NAME`.
+
+Optional `birthPlace` and `deathPlace` are literal place names. They can exist
+without dates and are never translated or inferred. GEDCOM uses standard
+`BIRT/PLAC` and `DEAT/PLAC` fields, including multiline or long Unicode values.
+
+Prefer date-only `YYYY-MM-DD`, `YYYY-MM` or `YYYY` in `birth` and `death`.
+Existing `DD.MM.YYYY` dates remain readable. Qualifiers (`um`, `vor`, `nach`),
+alternative years (`1850 od. 1851`) and uncertainty (`1850?`) keep their meaning.
+Unknown formats remain verbatim. Cards show separate `*` birth and `†` death
+year rows; person information retains full dates, places and occupation. Display
+formatting never rewrites stored values or converts them through a time zone.
+
 ## Evidence status
 
 Optional `evidenceStatus` accepts `unsicher` (uncertain), `gut` (good), or

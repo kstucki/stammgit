@@ -76,3 +76,22 @@ it('compresses a deep ancestry without a depth cutoff', () => {
   const result = relationshipEngine({ meta: { focusPersonId: '99' }, people }).explain('99', '0')!;
   expect(result.edgeCount).toBe(99); expect(result.segments).toHaveLength(1);
 });
+
+it('counts in-law shortcuts in both directions and preserves the original edge evidence', () => {
+  const d: Dataset = { meta: { focusPersonId: 'elder' }, people: {
+    elder: {}, child: { parents: ['elder'], partners: ['spouse'], partnerDetails: { spouse: { status: 'verheiratet' } } },
+    spouse: { parents: ['parent'] }, sibling: { parents: ['parent'] }, parent: {},
+    grandchild: { parents: ['child', 'spouse'] },
+  } };
+  const forward = ['elder', 'child', 'spouse', 'parent', 'sibling'];
+  for (const route of [forward, [...forward].reverse()]) {
+    const explanation = relationshipEngine(d).explain(route[0], route.at(-1)!)!;
+    const steps = explanation.segments.flatMap(segment => segment.steps);
+    expect([route[0], ...steps.map(step => step.to)]).toEqual(route);
+    expect(explanation.edgeCount).toBe(4);
+    expect(steps.filter(step => step.direction === 'partner')).toHaveLength(1);
+  }
+  // Enumeration order must not affect either direction.
+  d.people = Object.fromEntries(Object.entries(d.people).reverse());
+  expect(relationshipEngine(d).explain('elder', 'sibling')!.segments.flatMap(s => s.steps.map(step => step.to))).toEqual(forward.slice(1));
+});

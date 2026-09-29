@@ -10,6 +10,8 @@ describe('ancestor positions', () => {
     expect(slots[2].unknownType).toBe(true);
     expect(ancestorFan(d, 'child', 8).slice(0, slots.length)).toEqual(slots);
     expect(ancestorFan(d, 'child', 8)).toHaveLength(511);
+    expect(ancestorFan(d, 'child', 10)).toHaveLength(2047);
+    expect(ancestorFan(d, 'child', 10).slice(0, slots.length)).toEqual(slots);
   });
   it('follows biological or unspecified parents without mixing adoption into the lineage', () => {
     const d = data({ child: { parents: ['adoptive', 'mother', 'guardian', 'father'], parentDetails: {
@@ -34,7 +36,7 @@ describe('ancestor positions', () => {
     const left = fanGeometry(1, 0), right = fanGeometry(1, 1);
     expect(left.x).toBeLessThan(0); expect(right.x).toBeGreaterThan(0);
     expect(left.y).toBeLessThan(0); expect(right.y).toBeLessThan(0);
-    for (let generation = 2; generation <= 8; generation++) {
+    for (let generation = 2; generation <= 10; generation++) {
       const sectors = Array.from({ length: 2 ** generation }, (_, i) => fanGeometry(generation, i));
       expect(sectors.some(s => s.y < 0)).toBe(true);
       expect(sectors.every(s => s.y < 0)).toBe(true);
@@ -42,8 +44,8 @@ describe('ancestor positions', () => {
     }
   });
   it('bounds work and produces finite nondegenerate sectors at every depth', () => {
-    expect([fanDepth(100), fanDepth(-1), fanDepth(NaN)]).toEqual([8, 1, 5]);
-    for (let generation = 1; generation <= 8; generation++) for (let index = 0; index < 2 ** generation; index++) {
+    expect([fanDepth(100), fanDepth(-1), fanDepth(NaN)]).toEqual([10, 1, 5]);
+    for (let generation = 1; generation <= 10; generation++) for (let index = 0; index < 2 ** generation; index++) {
       const g = fanGeometry(generation, index);
       expect(g.path).not.toMatch(/NaN|Infinity/);
       expect(Number.isFinite(g.rotation)).toBe(true);

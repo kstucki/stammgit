@@ -13,6 +13,8 @@
   let dialog: HTMLDialogElement;
   const initial = untrack(() => store.dataset.people[id]);
   let name = $state(initial.name || ''), birth = $state(initial.birth || ''), death = $state(initial.death || ''), occupation = $state(initial.occupation || ''), notes = $state((initial.notes || []).join('\n'));
+  let displayName = $state(initial.displayName || '');
+  let birthPlace = $state(initial.birthPlace || ''), deathPlace = $state(initial.deathPlace || '');
   let gender = $state(initial.gender || '');
   let evidenceStatus = $state<EvidenceStatus | ''>(initial.evidenceStatus || '');
   let error = $state(''), pick = $state<'parents' | 'children' | 'partners' | 'merge' | null>(null);
@@ -23,7 +25,7 @@
   function commit(operation: (data: Dataset) => void = () => {}) {
     store.edit(data => {
       const p = data.people[id]; p.name = name.trim() || p.name;
-      for (const [key, value] of [['birth', birth], ['death', death], ['occupation', occupation]] as const) { if (value.trim()) p[key] = value.trim(); else delete p[key]; }
+      for (const [key, value] of [['displayName', displayName], ['birth', birth], ['death', death], ['birthPlace', birthPlace], ['deathPlace', deathPlace], ['occupation', occupation]] as const) { if (value.trim()) p[key] = value.trim(); else delete p[key]; }
       if (gender) p.gender = gender; else delete p.gender;
       if (evidenceStatus) p.evidenceStatus = evidenceStatus; else delete p.evidenceStatus;
       const lines = notes.split('\n').map(n => n.trim()).filter(Boolean); if (lines.length) p.notes = lines; else delete p.notes;
@@ -39,7 +41,7 @@
     const action = pick; pick = null; if (!other || !action) return;
     if (action === 'merge') {
       if (!confirm(t.get('mergeConfirm', { from: name, to: store.dataset.people[other].name || other }))) return;
-      if (act(data => { const result = absorbPerson(data, other, id); if (!result.ok) throw new Error(t.get(result.reason === 'relationship_details' ? 'mergeRelationshipBlocked' : result.reason === 'evidence_conflict' ? 'mergeEvidenceBlocked' : 'mergeFailed')); })) { onclose(); onperson(other); }
+      if (act(data => { const result = absorbPerson(data, other, id); if (!result.ok) throw new Error(t.get(result.reason === 'relationship_details' ? 'mergeRelationshipBlocked' : result.reason === 'display_name_conflict' ? 'mergeDisplayNameBlocked' : result.reason === 'evidence_conflict' ? 'mergeEvidenceBlocked' : 'mergeFailed')); })) { onclose(); onperson(other); }
     } else act(data => linkRecordedRelation(data, action, id, other));
   }
   async function remove() {
@@ -60,6 +62,8 @@
     <form id="personEditor" class="editor" onsubmit={event => { event.preventDefault(); if (act()) onclose(); }}>
       <fieldset disabled={store.saving || store.fileBusy > 0} aria-busy={store.fileBusy > 0}>
       <div class="editor-grid"><label>{t.get('fieldName')}<input name="name" bind:value={name} required /></label><label>{t.get('fieldBirth')}<input name="birth" bind:value={birth} placeholder={t.get('fieldBirthHint')} /></label><label>{t.get('fieldDeath')}<input name="death" bind:value={death} placeholder={t.get('fieldDeathHint')} /></label></div>
+      <label>{t.get('fieldDisplayName')}<input name="displayName" bind:value={displayName} placeholder={name} /></label>
+      <div class="editor-grid"><label>{t.get('fieldBirthPlace')}<input name="birthPlace" bind:value={birthPlace} /></label><label>{t.get('fieldDeathPlace')}<input name="deathPlace" bind:value={deathPlace} /></label></div>
       <label>{t.get('fieldGender')}<select name="gender" bind:value={gender}><option value="">{t.get('genderUnknown')}</option><option value="m">{t.get('gender_m')}</option><option value="f">{t.get('gender_f')}</option><option value="d">{t.get('gender_d')}</option></select></label>
       <label>{t.get('fieldEvidenceStatus')}<select name="evidenceStatus" bind:value={evidenceStatus}><option value="">{t.get('evidenceUnassessed')}</option><option value="unsicher">{t.get('evidenceUncertain')}</option><option value="gut">{t.get('evidenceGood')}</option><option value="gesichert">{t.get('evidenceConfirmed')}</option></select></label>
       <p>{t.get('evidenceHelp')}</p>

@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-09-29 — Camera, person details and search
+
+- Save the first fitted family zoom immediately and reuse it across card views,
+  center changes, sections, reloads and datasets. Fit uses both axes; small saved
+  scales enlarge smoothly. The ancestor fan stays independent, fits whenever
+  opened or its depth changes, supports 1–10 generations and has name/year tooltips.
+- Keep the panned graph fixed when person information opens, changes person,
+  resizes or closes. Expansion arrows keep their source card fixed, including
+  worker layouts and subsequent card measurements.
+- Add optional display names and birth/death places with editor, validation,
+  merge protection and GEDCOM roundtrips. Cards show separate birth/death years;
+  person information retains full names, dates, places and occupation with a
+  larger portrait. Closing dismisses the whole person panel.
+- Share keyboard navigation between person search and relation pickers. Improve
+  documented in-law descriptions and English cousin ordinals. Preserve document
+  fragments when resolving pending chronicle assets.
+- Keep public demo data, configuration, generation ordering and dependencies
+  unchanged. No instance-specific content, language extensions or history copied.
+
+Validation: full build and 210 unit tests passed. All 80 focused browser cases
+passed across desktop and mobile Chromium emulation, including reruns after
+correcting asynchronous test waits and explicit graph-entry URLs. Isolated
+production, development and read-only server checks passed. Compact demo metrics
+are unchanged: 0 crossings, maximum hole 622px, width 7463px. No full browser-suite,
+WebKit or physical-device run.
+
 ## 2026-09-27 — Semicircular fan and view help
 
 - Restore the semicircular ancestor fan and matching icon, without a shape switch.

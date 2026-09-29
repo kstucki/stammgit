@@ -48,6 +48,10 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
       fail(`'${pid}'.name must be a string.`);
     }
 
+    for (const key of ["displayName", "occupation", "birthPlace", "deathPlace"]) {
+      if (p[key] !== undefined && typeof p[key] !== "string") fail(`'${pid}'.${key} must be a string.`);
+    }
+
     if (p.gender !== undefined && !["m", "f", "d"].includes(p.gender)) {
       fail(`'${pid}'.gender must be m, f or d (or omitted when unknown).`);
     }

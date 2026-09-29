@@ -43,6 +43,17 @@ export function relationshipStations(steps: RelationshipStep[]): RelationshipSeg
   return stations;
 }
 
+// A documented marriage plus one immediate family relation is one displayed term.
+// Share this classification with the formatter so routing and wording agree.
+export function inLawKind(steps: RelationshipStep[]): string {
+  if (!steps.some(step => step.direction === 'partner' && step.marriage)
+    || steps.some(step => ['guardian', 'other'].includes(step.parentType || ''))) return '';
+  const pattern = steps.map(step => step.direction).join('/');
+  return pattern === 'partner/up' ? 'kinParentInLaw'
+    : pattern === 'down/partner' ? 'kinChildInLaw'
+    : ['partner/up/down', 'up/down/partner'].includes(pattern) ? 'kinSiblingInLaw' : '';
+}
+
 interface Label {
   id: string; last: string; previousParent: string; segments: number; edges: number;
   signature: string; path: RelationshipStep[];
@@ -68,6 +79,23 @@ export function relationshipEngine(data: Dataset) {
       graph.get(edge.b)!.push({ from: edge.b, to: edge.a, direction: 'partner', marriage, ended, currentlyMarried });
     }
   }
+  // Additional search arcs, not graph edges: each expands back to its original
+  // evidence. Positive cost avoids rewarding a descent through a shared child.
+  const affinity = new Map<string, RelationshipStep[][]>();
+  for (const start of graph.keys()) {
+    const arcs: RelationshipStep[][] = [];
+    function extend(id: string, path: RelationshipStep[], seen: Set<string>) {
+      if (path.length >= 2 && inLawKind(path)) arcs.push(path);
+      if (path.length === 3) return;
+      for (const step of graph.get(id) || []) {
+        if (seen.has(step.to) || ['guardian', 'other'].includes(step.parentType || '')) continue;
+        if (step.direction === 'partner' && (!step.marriage || path.some(edge => edge.direction === 'partner'))) continue;
+        extend(step.to, [...path, step], new Set([...seen, step.to]));
+      }
+    }
+    extend(start, [], new Set([start]));
+    affinity.set(start, arcs);
+  }
   const cache = new Map<string, Map<string, Label>>();
   function search(start: string) {
     if (cache.has(start)) return cache.get(start)!;
@@ -83,10 +111,12 @@ export function relationshipEngine(data: Dataset) {
       queue.sort(compare); const current = queue.shift()!;
       if (best.get(key(current.id, current.last, current.previousParent)) !== current) continue;
       if (!answers.has(current.id)) answers.set(current.id, current);
-      for (const step of graph.get(current.id) || []) {
+      for (const arc of [...(graph.get(current.id) || []).map(step => [step]), ...(affinity.get(current.id) || [])]) {
+        const step = arc.at(-1)!, contracted = arc.length > 1;
+        if (contracted && arc.some(edge => edge.to === start || current.path.some(previous => previous.to === edge.to))) continue;
         // Reversing the same edge cannot add genealogical information.
-        if (current.path.at(-1)?.from === step.to) continue;
-        const direction = continuation(step);
+        if (current.path.at(-1)?.from === arc[0].to) continue;
+        const direction = contracted ? '' : continuation(step);
         const wasDescending = current.last === 'down' || current.last === 'upDown';
         const last = direction === 'down' && ['up', 'upDown'].includes(current.last) ? 'upDown' : direction;
         const sharedChildDetour = current.last === 'upDown' && direction === 'up'
@@ -100,9 +130,9 @@ export function relationshipEngine(data: Dataset) {
         const detourCost = sharedChildDetour ? 1 : 0;
         const candidate: Label = { id: step.to, last, previousParent: direction === 'down' ? step.from : '',
           segments: current.segments + (direction && current.last && !(wasDescending && direction === 'up') ? 0 : 1) + detourCost,
-          edges: current.edges + 1,
-          signature: current.signature + JSON.stringify([step.to, step.direction, step.parentType || '']),
-          path: [...current.path, step],
+          edges: current.edges + arc.length,
+          signature: current.signature + arc.map(edge => JSON.stringify([edge.to, edge.direction, edge.parentType || ''])).join(''),
+          path: [...current.path, ...arc],
         };
         const state = key(candidate.id, last, candidate.previousParent), previous = best.get(state);
         if (!previous || compare(candidate, previous) < 0) { best.set(state, candidate); queue.push(candidate); }

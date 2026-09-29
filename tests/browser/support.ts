@@ -35,17 +35,6 @@ export async function expectGraphFits(page: Page) {
   })).toBe(true);
 }
 
-export async function expectFamilyHeightFits(page: Page) {
-  await expect.poll(() => page.locator('.family-viewport').evaluate(v => {
-    const p = v.querySelector<HTMLElement>('.family-plane')!, plane = p.getBoundingClientRect(), view = v.getBoundingClientRect();
-    const center = v.querySelector('.central-person')!.getBoundingClientRect();
-    const scale = new DOMMatrix(getComputedStyle(p).transform).a;
-    return plane.top >= view.top && plane.bottom <= view.top + v.clientHeight
-      && Math.abs(scale - Math.min(1, (v.clientHeight - 24) / p.offsetHeight)) < .001
-      && Math.abs(center.left + center.width / 2 - view.left - v.clientWidth / 2) < 1;
-  })).toBe(true);
-}
-
 export async function selectGraphView(page: Page, mode: string) {
   const labels: Record<string, string> = { family: 'Familie', hourglass: 'Sanduhr', descendants: 'Nachkommen', ancestors: 'Fächer', connections: 'Verbindung' };
   await page.getByRole('radiogroup', { name: 'Ansicht', exact: true }).getByRole('radio', { name: labels[mode], exact: true }).check();
@@ -53,10 +42,12 @@ export async function selectGraphView(page: Page, mode: string) {
 
 export async function changeZoom(page: Page, factor: number) {
   const button = page.getByRole('button', { name: factor > 1 ? 'Vergrössern' : 'Verkleinern', exact: true });
-  if (await button.isVisible()) { await button.click(); return; }
+  await expect(page.locator('.graph-fit')).toBeEnabled();
+  if (await button.isVisible()) { await button.click(); await expect(page.locator('.graph-fit')).toBeEnabled(); return; }
   await page.locator('.family-viewport').evaluate((v, factor) => {
     const box = v.getBoundingClientRect();
     v.dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: -Math.log(factor) * 100,
       clientX: box.left + v.clientWidth / 2, clientY: box.top + v.clientHeight / 2, bubbles: true, cancelable: true }));
   }, factor);
+  await expect(page.locator('.graph-fit')).toBeEnabled();
 }

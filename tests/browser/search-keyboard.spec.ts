@@ -1,0 +1,31 @@
+import { expect } from '@playwright/test';
+import { test, login, selectGraphView } from './support';
+test('combobox starts on first result, clamps arrows, escapes twice, tabs normally', async ({ page }) => {
+  await login(page, 'fixture-reader'); const input = page.locator('#family-search');
+  await input.fill('Test'); await expect(input).toHaveAttribute('aria-expanded', 'true');
+  const options = page.getByRole('option'); await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  await input.press('ArrowUp'); await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  await input.press('ArrowDown'); await input.press('ArrowDown');
+  await expect(options.nth(2)).toHaveAttribute('aria-selected', 'true');
+  await input.press('Enter'); await expect(page.locator('.family-view')).toHaveAttribute('data-center', 'person_c');
+  await input.fill('Test'); await options.last().hover(); await input.press('ArrowDown');
+  await expect(options.last()).toHaveAttribute('aria-selected', 'true');
+  await input.press('Escape'); await expect(input).toHaveValue('Test'); await expect(input).toHaveAttribute('aria-expanded', 'false');
+  await input.press('Escape'); await expect(input).toHaveValue('');
+  await input.fill('Test'); await input.press('Tab'); await expect(input).not.toBeFocused();
+});
+test('connection search adds the first hit without a history entry', async ({ page }) => {
+  await login(page, 'fixture-reader'); await selectGraphView(page, 'connections');
+  const length = await page.evaluate(() => history.length);
+  await page.locator('#connection-search').fill('Bruno'); await page.locator('#connection-search').press('Enter');
+  await expect(page.locator('[data-connection-selected="person_b"]')).toBeVisible();
+  expect(await page.evaluate(() => history.length)).toBe(length);
+});
+test('PersonPicker selects a relation with Enter', async ({ page }) => {
+  await login(page);
+  await page.goto('/?person=person_a&action=edit');
+  await page.locator('[data-add-relation="parents"]').click();
+  await page.locator('#pickerInput').fill('Dora'); await page.locator('#pickerInput').press('Enter');
+  await expect(page.locator('#pickerDialog')).toHaveCount(0);
+  await expect(page.locator('#personEditor')).toContainText('Test Dora');
+});

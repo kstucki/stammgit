@@ -1,3 +1,5 @@
+import { formatDate } from './dates';
+import { getT } from '../../public/assets/strings.js';
 import type { Dataset, Person } from './person';
 import { personRelations } from './relationship-view';
 import { partnerDetail } from '../../public/assets/relationships.js';
@@ -5,9 +7,14 @@ type T = { get(key: string, values?: Record<string, string | number>): string };
 export function personInitials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map(word => [...word][0] || '').join('').toLocaleUpperCase();
 }
-export function personSubtitle(person: Person): string {
-  const dates = person.birth ? `${person.birth} –${person.death ? ` ${person.death}` : ''}` : person.death ? `† ${person.death}` : '';
-  return [dates, person.occupation].filter(Boolean).join(' · ');
+export function personLifeDetails(person: Person, language = 'de'): string[] {
+  const t = getT(language.startsWith('en') ? 'en' : 'de');
+  return (['birth', 'death'] as const).flatMap(kind => {
+    const date = formatDate(person[kind], language, 'long');
+    const place = person[`${kind}Place`]?.trim() || '';
+    if (!date && !place) return [];
+    return [[kind === 'birth' ? '*' : '†', date, place ? t.get('lifeEventIn', { place }) : ''].filter(Boolean).join(' ')];
+  });
 }
 // Missing status is unassessed; notes never imply a rating.
 export function lowEvidence(person: Person): boolean {

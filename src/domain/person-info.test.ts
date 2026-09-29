@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest';
-import { familyChips, lowEvidence, personInitials, personSubtitle } from './person-info';
+import { familyChips, lowEvidence, personInitials, personLifeDetails } from './person-info';
 import { getT } from '../../public/assets/strings.js';
 import type { Dataset } from './person';
 const t = getT('de');
 it('keeps complete recorded dates and does not invent evidence ratings', () => {
-  expect(personSubtitle({ birth: '22.10.1960', occupation: 'Lehrerin' })).toBe('22.10.1960 – · Lehrerin');
-  expect(personSubtitle({ death: '2000' })).toBe('† 2000');
+  expect(personLifeDetails({ birth: '22.10.1960', occupation: 'Lehrerin' })).toEqual(['* 22.10.1960']);
+  expect(personLifeDetails({ death: '2000' })).toEqual(['† 2000']);
   expect(personInitials('Alex Sample-Smith')).toBe('AS');
   expect(lowEvidence({})).toBe(false);
   expect(lowEvidence({ notes: ['Belegstufe 1.'] })).toBe(false);

@@ -1,3 +1,4 @@
+import { formatDate } from './dates';
 import { parentType, partnerDetail } from '../../public/assets/relationships.js';
 import type { Dataset, ParentType, PartnerDetail, Source } from './person';
 import { parentDescription, partnershipDescription, siblingDescription } from '../../public/assets/relationship-text.js';
@@ -35,13 +36,13 @@ export function partnerStyle(dataset: Dataset, a: string, b: string): LineStyle 
 // One person-dialog projection for graph, chronicle and sources.
 import { familyIndex, siblingsFor } from './family';
 import { orderedPartners } from '../../public/assets/relationships.js';
-export function personRelations(dataset: Dataset, id: string, t: { get(key: string, values?: Record<string, string | number>): string }): { key: string; items: { id: string; description: string; sources?: Source[] }[] }[] {
+export function personRelations(dataset: Dataset, id: string, t: { locale?: string; get(key: string, values?: Record<string, string | number>): string }): { key: string; items: { id: string; description: string; sources?: Source[] }[] }[] {
   const person = dataset.people[id]; if (!person) return [];
   const index = familyIndex(dataset);
   const byName = (ids: string[] = []) => [...new Set(ids)].sort((a, b) => (dataset.people[a]?.name || a).localeCompare(dataset.people[b]?.name || b));
   return [
     { key: 'relParents', items: byName(person.parents).map(parent => ({ id: parent, description: parentDescription(dataset, parent, id, t), sources: person.parentDetails?.[parent]?.sources })) },
-    { key: 'relPartners', items: (orderedPartners(dataset.people, id) as string[]).map(partner => ({ id: partner, description: partnershipDescription(dataset, id, partner, t) })) },
+    { key: 'relPartners', items: (orderedPartners(dataset.people, id) as string[]).map(partner => ({ id: partner, description: partnershipDescription(dataset, id, partner, t, (raw: string) => formatDate(raw, t.locale, 'long')) })) },
     { key: 'relChildren', items: byName(index.children.get(id)).map(child => ({ id: child, description: parentDescription(dataset, id, child, t), sources: dataset.people[child].parentDetails?.[id]?.sources })) },
     { key: 'relSiblings', items: siblingsFor(index, id).map(sibling => ({ id: sibling.id, description: siblingDescription(dataset, id, sibling.id, sibling.sharedParents, t) })) },
   ];

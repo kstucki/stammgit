@@ -8,6 +8,9 @@ export type EvidenceStatus = 'unsicher' | 'gut' | 'gesichert';
 export interface Person {
   evidenceStatus?: EvidenceStatus;
   name?: string;
+  displayName?: string;
+  birthPlace?: string;
+  deathPlace?: string;
   birth?: string;
   death?: string;
   occupation?: string;
@@ -44,6 +47,10 @@ export interface ChronicleIndex {
   chapters: Chapter[];
 }
 
+export function displayPersonName(person: Person | undefined, fallback = ''): string {
+  return person?.displayName?.trim() || person?.name || fallback;
+}
+
 export function years(person: Person, born: string): string {
   const year = (value?: string) => String(value || '').match(/\d{4}/)?.[0] || '';
   const birth = year(person.birth), death = year(person.death);
@@ -54,7 +61,7 @@ export function findPeople(people: Dataset['people'], query: string): string[] {
   const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
   const needle = normalize(query.trim());
   if (!needle) return [];
-  return Object.keys(people).filter(id => normalize(people[id].name || id).includes(needle))
+  return Object.keys(people).filter(id => normalize(people[id].name || id).includes(needle) || normalize(people[id].displayName || '').includes(needle))
     .sort((a, b) => (people[a].name || a).localeCompare(people[b].name || b) || a.localeCompare(b));
 }
 

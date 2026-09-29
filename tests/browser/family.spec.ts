@@ -37,8 +37,8 @@ test('family defaults, distinct parent families, cards and complete person windo
   await expect(page.locator('[data-family-person]')).toHaveCount(11);
   await expect(card(page, 'separate')).toHaveCount(0);
   await expect(card(page, 'lea').locator('img')).toBeVisible();
-  await expect(card(page, 'lea')).toContainText('geb. 1980');
-  await expect(card(page, 'lea')).toContainText('Eine kurze vorhandene Berufsangabe');
+  await expect(card(page, 'lea')).toContainText('* um 1980');
+  await expect(card(page, 'lea')).not.toContainText('Eine kurze vorhandene Berufsangabe');
   await expect(card(page, 'lea')).not.toContainText('Diese lange Notiz');
   await expect(group(page, ['lea', 'old']).locator('path[data-child="child_old"]')).toHaveCount(1);
   await expect(group(page, ['lea', 'old']).locator('[data-child="child_next"]')).toHaveCount(0);

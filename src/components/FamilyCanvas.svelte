@@ -13,7 +13,8 @@
     t: { get(key: string, values?: Record<string, string | number>): string };
     onopen(id: string): void; oncenter(id: string): void;
   } = $props();
-  let hidden = $derived(hiddenRelatives(dataset, family));
+  let viewport = $state<GraphViewport>();
+  let anchorId = $state('');
   let heights = $state<ReadonlyMap<string, number>>(new Map());
   // Geometry is published with its exact selection. An editor command may
   // replace people/groups before the ordering effect or worker has run.
@@ -23,7 +24,7 @@
   $effect(() => {
     const source = family, selected = $state.snapshot(source), levels = generations, selectedEngine = engine;
     retry;
-    error = false; ordered = null;
+    error = false;
     if (selected.people.length < 80) { ordered = { family: source, engine: selectedEngine, order: orderFamily(selected, levels, selectedEngine) }; return; }
     const worker = new Worker(new URL('../domain/family-layout.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (event: MessageEvent<FamilyOrder>) => { ordered = { family: source, engine: selectedEngine, order: event.data }; worker.terminate(); };
@@ -31,7 +32,21 @@
     worker.postMessage({ family: selected, generations: levels, engine: selectedEngine });
     return () => worker.terminate();
   });
-  let layout = $derived(ordered?.family === family && ordered.engine === engine ? layoutFamily(family, heights, ordered.order) : null);
+  // Keep the previous scene and its camera mounted while a worker orders the
+  // expansion. Never mix the old geometry with the new selection.
+  let displayed = $derived(ordered?.family ?? family);
+  let layout = $derived(ordered && ordered.engine === engine && displayed.people.every(id => dataset.people[id]) ? layoutFamily(displayed, heights, ordered.order) : null);
+  let hidden = $derived(hiddenRelatives(dataset, displayed));
+  function midpoint(id: string) {
+    const point = layout?.people.get(id);
+    return point ? { x: point.x + CARD_WIDTH / 2, y: point.y + (heights.get(id) || CARD_HEIGHT) / 2 } : undefined;
+  }
+  let anchorPoint = $derived(midpoint(anchorId));
+  function expand(id: string, direction: Direction) {
+    const point = midpoint(id);
+    if (point) { viewport?.preserveAnchor(point); anchorId = id; }
+    onexpand(id, direction);
+  }
   function measure(node: HTMLElement, id: string) {
     const observer = new ResizeObserver(() => {
       const height = node.offsetHeight;
@@ -40,7 +55,7 @@
     observer.observe(node);
     return { destroy: () => observer.disconnect() };
   }
-  let childNotes = $derived(family.people.map(child => ({ child, notes: family.groups.flatMap(group =>
+  let childNotes = $derived(displayed.people.map(child => ({ child, notes: displayed.groups.flatMap(group =>
     group.children.includes(child) ? childConnection(dataset, group.adults, child).annotations : []),
   })).filter(entry => entry.notes.length));
 </script>
@@ -49,10 +64,10 @@
   <p role="alert">{t.get('graphLayoutFailed')} <button onclick={() => retry++}>{t.get('archiveRetry')}</button></p>
 {:else if !layout}<p role="status">{t.get('loading')}</p>
 {:else}
-<GraphViewport initialFit={mode === 'family'} info={t.get(({ connections: 'graphConnectionsDescription', family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} fitAxis={mode === 'family' ? 'height' : 'both'} ready={family.people.every(id => heights.has(id))}
-  center={{ x: layout.people.get(family.center)!.x + CARD_WIDTH / 2, y: layout.people.get(family.center)!.y + (heights.get(family.center) || CARD_HEIGHT) / 2 }}>
+<GraphViewport bind:this={viewport} {anchorPoint} initialFit={mode === 'family'} info={t.get(({ connections: 'graphConnectionsDescription', family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} ready={displayed.people.every(id => heights.has(id))}
+  center={midpoint(displayed.center)!}>
     <svg class="family-lines" width={layout.width} height={layout.height} aria-hidden="true">
-      {#each family.groups as group}
+      {#each displayed.groups as group}
         {@const anchor = layout.anchors.get(group.id)!}
         <g data-family-group={group.id}>
         {#if group.adults.length > 1}
@@ -84,10 +99,10 @@
             {/each}
           </div>
     {/each}
-    {#each family.people as id (id)}
+    {#each displayed.people as id (id)}
       {@const point = layout.people.get(id)!}
       <div class="family-node" use:measure={id} style:left={`${point.x}px`} style:top={`${point.y}px`} style:width={`${CARD_WIDTH}px`}>
-        <PersonCard hidden={hidden.get(id)!} onexpand={direction => onexpand(id, direction)} {id} person={dataset.people[id]} center={selectedIds ? selectedIds.includes(id) : id === family.center} marker={selectedIds ? t.get('connectionSelected') : undefined} centerAction={selectedIds ? t.get('showInTree') : undefined} {assets} {t} {onopen} {oncenter} />
+        <PersonCard hidden={hidden.get(id)!} onexpand={direction => expand(id, direction)} {id} person={dataset.people[id]} center={selectedIds ? selectedIds.includes(id) : id === displayed.center} marker={selectedIds ? t.get('connectionSelected') : undefined} centerAction={selectedIds ? t.get('showInTree') : undefined} {assets} {t} {onopen} {oncenter} />
       </div>
     {/each}
 </GraphViewport>

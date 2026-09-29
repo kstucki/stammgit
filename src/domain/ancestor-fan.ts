@@ -5,7 +5,7 @@ export interface FanSlot {
   unknownType: boolean; issue?: 'ambiguous' | 'cycle';
 }
 export function fanDepth(value: number): number {
-  return Number.isFinite(value) ? Math.max(1, Math.min(8, Math.floor(value))) : 5;
+  return Number.isFinite(value) ? Math.max(1, Math.min(10, Math.floor(value))) : 5;
 }
 /** Fixed ancestry positions, not unique people. Repeat ancestors retain every path. */
 export function ancestorFan(data: Dataset, center: string, requestedDepth = 5): FanSlot[] {

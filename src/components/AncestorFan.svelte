@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { Dataset } from '../domain/person';
-  import { years } from '../domain/person';
+  import { displayPersonName, type Dataset } from '../domain/person';
+  import { formatLifespan } from '../domain/dates';
   import { ancestorFan, fanGeometry, fanNameLines, FAN_CORE, FAN_RING, FAN_PAD } from '../domain/ancestor-fan';
   import GraphViewport from './GraphViewport.svelte';
   let { dataset, center, depth, t, onopen }: {
     dataset: Dataset; center: string; depth: number;
-    t: { get(key: string, values?: Record<string, unknown>): string }; onopen(id: string): void;
+    t: { locale?: string; get(key: string, values?: Record<string, unknown>): string }; onopen(id: string): void;
   } = $props();
   let slots = $derived(ancestorFan(dataset, center, depth));
   let radius = $derived(FAN_CORE + FAN_RING * depth);
@@ -18,16 +18,16 @@
 <div class="ancestor-fan" data-fan-depth={depth}>
   <p class="fan-summary" aria-live="polite">{t.get('fanCoverage', { known, total: slots.length - 1 })}</p>
   {#if issues.length}<p class="fan-warning" role="status">{t.get('fanIssues')} {#each issues as slot}<button onclick={() => onopen(slot.id!)}>{dataset.people[slot.id!].name || slot.id}</button>{/each}</p>{/if}
-  <GraphViewport {width} {height} center={{ x: width / 2, y: height / 2 }} initialFit ready={true} {t} info={t.get('graphAncestorsDescription')} onscale={() => {}}>
+  <GraphViewport initialFit={true} {width} {height} center={{ x: width / 2, y: radius + FAN_PAD }} ready={true} {t} info={t.get('graphAncestorsDescription')}>
     <svg class="fan-svg" {width} {height} viewBox={`0 0 ${width} ${height}`} aria-label={t.get('graphAncestors')}>
       <g transform={`translate(${width / 2},${radius + FAN_PAD})`}>
         {#each slots as slot (slot.number)}
           {@const person = slot.id ? dataset.people[slot.id] : undefined}
           {@const geometry = slot.generation ? fanGeometry(slot.generation, slot.index) : null}
           {@const name = person?.name || slot.id || t.get('fanUnknown')}
-          {@const dates = person ? years(person, t.get('bornAbbr')) : ''}
-          {@const lines = fanNameLines(name, geometry?.narrow)}
-          {@const label = `${name}${dates ? ', ' + dates : ''}${slot.unknownType ? '. ' + t.get('fanUnknownType') : ''}${slot.issue ? '. ' + t.get('fanIssues') : ''}`}
+          {@const dates = person ? formatLifespan(person, t.locale, 'card') : ''}
+          {@const lines = fanNameLines(displayPersonName(person, name), geometry?.narrow)}
+          {@const label = `${name}${dates ? ', ' + dates : ''}`}
           {#if person && slot.id}
             <g class="fan-person" class:fan-center={!slot.generation} class:fan-untyped={slot.unknownType} data-fan-person={slot.id} data-fan-slot={slot.number}
               role="button" tabindex="0" aria-label={label} onclick={() => onopen(slot.id!)} onkeydown={event => open(event, slot.id!)}>

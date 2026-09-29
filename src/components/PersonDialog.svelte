@@ -7,13 +7,13 @@
   import { chapterHref, personHref } from '../domain/person';
   import type { Dataset, ChronicleIndex } from '../domain/person';
   import { sourceUrl } from '../data/family';
-  import { familyChips, personInitials, personSubtitle, lowEvidence } from '../domain/person-info';
-  import { relationshipEngine, relationshipStations } from '../domain/relationship-engine';
+  import { familyChips, personInitials, personLifeDetails, lowEvidence } from '../domain/person-info';
+  import { relationshipEngine } from '../domain/relationship-engine';
   import { formatKinship } from '../domain/kinship';
   import { personRelations } from '../domain/relationship-view';
   let { id, center, dataset, assets, chronicle, admin, t, onclose, onfamily, onconnect }: {
     id: string; center: string; dataset: Dataset; assets: ReadonlyMap<string, string>; chronicle: ChronicleIndex | null;
-    admin: boolean; t: { get(key: string, values?: Record<string, string | number>): string };
+    admin: boolean; t: { locale?: string; get(key: string, values?: Record<string, string | number>): string };
     onclose(): void; onfamily?(id: string): void; onconnect?(from: string, to: string): void;
   } = $props();
   let trail = $state<string[]>([]);
@@ -32,8 +32,8 @@
   ].map(source => [`${source.url}:${source.label}`, source])).values()]);
   let engine = $derived(relationshipEngine(dataset));
   let explanation = $derived(shown === center || !dataset.people[center] ? null : engine.explain(center, shown));
-  let stationCount = $derived(explanation ? relationshipStations(explanation.segments.flatMap(segment => segment.steps)).length : 0);
   let kinship = $derived(explanation ? formatKinship(dataset, explanation, t) : null);
+  let stationCount = $derived(kinship?.stationCount || 0);
   function openPair(from: string, to: string) {
     if (onconnect) { onconnect(from, to); return; }
     navigateFromContent(`/?${new URLSearchParams([['view', 'family'], ['action', 'connections'], ['connect', from], ['connect', to]])}`);
@@ -50,12 +50,12 @@
   {#key shown}
   <article id="personDialogContent">
     <header class="person-info-head">
-      {#if trail.length > 1}<button class="person-info-back" aria-label={t.get('infoBack')} onclick={() => trail = trail.slice(0, -1)}>←</button>{/if}
       {#if person.photo && sourceUrl(person.photo, assets)}<img class="person-info-avatar" src={sourceUrl(person.photo, assets)} alt="" />
       {:else}<span class="person-info-avatar person-initials" aria-hidden="true">{personInitials(person.name || shown)}</span>{/if}
       <div class="person-info-heading">
         <h2 bind:this={heading} tabindex="-1" id="family-person-title">{person.name || shown}</h2>
-        {#if personSubtitle(person)}<p class="person-info-subtitle">{personSubtitle(person)}</p>{/if}
+        {#if personLifeDetails(person, t.locale).length}<div class="person-info-life">{#each personLifeDetails(person, t.locale) as detail}<p>{detail}</p>{/each}</div>{/if}
+        {#if person.occupation}<p class="person-info-occupation">{person.occupation}</p>{/if}
         {#if lowEvidence(person)}<span class="person-evidence">{t.get('infoLowEvidence')}</span>{/if}
       </div>
     </header>

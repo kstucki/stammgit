@@ -1,7 +1,7 @@
 <script lang="ts">
   import { renderChapter } from '../../public/assets/chronicle.js';
   import type { Workspace } from '../state/workspace.svelte';
-  import type { ChronicleIndex } from '../domain/person';
+  import { displayPersonName, type ChronicleIndex } from '../domain/person';
   import { sourceDocuments } from '../domain/sources';
   import thumbnails from '../../public/assets/source-thumbnails.json';
   import { formatChapterPresentation } from './chapter-presentation';
@@ -10,7 +10,7 @@
   let html = $derived.by(() => {
     const documents = sourceDocuments(store.dataset.people);
     const text = renderChapter(body, {
-      personLabel: (id: string) => store.dataset.people[id]?.name ?? null,
+      personLabel: (id: string) => store.dataset.people[id] ? displayPersonName(store.dataset.people[id], id) : null,
       sourceLabel: (url: string) => documents.find(doc => doc.url === url)?.label || null,
       chapterLabel: (ref: string) => { const [file, section] = ref.split('#'), chapter = chapters.chapters.find(ch => ch.file === file); return section ? chapter?.sections?.find(s => s.id === section)?.text || null : chapter?.title || null; },
     });
@@ -20,7 +20,8 @@
     formatChapterMedia(parsed.body);
     for (const el of parsed.querySelectorAll('img[src], a[href]')) {
       const attr = el.tagName === 'IMG' ? 'src' : 'href', url = el.getAttribute(attr)!;
-      if (store.assets.has(url)) el.setAttribute(attr, store.assets.get(url)!);
+      const assetPath = url.split(/[?#]/)[0], suffix = url.slice(assetPath.length);
+      if (store.assets.has(assetPath)) el.setAttribute(attr, store.assets.get(assetPath)! + suffix);
       if (el.tagName === 'A') el.setAttribute('rel', 'noreferrer');
     }
     return parsed.body.innerHTML;

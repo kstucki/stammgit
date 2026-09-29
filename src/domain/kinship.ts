@@ -1,5 +1,5 @@
 import type { Dataset } from './person';
-import { relationshipEngine, relationshipStations } from './relationship-engine';
+import { relationshipEngine, relationshipStations, inLawKind } from './relationship-engine';
 import type { RelationshipExplanation, RelationshipSegment, RelationshipStep } from './relationship-engine';
 import { relationshipChain } from './relationship-chain';
 type T = { get(key: string, vars?: Record<string, string | number>): string };
@@ -82,6 +82,36 @@ function stationTerms(data: Dataset, station: RelationshipSegment, t: T): Atom[]
   }
   return bloodTerms(data, station, t);
 }
+// Contract only documented marriages and immediate family relationships. Never
+// infer a marriage from children, nor turn two married siblings into in-laws.
+function inLawTerm(data: Dataset, left: RelationshipSegment, right: RelationshipSegment, t: T): Term | null {
+  const steps = [...left.steps, ...right.steps];
+  const spouse = steps.find(step => step.direction === 'partner');
+  const key = inLawKind(steps);
+  if (!key || !spouse) return null;
+  const value = term(data, right.to, key, t);
+  if (spouse.ended) {
+    const sex = gender(data, right.to);
+    value.label = t.get(sex === 'u' ? `${key}Former_u` : `kinFormerInLaw_${sex}`, { label: value.label });
+    value.apposition = t.get(sex === 'u' ? `${key}FormerApp_u` : `kinFormerInLawApp_${sex}`, { label: term(data, right.to, key, t).label });
+  } else if (!spouse.currentlyMarried) {
+    const note = ` (${t.get('chainRecordedMarriage')})`;
+    value.label += note; value.apposition += note;
+  }
+  return value;
+}
+function displayStations(data: Dataset, stations: RelationshipSegment[], t: T): Atom[][] {
+  const result: Atom[][] = [];
+  for (let i = 0; i < stations.length; i++) {
+    const left = stations[i], right = stations[i + 1];
+    const value = right ? inLawTerm(data, left, right, t) : null;
+    if (value) {
+      result.push([{ from: left.from, to: right.to, term: value, steps: [...left.steps, ...right.steps] }]);
+      i++;
+    } else result.push(stationTerms(data, left, t));
+  }
+  return result;
+}
 function evidence(data: Dataset, steps: RelationshipStep[], t: T): string {
   const names = (id: string) => data.people[id]?.name || id;
   const notes = [...new Set(steps.filter(step => step.parentType === 'adoptive').map(step => t.get('relAdoption', {
@@ -95,18 +125,19 @@ function phrase(data: Dataset, atoms: Atom[], t: T): string {
     term: (index ? atom.term.apposition : atom.term.label) + evidence(data, atom.steps, t), name: name(atom.from),
   })).join(', ');
 }
-export function formatKinship(data: Dataset, explanation: RelationshipExplanation, t: T): { sentence?: string; relation?: string; chain: string[] } {
+export function formatKinship(data: Dataset, explanation: RelationshipExplanation, t: T): { sentence?: string; relation?: string; chain: string[]; stationCount: number } {
   const stations = relationshipStations(explanation.segments.flatMap(s => s.steps));
-  const atoms = stations.map(station => stationTerms(data, station, t));
+  const atoms = displayStations(data, stations, t);
+  const stationCount = atoms.length;
   const name = (id: string) => data.people[id]?.name || id;
-  if (!stations.length) return { chain: [name(explanation.from)] };
-  if (stations.length <= 2) {
+  if (!stations.length) return { chain: [name(explanation.from)], stationCount };
+  if (stationCount <= 2) {
     const relation = phrase(data, atoms.flat(), t);
-    return { chain: [], relation, sentence: t.get('kinSentence', { name: name(explanation.to), relation }) };
+    return { stationCount, chain: [], relation, sentence: t.get('kinSentence', { name: name(explanation.to), relation }) };
   }
-  return { chain: [name(explanation.from), ...stations.map((station, i) => {
-    const terms = atoms[i], label = terms.length === 1 ? terms[0].term.label + evidence(data, terms[0].steps, t) : phrase(data, terms, t);
-    return `${name(station.to)} (${label})`;
+  return { stationCount, chain: [name(explanation.from), ...atoms.map(terms => {
+    const label = terms.length === 1 ? terms[0].term.label + evidence(data, terms[0].steps, t) : phrase(data, terms, t);
+    return `${name(terms.at(-1)!.to)} (${label})`;
   })] };
 }
 

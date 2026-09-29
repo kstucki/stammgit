@@ -5,7 +5,6 @@ import { relationshipEngine, relationshipStations } from './relationship-engine'
 import { getT } from '../../public/assets/strings.js';
 import type { Dataset } from './person';
 const de = getT('de');
-// Isolated browser fixtures intentionally contain no private family dataset.
 function family(a: number, b: number, gender?: string): Dataset {
   const people: Dataset['people'] = { a: { name: 'A' } }; let previous = 'a';
   for (let i = 1; i <= a + b; i++) {
@@ -66,8 +65,8 @@ it('preserves first-selection perspective and produces n−1 descriptions', () =
 it('uses a sentence for two stations, chain for three, and respects partnership history', () => {
   const d = family(1, 1, 'f'); d.people.b.partners = ['c']; d.people.b.partnerDetails = { c: { status: 'verheiratet' } };
   d.people.c = { name: 'C', gender: 'm' };
-  expect(output(d, ['a', 'c'])).toBe('C ist Ehemann von B, der Schwester von A.');
-  d.people.b.partnerDetails.c.end = '2001'; expect(output(d, ['a', 'c'])).toContain('früherer Ehemann');
+  expect(output(d, ['a', 'c'])).toBe('C ist Schwager von A.');
+  d.people.b.partnerDetails.c.end = '2001'; expect(output(d, ['a', 'c'])).toContain('früherer Schwager');
   delete d.people.b.partnerDetails; expect(output(d, ['a', 'c'])).toContain('Partner von B');
   d.people.c.partners = ['z']; d.people.z = { name: 'Z' };
   expect(describe(d, ['a', 'z']).chain).toEqual(['A', 'B (Schwester)', 'C (Partner)', 'Z (Partner/Partnerin)']);
@@ -80,7 +79,7 @@ it('retains adoption evidence and keeps social steps separate', () => {
 });
 it('localises English and does not mutate the dataset', () => {
   const d = family(4, 3, 'f'), before = JSON.stringify(d);
-  expect(output(d, ['a', 'b'], getT('en'))).toBe('B is cousin (degree 2) of p1, the mother of A.');
+  expect(output(d, ['a', 'b'], getT('en'))).toBe('B is 2nd cousin of p1, the mother of A.');
   expect(JSON.stringify(d)).toBe(before);
 });
 it('prefers a recorded partnership over a shared child in both directions', () => {
@@ -92,4 +91,65 @@ it('prefers a recorded partnership over a shared child in both directions', () =
   delete d.people.a.partners;
   const exp = relationshipEngine(d).explain('a','b')!;
   expect(relationshipStations(exp.segments.flatMap(s => s.steps))).toHaveLength(2);
+});
+function inLawFamily(): Dataset {
+  return { meta: { focusPersonId: 'a' }, people: {
+    a: { name: 'A', partners: ['spouse'], partnerDetails: { spouse: { status: 'verheiratet' } } },
+    spouse: { name: 'Spouse', parents: ['parent'] },
+    parent: { name: 'Parent' },
+    sibling: { name: 'Sibling', parents: ['parent'], partners: ['other'], partnerDetails: { other: { status: 'verheiratet' } } },
+    other: { name: 'Other' },
+  } };
+}
+it.each([
+  ['a', 'parent', 'Schwiegervater', 'Schwiegermutter', 'Schwiegerelternteil', 'father-in-law', 'mother-in-law', 'parent-in-law'],
+  ['parent', 'a', 'Schwiegersohn', 'Schwiegertochter', 'Schwiegerkind', 'son-in-law', 'daughter-in-law', 'child-in-law'],
+  ['a', 'sibling', 'Schwager', 'Schwägerin', 'Schwager/Schwägerin', 'brother-in-law', 'sister-in-law', 'sibling-in-law'],
+  ['sibling', 'a', 'Schwager', 'Schwägerin', 'Schwager/Schwägerin', 'brother-in-law', 'sister-in-law', 'sibling-in-law'],
+])('formats in-law route %s → %s in both languages and all genders', (from, to, m, f, u, em, ef, eu) => {
+  for (const [sex, label, en] of [['m', m, em], ['f', f, ef], [undefined, u, eu], ['d', u, eu]]) {
+    const d = inLawFamily(); d.people[to].gender = sex;
+    const before = JSON.stringify(d);
+    expect(output(d, [from, to])).toBe(`${d.people[to].name} ist ${label} von ${d.people[from].name}.`);
+    expect(output(d, [from, to], getT('en'))).toBe(`${d.people[to].name} is ${en} of ${d.people[from].name}.`);
+    expect(JSON.stringify(d)).toBe(before);
+  }
+});
+it('preserves former and uncertain marriage status, without inventing marriage', () => {
+  const d = inLawFamily(); d.people.parent.gender = 'f';
+  d.people.a.partnerDetails!.spouse.end = '2001';
+  expect(output(d, ['a', 'parent'])).toBe('Parent ist frühere Schwiegermutter von A.');
+  d.people.a.partnerDetails!.spouse = { kind: 'marriage' };
+  expect(output(d, ['a', 'parent'])).toBe('Parent ist Schwiegermutter (Ehe dokumentiert) von A.');
+  delete d.people.a.partnerDetails;
+  expect(output(d, ['a', 'parent'])).not.toContain('Schwieger');
+  d.people.a.partnerDetails = { spouse: { status: 'geschieden' } };
+  expect(output(d, ['a', 'parent'], getT('en'))).toBe('Parent is former mother-in-law of A.');
+});
+it('retains adoption evidence and does not contract guardians or other social relationships', () => {
+  const d = inLawFamily(); d.people.spouse.parentDetails = { parent: { type: 'adoptive' } };
+  expect(output(d, ['a', 'parent'])).toBe('Parent ist Schwiegerelternteil (Adoption von Spouse durch Parent) von A.');
+  for (const type of ['guardian', 'other'] as const) {
+    d.people.spouse.parentDetails.parent.type = type;
+    expect(output(d, ['a', 'parent'])).not.toContain('Schwieger');
+  }
+});
+it('contracts within longer descriptions without transitively inventing affinity', () => {
+  const d = inLawFamily(); d.people.sibling.gender = 'f'; d.people.child = { name: 'Child', parents: ['sibling'], gender: 'm' };
+  expect(output(d, ['a', 'child'])).not.toContain('Schwager'); // Spouse’s niece/nephew is not a sibling-in-law.
+  expect(output(d, ['a', 'other'])).toBe('Other ist Ehepartner/Ehepartnerin von Sibling, der Schwägerin von A.');
+  d.people.other.parents = ['grandparent']; d.people.grandparent = { name: 'Grandparent' };
+  expect(output(d, ['a', 'grandparent'])).toBe('Grandparent ist Schwiegerelternteil von Sibling, der Schwägerin von A.');
+  d.people.grandparent.partners = ['last']; d.people.last = { name: 'Last' };
+  expect(describe(d, ['a', 'last']).chain).toEqual(['A', 'Sibling (Schwägerin)', 'Grandparent (Schwiegerelternteil)', 'Last (Partner/Partnerin)']);
+});
+
+it('explains English direct, neutral, distant and adopted relationships', () => {
+  const en = getT('en');
+  expect(output(family(1,0,'f'),['a','b'],en)).toBe('B is mother of A.');
+  expect(output(family(1,0),['a','b'],en)).toBe('B is parent of A.');
+  expect(output(family(3,3,'m'),['a','b'],en)).toBe('B is 2nd cousin of A.');
+  const d = family(3,0,'m'); d.people.p1.parentDetails={p2:{type:'adoptive'}};
+  expect(output(d,['a','b'],en)).toContain('great-grandfather');
+  expect(output(d,['a','b'],en)).toContain('adoption');
 });

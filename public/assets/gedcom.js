@@ -44,6 +44,16 @@ function writeExtension(lines, tag, value) {
   while (chars.length) lines.push(`2 CONC ${chars.splice(0, 40).join("")}`);
 }
 
+function textLines(level, tag, value) {
+  const result = [];
+  String(value).split(/\r?\n/).forEach((line, index) => {
+    const chars = Array.from(line);
+    result.push(`${index ? level + 1 : level} ${index ? 'CONT' : tag} ${chars.splice(0, 40).join('')}`);
+    while (chars.length) result.push(`${level + 1} CONC ${chars.splice(0, 40).join('')}`);
+  });
+  return result;
+}
+
 export function exportGedcom(data) {
   const people = data?.people || {}, ids = Object.keys(people);
   const xref = new Map(ids.map((id, i) => [id, `@I${i + 1}@`]));
@@ -70,8 +80,13 @@ export function exportGedcom(data) {
     lines.push(`0 ${pointer(id)} INDI`, `1 NAME ${given} /${surname}/`);
     if (["m", "f"].includes(p.gender)) lines.push(`1 SEX ${p.gender.toUpperCase()}`);
     if (p.gender === "d") lines.push("1 _GENDER d");
-    if (p.birth) lines.push("1 BIRT", `2 DATE ${gedcomDate(p.birth)}`);
-    if (p.death) lines.push("1 DEAT", `2 DATE ${gedcomDate(p.death)}`);
+    for (const [field, event] of [["birth", "BIRT"], ["death", "DEAT"]]) {
+      if (p[field] || p[`${field}Place`]) {
+        lines.push(`1 ${event}`);
+        if (p[field]) lines.push(`2 DATE ${gedcomDate(p[field])}`);
+        if (p[`${field}Place`]) lines.push(...textLines(2, "PLAC", p[`${field}Place`]));
+      }
+    }
     if (p.occupation) lines.push(`1 OCCU ${p.occupation}`);
     for (const note of p.notes || []) lines.push(`1 NOTE ${note}`);
     for (const source of p.sources || []) lines.push(`1 NOTE Quelle: ${source.label || ""}${source.url ? ` – ${source.url}` : ""}`);
@@ -86,6 +101,7 @@ export function exportGedcom(data) {
       }
     }
     for (const fam of fams.filter(fam => fam.adults.includes(id))) lines.push(`1 FAMS ${fam.xref}`);
+    if (p.displayName?.trim()) writeExtension(lines, "_STAMMBAUM_DISPLAY_NAME", p.displayName);
     if (p.evidenceStatus) writeExtension(lines, "_STAMMBAUM_EVIDENCE", p.evidenceStatus);
     writeExtension(lines, "_STAMMBAUM_ID", id);
     writeExtension(lines, "_STAMMBAUM_REL", { version: 1, ...mapRelationships(p, pointer) });
@@ -140,6 +156,13 @@ export function importGedcom(text) {
     for (const [field, event] of [["birth", "BIRT"], ["death", "DEAT"]]) {
       const date = find(find(record, event), "DATE")?.value;
       if (date) p[field] = date;
+      const place = textOf(find(find(record, event), "PLAC"));
+      if (place) p[`${field}Place`] = place;
+    }
+    const displayName = extension(record, "_STAMMBAUM_DISPLAY_NAME");
+    if (displayName !== undefined) {
+      if (typeof displayName !== "string") throw new Error("Invalid _STAMMBAUM_DISPLAY_NAME.");
+      if (displayName.trim()) p.displayName = displayName;
     }
     const evidenceStatus = extension(record, "_STAMMBAUM_EVIDENCE");
     if (evidenceStatus !== undefined) {

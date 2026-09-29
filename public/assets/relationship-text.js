@@ -8,12 +8,12 @@ export function parentDescription(dataset, parent, child, t) {
   return detail?.type === 'other' ? detail.label || '' : keys[detail?.type || ''] ? t.get(keys[detail.type]) : '';
 }
 
-export function partnershipDescription(dataset, owner, other, t) {
+export function partnershipDescription(dataset, owner, other, t, formatDate = value => value) {
   const detail = partnerDetail(dataset.people, owner, other);
   const statuses = { verheiratet: 'statusMarried', geschieden: 'statusDivorced', verwitwet: 'statusWidowed', partner: 'statusPartner' };
   const kind = detail.kind === 'marriage' ? t.get('familyMarriage') : detail.kind === 'partnership' ? t.get('statusPartner') : '';
   const status = detail.status && detail.status !== 'unknown' ? statuses[detail.status] ? t.get(statuses[detail.status]) : detail.status : '';
-  const dates = [detail.start ? t.get('familySince', { date: detail.start }) : '', detail.end ? t.get('familyUntil', { date: detail.end }) : ''].filter(Boolean).join(' · ');
+  const dates = [detail.start ? t.get('familySince', { date: formatDate(detail.start) }) : '', detail.end ? t.get('familyUntil', { date: formatDate(detail.end) }) : ''].filter(Boolean).join(' · ');
   return [...new Set([kind, status, dates].filter(Boolean))].join(' · ');
 }
 

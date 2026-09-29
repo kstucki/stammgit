@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { test, login, openGraphPerson, selectGraphView, expectFamilyHeightFits } from './support';
+import { test, login, openGraphPerson, selectGraphView, expectGraphFits } from './support';
 
 test('Svelte entry, existing tree, search, person window and return', async ({ page, isMobile }, testInfo) => {
   await login(page);
@@ -131,7 +131,7 @@ for (const role of ['admin', 'reader']) {
       await expect(page.locator('#personDialog, #editDialog')).toHaveCount(0);
       // Center actions preserve the camera; fitting is now an explicit action.
       await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
-      await expectFamilyHeightFits(page);
+      await expectGraphFits(page);
     }
     await selectGraphView(page, 'hourglass');
     await openGraphPerson(page, 'person_c', isMobile);

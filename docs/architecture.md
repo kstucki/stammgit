@@ -82,15 +82,16 @@ SVG renderer without the crossing optimizer or a worker. It is always an upper
 semicircle, without a shape switch. The first parent branch fills the left half;
 the second fills the right. Radial labels are rotated to remain upright.
 
-- The center is generation 0; select 1–8 parent generations (default 5).
-  Eight generations contain 510 ancestor positions plus the center. Coverage
+- The center is generation 0; select 1–10 parent generations (default 5).
+  Ten generations contain 2046 ancestor positions plus the center. Coverage
   counts occupied positions, not unique people or confirmed evidence ratings.
 - Positions are fixed: each has two parent positions, and missing ancestors
   leave visible gaps. Increasing depth preserves existing positions. Shared
   ancestors repeat on each path. Actual cycles stop only the affected path.
 - Follow biological and unspecified parent links. Explicit adoptive, guardian
   and other nonbiological links are excluded. Unspecified links have dashed
-  borders and an explanation, without inferring biological parenthood.
+  borders, without inferring biological parenthood. Tooltips contain only names
+  and recorded lifespan years, with no parent-type explanation.
 - Recorded gender reserves father-left/mother-right where possible; otherwise
   preserve parent order. More than two eligible parents produce a visible
   warning and empty outer positions rather than an arbitrary selection.
@@ -165,16 +166,25 @@ requires two recorded parents on each side and exactly one shared parent.
 Unknown/diverse gender uses neutral wording. The first selected person is the
 perspective, with one description per additional selection. Short routes form
 sentences; longer routes form chains, with the underlying path available as evidence.
+Documented marriages allow parent-, child- and sibling-in-law terms, including
+former relationships. Search minimizes displayed relationship stations without
+discarding the underlying evidence or contracting guardianship into ancestry.
+English cousin degrees use ordinal wording.
 
 ### Camera and navigation
 
 One `localStorage.graphZoom` value applies to every card mode and dataset. Changing
 the center or mode preserves it; **Fit** explicitly changes it. The first family
-view without a saved zoom fits both width and height. Explicit family Fit uses
-height; other modes use both dimensions. Center, mode, roots and connection
-selection are stored per dataset. One-hop arrows add documented direct relatives
-without changing the camera. Card clicks center; the separate info action opens
-the person panel. Dragging does neither.
+view without a saved zoom fits both width and height and immediately saves that
+scale. Explicit Fit uses both dimensions in every mode. Zoom changes are saved
+synchronously, including before section changes; the fan never writes this value.
+Center, mode, roots and connection selection are stored per dataset. One-hop
+arrows add documented direct relatives while keeping the clicked card fixed on
+screen, including asynchronous worker layouts and later card measurements.
+Card clicks center; the separate info action opens the person panel. Dragging
+does neither. Opening, resizing, navigating within or closing person information
+does not pan or zoom the graph. Panels affect only subsequent explicit Fit/zoom
+actions. Very small saved scales remain valid in smaller scenes.
 
 Below 900px, navigation is fixed at the bottom; at or above 900px, tabs, search
 and logout share one header. Every view button has an icon and label. The tree
@@ -184,9 +194,14 @@ for confirmation for both roles. On mobile, pinch zoom replaces zoom buttons;
 Fit remains a word. View explanations open from the graph's upper-right info button.
 
 Person information uses a full-height mobile sheet or desktop sidebar: portrait,
-life dates/occupation, relationship to center, actions, stories and family names.
-Show full names without collapsing relatives. Internal person navigation has its
-own Back stack; sources and chapter mentions are disclosures. Editing is admin-only.
+life dates/places, occupation, relationship to center, actions, stories and family
+names. Show full names without collapsing relatives. The close action dismisses
+the whole panel after following relatives; there is no internal Back button.
+Sources and chapter mentions are disclosures. Editing is admin-only.
+Cards show the explicit optional display name and separate birth/death year rows;
+occupation and places appear in person information. Full names stay in search,
+accessible labels and person information. Person search and relation pickers
+share a keyboard combobox: arrows select, Enter accepts, Escape closes then clears.
 Optional `evidenceStatus` jointly rates person identity and lineage placement.
 Only explicit `unsicher` shows a badge in person information; cards and other
 statuses remain unlabelled. Notes never imply a rating. The editor supports

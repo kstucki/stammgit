@@ -18,7 +18,9 @@ Edits stay in your browser; the repository is unchanged.
 ## Features
 
 - Family, descendants and combined ancestors & descendants views.
-- Semicircular ancestor fan with 1–8 generations, visible gaps and person information.
+- Semicircular ancestor fan with 1–10 generations, visible gaps and person information.
+- Fitted first family view, remembered zoom and stable graph position while reading
+  person information.
 - Partner-aware layouts that keep couples together and avoid splitting unrelated
   sibling groups, without imposing a birth-date order.
 - Connections between any number of people, including longer routes, partnerships
@@ -26,6 +28,8 @@ Edits stay in your browser; the repository is unchanged.
 - Edit people and relationships in the browser, including merge and delete.
   Changes stay on your device until **Sync**.
 - Compact person panels, relationship descriptions and source evidence.
+- Optional display names and recorded birth/death places, with full names and dates
+  in person information and keyboard navigation in person search.
 - Optional evidence ratings; an orange person-info badge highlights uncertainty.
 - Markdown chronicles with subtitles, document cards and book printing.
 - Responsive desktop/mobile navigation, local fonts and accessible colour tokens.

@@ -61,3 +61,13 @@ missing/ambiguous ancestry, repeated ancestors, cycles and semicircle geometry.
 Run `npx playwright test tests/browser/ancestor-fan.spec.ts tests/browser/graph-views.spec.ts`
 for both access roles, generation changes, person panels, search, reload, zoom
 isolation and mode switching. Public tests use only synthetic people.
+
+## Camera and person interaction checks
+
+`start-zoom.spec.ts`, `graph-camera.spec.ts` and `person-info-camera.spec.ts`
+cover first-fit persistence, all card modes, section changes, small saved scales
+and panned graphs while person panels open, change person, resize and close.
+`graph-expansion.spec.ts` checks that the clicked card stays fixed through local
+and worker layouts. `ancestor-fan.spec.ts` exercises every depth from 1 to 10.
+The display-name, life-places and search-keyboard browser cases cover the matching
+editor, reader and keyboard behavior using only synthetic fixtures.

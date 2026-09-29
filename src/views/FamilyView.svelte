@@ -38,7 +38,7 @@
     try { const saved = storage?.getItem(`fanDepth:${archive.tree.id}`); return saved ? clampFanDepth(Number(saved)) : 5; } catch { return 5; }
   }));
   $effect(() => { try { storage?.setItem(`fanDepth:${archive.tree.id}`, String(fanDepth)); } catch { /* Optional preference. */ } });
-  $effect(() => rememberZoom(scale, zoomStorage));
+  function saveZoom(value: number) { scale = value; rememberZoom(value, zoomStorage); }
   let center = $state(untrack(() => {
     if (person && dataset.people[person] && ['family', 'tree', 'descendants', 'ancestors'].includes(action || '')) {
       if (action === 'family') rememberCenter(archive.tree.id, person, storage);
@@ -118,7 +118,7 @@
 
 <section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode} data-layout-engine={mode === 'ancestors' ? 'fan' : engine} style:--sheet-height={`${connections ? panelHeight : 0}px`}>
   <div class="graph-tools"><GraphViewSwitcher bind:mode {t} />
-    {#if mode === 'ancestors'}<label class="fan-depth">{t.get('fanGenerations')} <select aria-label={t.get('fanGenerations')} bind:value={fanDepth}>{#each [1, 2, 3, 4, 5, 6, 7, 8] as n}<option value={n}>{n}</option>{/each}</select></label>{/if}
+    {#if mode === 'ancestors'}<label class="fan-depth">{t.get('fanGenerations')} <select aria-label={t.get('fanGenerations')} bind:value={fanDepth}>{#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as n}<option value={n}>{n}</option>{/each}</select></label>{/if}
   </div>
   <div class="graph-workspace">
     <div class="graph-frame">
@@ -129,7 +129,7 @@
         {#key `${activeCenter}:${fanDepth}`}<AncestorFan {dataset} center={activeCenter} depth={fanDepth} {t} onopen={id => selected = id} />{/key}
       {:else if scene.family}
         {#key JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots])}
-          <FamilyCanvas {engine} onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} initialScale={scale} onscale={value => scale = value} {dataset} assets={session.assets} {t} onopen={id => selected = id} oncenter={chooseCenter} />
+          <FamilyCanvas {engine} onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} initialScale={scale} onscale={saveZoom} {dataset} assets={session.assets} {t} onopen={id => selected = id} oncenter={chooseCenter} />
         {/key}
       {/if}
     </div>

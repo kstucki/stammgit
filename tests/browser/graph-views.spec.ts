@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { changeZoom, test, login, expectFamilyHeightFits, selectGraphView } from './support';
+import { changeZoom, test, login, expectGraphFits, selectGraphView } from './support';
 
 test('compact header and five views keep the center and hourglass selection', async ({ page }, testInfo) => {
   await login(page);
@@ -62,7 +62,7 @@ test('larger portrait and a very long name remain fully inside a growing card wi
   expect(sizes.photo).toEqual([62, 73]); expect(sizes.height).toBeGreaterThan(174);
   expect(sizes.clipped).toBe(false); expect(sizes.titleBottom).toBeLessThan(sizes.footerTop);
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
-  await expectFamilyHeightFits(page);
+  await expectGraphFits(page);
   await expect.poll(async () => page.locator('[data-family-connection]').evaluate(bridge => {
     const path = bridge as SVGPathElement, point = path.getPointAtLength(0).matrixTransform(path.getScreenCTM()!);
     const cards = ['person_a', 'person_b'].map(id => document.querySelector(`[data-family-person="${id}"]`)!.getBoundingClientRect()).sort((a,b) => a.x - b.x);
@@ -103,7 +103,7 @@ test('view bar supports keyboard selection without horizontal scrolling', async 
   for (let step = 0; step < 4; step++) await page.keyboard.press('ArrowLeft');
   await expect(bar.getByRole('radio', { name: 'Familie', exact: true })).toBeChecked();
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
-  await expectFamilyHeightFits(page);
+  await expectGraphFits(page);
 
   await page.goto('/?person=lea&action=descendants');
   await expect(bar.getByRole('radio', { name: 'Nachkommen', exact: true })).toBeChecked();
