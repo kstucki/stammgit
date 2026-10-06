@@ -29,7 +29,8 @@ describe('person presentation and selection', () => {
   });
   it('encodes identities and chapter paths in document transitions', () => {
     expect(new URL(personHref('a&action=edit', 'tree'), 'https://test').searchParams.get('person')).toBe('a&action=edit');
-    const chapter = new URL(chapterHref('intro.md'), 'https://test');
-    expect(chapter.searchParams.get('chapter')).toBe('intro.md');
+    const chapter = new URL(chapterHref('intro.pt.md', 'pt'), 'https://test');
+    expect(chapter.searchParams.get('chapter')).toBe('intro.pt.md');
+    expect(chapter.searchParams.get('language')).toBe('pt');
   });
 });

@@ -1,5 +1,5 @@
 // Auth edge function – token logic shared with the Node functions.
-import { COOKIE_NAME, tokenFor } from "../shared/token.mjs";
+import { COOKIE_NAME, roleFromCookieValue } from "../shared/token.mjs";
 
 export default async (request, context) => {
   const url = new URL(request.url);
@@ -21,12 +21,11 @@ export default async (request, context) => {
   }
 
   const token = context.cookies.get(COOKIE_NAME);
-  let role = null;
-  if (token === await tokenFor(adminPassword, "admin")) role = "admin";
-  else if (token === await tokenFor(adminPassword, "user")) role = "user";
+  const role = await roleFromCookieValue(adminPassword, token,
+    Netlify.env.get("FAMILY_TREE_READERS"), Netlify.env.get("FAMILY_TREE_USER_PASSWORD"));
 
   if (!role) {
-    return Response.redirect(new URL("/login.html", request.url), 302);
+    return Response.redirect(new URL(`/login.html?next=${encodeURIComponent(url.pathname + url.search)}`, request.url), 302);
   }
 
 };

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import CloseButton from './CloseButton.svelte';
   import type { Snippet } from 'svelte';
   export type PanelLevel = 'collapsed' | 'half' | 'full';
   let { id, kind, label, labelledby, level = $bindable('half'), collapsible = false, children, onclose, onheight, t }: {
@@ -45,6 +46,6 @@
   <div class="panel-grip" onpointerdown={start} onpointermove={move} onpointerup={end} onpointercancel={() => { drag = null; dragHeight = null; }} role="presentation">
     <button type="button" data-sheet-toggle onclick={toggle} aria-label={t.get(level === 'full' ? 'panelReduce' : 'panelExpand')}><span></span></button>
   </div>
-  {#if onclose}<button class="dialog-close panel-close" onclick={onclose} aria-label={t.get('close')}>×</button>{/if}
+  {#if onclose}<CloseButton class="panel-close" onclick={onclose} label={t.get('close')} />{/if}
   <div class="panel-body">{@render children()}</div>
 </aside>

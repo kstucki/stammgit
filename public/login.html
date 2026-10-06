@@ -1,35 +1,83 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow,noarchive" />
-  <title>Family Tree – Sign in</title>
+  <title>Stammbaum – Anmelden</title>
   <style>
     :root { font-family: ui-serif, Georgia, serif; color-scheme: light dark; }
     body { min-height:100vh; margin:0; display:grid; place-items:center; background:#f3f0e8; color:#1f2b27; }
-    main { width:min(92vw,420px); background:#fff; border:1px solid #d7d2c8; border-radius:18px; padding:2rem; box-shadow:0 18px 60px rgba(0,0,0,.08); }
+    main { box-sizing:border-box; width:min(92vw,420px); background:#fff; border:1px solid #d7d2c8; border-radius:18px; padding:2rem; box-shadow:0 18px 60px rgba(0,0,0,.08); }
     h1 { margin-top:0; font-size:1.7rem; }
     p { color:#5e6863; line-height:1.5; }
     label { display:block; margin:.9rem 0 .35rem; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.9rem; }
     input { width:100%; box-sizing:border-box; padding:.85rem 1rem; border:1px solid #b9beb9; border-radius:10px; font-size:1rem; background:#fff; color:#111; }
     button { margin-top:1rem; width:100%; padding:.85rem 1rem; border:0; border-radius:10px; background:#263f35; color:#fff; font-weight:650; cursor:pointer; }
+    .languages { display:flex; gap:4px; margin:0 0 1.2rem; }
+    .languages button { flex:1; width:auto; min-height:36px; margin:0; padding:.4rem .65rem; font-size:.875rem; border:1px solid currentColor; background:transparent; color:inherit; }
+    .languages button[aria-pressed="true"] { background:#263f35; color:#fff; border-color:#263f35; }
+    button:focus-visible, input:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
     .error { display:none; color:#8f1d1d; font-family:ui-sans-serif,system-ui,sans-serif; }
     .error.show { display:block; }
   </style>
 </head>
 <body>
   <main>
-    <h1>Family Tree</h1>
-    <p>Private family archive. Please enter the password.</p>
-    <p id="error" class="error">That password was not correct.</p>
+    <div class="languages" role="group" aria-label="Sprache">
+      <button type="button" data-language="de" aria-pressed="true">Deutsch</button>
+      <button type="button" data-language="en" aria-pressed="false">English</button>
+      <button type="button" data-language="pt" aria-pressed="false">Português</button>
+    </div>
+    <h1 id="title">Stammbaum</h1>
+    <p id="intro">Privates Familienarchiv. Bitte Passwort eingeben.</p>
+    <p id="error" class="error">Das Passwort ist nicht korrekt.</p>
     <form method="post" action="/.netlify/functions/login">
-      <label for="password">Password</label>
+      <label for="password">Passwort</label>
       <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
-      <button type="submit">Sign in</button>
+      <button type="submit">Anmelden</button>
     </form>
   </main>
   <script>
+    const target = new URL(new URLSearchParams(location.search).get('next') || '/', location.origin);
+    const safeReturn = target.origin === location.origin && target.pathname === '/' ? target.href : '/';
+    const form = document.querySelector('form');
+    const next = document.createElement('input'); next.type = 'hidden'; next.name = 'next'; next.value = safeReturn; form.append(next);
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      try {
+        const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+        if (new URL(response.url).pathname === '/login.html') document.getElementById('error').classList.add('show');
+        else if (response.ok) location.replace(safeReturn);
+        else form.submit();
+      } catch { form.submit(); }
+    });
+    window.addEventListener('pageshow', async () => {
+      try { const response = await fetch('/', { cache: 'no-store' }); if (response.ok && new URL(response.url).pathname !== '/login.html') location.replace(safeReturn); } catch { /* Login remains available. */ }
+    });
+    const texts = {
+      de: { title: 'Stammbaum', intro: 'Privates Familienarchiv. Bitte Passwort eingeben.', password: 'Passwort', submit: 'Anmelden', error: 'Das Passwort ist nicht korrekt.', language: 'Sprache' },
+      en: { title: 'Family tree', intro: 'Private family archive. Please enter the password.', password: 'Password', submit: 'Sign in', error: 'The password is incorrect.', language: 'Language' },
+      pt: { title: 'Árvore genealógica', intro: 'Arquivo privado da família. Digite a senha.', password: 'Senha', submit: 'Entrar', error: 'A senha está incorreta.', language: 'Idioma' }
+    };
+    function chooseLanguage(code) {
+      const language = code === 'pt' ? 'pt' : code === 'en' ? 'en' : 'de', text = texts[language];
+      try { localStorage.setItem('chronicleLanguage', language); } catch { /* Optional preference. */ }
+      document.documentElement.lang = language === 'pt' ? 'pt-BR' : language;
+      document.title = `${text.title} – ${text.submit}`;
+      for (const key of ['title', 'intro', 'error']) document.getElementById(key).textContent = text[key];
+      document.querySelector('label[for="password"]').textContent = text.password;
+      document.querySelector('button[type="submit"]').textContent = text.submit;
+      document.querySelector('.languages').setAttribute('aria-label', text.language);
+      for (const button of document.querySelectorAll('[data-language]')) button.setAttribute('aria-pressed', String(button.dataset.language === language));
+    }
+    let savedLanguage;
+    try { savedLanguage = localStorage.getItem('chronicleLanguage'); } catch { /* Optional preference. */ }
+    const browserLanguage = (navigator.languages?.length ? navigator.languages : [navigator.language])
+      .map(code => String(code || '').toLowerCase().split('-')[0])
+      .find(code => code === 'de' || code === 'pt' || code === 'en') || 'de';
+    chooseLanguage(savedLanguage === 'de' || savedLanguage === 'pt' || savedLanguage === 'en' ? savedLanguage : browserLanguage);
+    for (const button of document.querySelectorAll('[data-language]')) button.addEventListener('click', () => chooseLanguage(button.dataset.language));
     if (new URLSearchParams(location.search).get("error")) {
       document.getElementById("error").classList.add("show");
     }

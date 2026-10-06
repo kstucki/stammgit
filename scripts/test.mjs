@@ -34,8 +34,17 @@ const ids = new Set(Object.keys(data.people || {}));
 for (const [tid, tree] of Object.entries(trees)) {
   for (const problem of validateDataset(tree, { label: tid })) check(false, problem);
   for (const [pid, p] of Object.entries(tree.people || {})) {
+    check(!(p.living === true && p.death !== undefined), `${tid}: '${pid}' has a death date but is marked as living.`);
+  }
+  for (const url of Object.keys(tree.sourceCategories || {})) {
+    if (url.startsWith("/sources/")) check(fs.existsSync(path.join(root, "public", url)), `${tid}: sourceCategories entry ${url} has no file.`);
+  }
+  for (const url of Object.keys(tree.sourceDetails || {})) {
+    if (url.startsWith('/sources/')) check(fs.existsSync(path.join(root, 'public', url)), `${tid}: sourceDetails entry ${url} has no file.`);
+  }
+  for (const [pid, p] of Object.entries(tree.people || {})) {
     for (const source of personSources(p)) {
-      if (source.url.startsWith("/sources/")) check(fs.existsSync(path.join(root, "public", source.url)), `${tid}: '${pid}' source ${source.url} is missing.`);
+      if (source.url.startsWith("/sources/")) check(fs.existsSync(path.join(root, "public", source.url.replace(/[?#].*$/, ""))), `${tid}: '${pid}' source ${source.url} is missing.`);
     }
     const m = p.photo !== undefined && String(p.photo).match(/^\/photos\/([a-zA-Z0-9._-]+\.(?:png|jpe?g))$/);
     if (m) {
@@ -184,11 +193,13 @@ for (const [tid, tree] of Object.entries(trees)) {
 {
   process.env.FAMILY_TREE_PASSWORD = "test-admin-secret";
   process.env.FAMILY_TREE_USER_PASSWORD = "test-user";
+  process.env.FAMILY_TREE_READERS = JSON.stringify({ test: "test-user" });
   const { tokenFor, roleFromRequest, requireAdmin } = await import("../netlify/functions/_auth.mjs");
   const fail = (msg) => check(false, msg);
   const req = (cookie) => ({ headers: { get: (k) => (k.toLowerCase() === "cookie" ? cookie : null) } });
   const adminToken = await tokenFor("test-admin-secret", "admin");
-  const userToken = await tokenFor("test-admin-secret", "user");
+  const { sessionForPassword } = await import("../netlify/shared/token.mjs");
+  const { token: userToken } = await sessionForPassword("test-admin-secret", "test-user", process.env.FAMILY_TREE_READERS);
   if ((await roleFromRequest(req(`family_tree_session=${adminToken}`))) !== "admin") fail("auth: admin token not recognized.");
   if ((await roleFromRequest(req(`family_tree_session=${userToken}`))) !== "user") fail("auth: user token not recognized.");
   const adminSig = adminToken.split(".")[1];
@@ -203,7 +214,8 @@ for (const [tid, tree] of Object.entries(trees)) {
 {
   const fail = (msg) => check(false, msg);
   const { tokenFor } = await import("../netlify/functions/_auth.mjs");
-  const userToken = await tokenFor("test-admin-secret", "user");
+  const { sessionForPassword } = await import("../netlify/shared/token.mjs");
+  const { token: userToken } = await sessionForPassword("test-admin-secret", "test-user", process.env.FAMILY_TREE_READERS);
   const adminToken = await tokenFor("test-admin-secret", "admin");
   const writers = ["save-family", "upload-source", "delete-source"];
   for (const name of writers) {
@@ -255,7 +267,7 @@ for (const [tid, tree] of Object.entries(trees)) {
 {
   const config = YAML.parse(fs.readFileSync(path.join(root, "data", "config.yaml"), "utf8"));
   check(typeof config.title === "string" && config.title.trim(), "config: title missing.");
-  check(["de", "en"].includes(config.language), "config: language must be de or en.");
+  check(["de", "en", "pt", "pt-BR"].includes(config.language), "config: language must be de, en, pt or pt-BR.");
   check(typeof config.overview?.heading === "string", "config: overview.heading missing.");
   for (const error of [...validateExtraLines(config.overview?.extraLines, data.people), ...validateDefaultPersons(config.overview, data.people)]) check(false, error);
 }
@@ -356,35 +368,35 @@ for (const [tid, tree] of Object.entries(trees)) {
 {
   const fail = (msg) => check(false, msg);
   const ppl = {
-    // Mutual first choice: partner_c+partner_d and partner_b+partner_e box up; partner_a's first
+    // Mutual first choice: eli+greg and carla+smith box up; uli's first
     // choices are both taken, he stays single with two rings. kid1
-    // descends from the partner_b+partner_e box, kid2 from the partner_b+partner_a ring.
-    partner_c:   { name: "Partner C",   partners: ["partner_d", "partner_a"] },
-    partner_d:  { name: "Partner D",  partners: ["partner_c"] },
-    partner_a:   { name: "Partner A",   partners: ["partner_b", "partner_c"], children: ["kid2"] },
-    partner_b: { name: "Partner B", partners: ["partner_e", "partner_a"], children: ["kid1", "kid2"] },
-    partner_e: { name: "Partner E", partners: ["partner_b"], children: ["kid1"] },
-    kid1:  { name: "Kid1", parents: ["partner_b", "partner_e"] },
-    kid2:  { name: "Kid2", parents: ["partner_b", "partner_a"] }
+    // descends from the carla+smith box, kid2 from the carla+uli ring.
+    eli:   { name: "Eli",   partners: ["greg", "uli"] },
+    greg:  { name: "Greg",  partners: ["eli"] },
+    uli:   { name: "Uli",   partners: ["carla", "eli"], children: ["kid2"] },
+    carla: { name: "Carla", partners: ["smith", "uli"], children: ["kid1", "kid2"] },
+    smith: { name: "Smith", partners: ["carla"], children: ["kid1"] },
+    kid1:  { name: "Kid1", parents: ["carla", "smith"] },
+    kid2:  { name: "Kid2", parents: ["carla", "uli"] }
   };
   const vis = new Set(Object.keys(ppl));
   const g = buildFamGraph(ppl, vis, {});
   const sizes = g.nodes.map((n) => n.persons.length);
   if (Math.max(...sizes) > 2) fail("marriage boxes: a box must hold at most one couple.");
-  if (g.homeOf.get("partner_c") !== g.homeOf.get("partner_d")) fail("marriage boxes: partner_c+partner_d must share a box (first-listed partnership).");
-  if (g.homeOf.get("partner_b") !== g.homeOf.get("partner_e")) fail("marriage boxes: partner_b+partner_e must share a box (mutual first choice).");
-  if (g.nodes.find((n) => n.persons.includes("partner_a")).persons.length !== 1) fail("marriage boxes: partner_a must stay single.");
+  if (g.homeOf.get("eli") !== g.homeOf.get("greg")) fail("marriage boxes: eli+greg must share a box (first-listed partnership).");
+  if (g.homeOf.get("carla") !== g.homeOf.get("smith")) fail("marriage boxes: carla+smith must share a box (mutual first choice).");
+  if (g.nodes.find((n) => n.persons.includes("uli")).persons.length !== 1) fail("marriage boxes: uli must stay single.");
   const ringKey = (a, b) => `ring:${[a, b].sort().join("|")}`;
   const ringIds = new Set(g.rings.map((r) => r.id));
-  if (!ringIds.has(ringKey("partner_c", "partner_a")) || !ringIds.has(ringKey("partner_b", "partner_a")) || g.rings.length !== 2) {
+  if (!ringIds.has(ringKey("eli", "uli")) || !ringIds.has(ringKey("carla", "uli")) || g.rings.length !== 2) {
     fail("marriage boxes: exactly the two leftover marriages must become rings.");
   }
   const drawn = g.edges.filter((e) => !e.layoutOnly);
   const toKid1 = drawn.filter((e) => e.to === g.homeOf.get("kid1"));
-  if (toKid1.length !== 1 || toKid1[0].ring) fail("marriage boxes: kid1 must descend from the partner_b+partner_e box (one edge).");
+  if (toKid1.length !== 1 || toKid1[0].ring) fail("marriage boxes: kid1 must descend from the carla+smith box (one edge).");
   const toKid2 = drawn.filter((e) => e.to === g.homeOf.get("kid2"));
-  if (toKid2.length !== 1 || toKid2[0].ring !== ringKey("partner_b", "partner_a")) {
-    fail("marriage boxes: kid2 must descend from the partner_b+partner_a ring (one edge).");
+  if (toKid2.length !== 1 || toKid2[0].ring !== ringKey("carla", "uli")) {
+    fail("marriage boxes: kid2 must descend from the carla+uli ring (one edge).");
   }
   const count = new Map();
   for (const n of g.nodes) for (const pid of n.persons) count.set(pid, (count.get(pid) || 0) + 1);
@@ -450,9 +462,11 @@ for (const [tid, tree] of Object.entries(trees)) {
     const dir = path.join(root, "public", "chronicle", treeId);
     const idxFile = path.join(dir, "index.yaml");
     if (!fs.existsSync(idxFile)) continue;
-    const order = YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [];
-    check(order.length > 0, `chronicle ${treeId}: index.yaml lists no chapters.`);
-    check(new Set(order).size === order.length, `chronicle ${treeId}: index.yaml lists a chapter twice.`);
+    const indexFiles = fs.readdirSync(dir).filter((f) => /^index(\.[a-z]{2})?\.yaml$/.test(f)).sort();
+    for (const idxName of indexFiles) {
+    const order = YAML.parse(fs.readFileSync(path.join(dir, idxName), "utf8"))?.chapters || [];
+    check(order.length > 0, `chronicle ${treeId}: ${idxName} lists no chapters.`);
+    check(new Set(order).size === order.length, `chronicle ${treeId}: ${idxName} lists a chapter twice.`);
     const listed = new Set(order);
     for (const f of fs.readdirSync(dir)) {
       if (f.endsWith(".md") && !listed.has(f)) console.log(`Note: chronicle ${treeId}: '${f}' is not listed in index.yaml.`);
@@ -472,7 +486,7 @@ for (const [tid, tree] of Object.entries(trees)) {
       }
       for (const u of t.sources) {
         if (u.startsWith("/sources/")) {
-          check(fs.existsSync(path.join(root, "public", "sources", u.slice("/sources/".length))),
+          check(fs.existsSync(path.join(root, "public", "sources", u.slice("/sources/".length).replace(/[?#].*$/, ""))),
             `chronicle ${treeId}/${file}: [[s:${u}]] file does not exist.`);
         }
       }
@@ -500,6 +514,7 @@ for (const [tid, tree] of Object.entries(trees)) {
           check(headingsOf.get(target).has(section), `chronicle ${treeId}/${file}: [[c:${ref}]] points to unknown section '${section}'.`);
         }
       }
+    }
     }
   }
 }

@@ -54,12 +54,16 @@ These rules are the specification. Update them before changing behavior.
 
 Ancestry takes precedence over partnership. Consistent parent chains place
 children exactly one level below their parents, independently of the center.
-If path lengths conflict, longest-parent-chain ordering keeps parents above
-children and may introduce gaps. Cyclic invalid ancestry terminates safely.
+If path lengths conflict, preserve focus-relative rows and move ancestors
+upward until they are above their children; shorter historical routes may skip
+rows. This protects the focus family and its children from shifts caused by
+unequal ancestor paths. Cyclic invalid ancestry terminates safely.
 Explicit adoption, guardianship and other parent types remain visible but do
 not constrain generation levels; missing/unknown types use ordinary ancestry.
-Partners with visible ancestry are not forced onto the same level. A partner
-without ancestry may align with the other partner when this is conflict-free.
+For consistent ancestry, partners with visible ancestry are not forced onto
+the same level. A partner without ancestry may align with the other partner
+when this is conflict-free. Unequal-path cases have a documented limitation;
+see [known browser limitations](development.md#known-browser-limitations).
 
 `family.ts` creates the projection; `family-layout.ts` sets generations and uses
 `graph/layout.ts` for ordering. Svelte renders its coordinates. Large layouts can run
@@ -187,16 +191,18 @@ does not pan or zoom the graph. Panels affect only subsequent explicit Fit/zoom
 actions. Very small saved scales remain valid in smaller scenes.
 
 Below 900px, navigation is fixed at the bottom; at or above 900px, tabs, search
-and logout share one header. Every view button has an icon and label. The tree
+and an archive menu share one header. The menu contains sources, language, the
+optional device-local “Me” identity, Admin and logout. Every view button has an icon and label. The tree
 fills the viewport with no page scroll; other tabs scroll normally. The person
 search belongs only to the tree, with a source search in Sources. Logout asks
 for confirmation for both roles. On mobile, pinch zoom replaces zoom buttons;
 Fit remains a word. View explanations open from the graph's upper-right info button.
 
 Person information uses a full-height mobile sheet or desktop sidebar: portrait,
-life dates/places, occupation, relationship to center, actions, stories and family
-names. Show full names without collapsing relatives. The close action dismisses
-the whole panel after following relatives; there is no internal Back button.
+life dates/places, occupation, relationship to the chosen “Me” person (or the center), actions, stories and family
+names. Show full names without collapsing relatives. Browser Back follows previously opened relatives; the close action dismisses
+the complete panel history without shifting the graph. There is no internal
+Back button.
 Sources and chapter mentions are disclosures. Editing is admin-only.
 Cards show the explicit optional display name and separate birth/death year rows;
 occupation and places appear in person information. Full names stay in search,
@@ -211,7 +217,10 @@ Connections use a three-height mobile sheet, initially collapsed, or an open
 sidebar on desktop. Selected-person chips live inside the panel.
 
 A jump from chronicle/sources to the tree creates a browser history entry and
-preserves scroll/filter state. Center, mode and expansion within the tree do not.
+preserves scroll/filter state. Center and mode changes also enter browser
+history; local expansion, search selection within connections and additional
+hourglass roots do not. URL state carries the center, mode, selected people and
+language. “Me” is independent of the center and stays on this device.
 
 ## Editing and persistence
 
@@ -226,10 +235,41 @@ checks and roll back invalid YAML. Optional local Git commits use the checked-ou
 branch. Hosted writes require explicit repository credentials; the public demo
 without those credentials cannot write to GitHub.
 
+## Source catalogue and exchange
+
+Source identity is the canonical URL without a page/query suffix or translated
+PDF suffix. `sourceDetails` stores bibliography and stable evidence IDs;
+`sourceCategories` stores one of seven category keys. The catalogue unites person
+and parent-edge citations, metadata and local files; source counts are document
+counts. Search, 25-row pages and an evidence-family tag filter keep long lists
+compact. Details share the person panel's close control and collapse long lists
+of linked people. Website tags stay out of PDFs and exchange exports.
+
+GEDCOM 5.5.1 exports one language without sources. GEDCOM 7/GEDZIP exports cited
+source files and portraits with canonical source identities, page citations and
+language fallback. Full YAML/JSON backups retain all metadata. Source ZIP remains
+the saved source-file collection. See [sources.md](sources.md).
+
+Person editing has four mounted tab panels (Person, Family, Sources, Photo), a
+shared header and persistent save/cancel footer. Switching tabs preserves drafts,
+language variants and unfinished photo crops. Validation reveals and focuses a
+hidden invalid field before saving. Name details and destructive actions use
+separate disclosures.
+
+## Authentication
+
+A single admin password controls edits. Optional `FAMILY_TREE_READERS` grants
+individually revocable reader sessions; removing or changing an entry invalidates
+only that reader. Edge, functions and local server share token verification.
+The legacy reader password is used only when no JSON configuration exists.
+Invalid reader configuration fails closed while admin access remains available.
+This introduces no registration, database or person-bound user profiles.
+
 ## Chronicle
 
 Each dataset has one ordered `public/chronicle/<tree>/index.yaml` and Markdown
-chapters. `[[p:id]]`, `[[s:url]]` and `[[c:file#section]]` tokens link people,
+chapters, with optional `.en` / `.pt` index and chapter versions. Content is
+never automatically translated; all supplied versions are validated. `[[p:id]]`, `[[s:url]]` and `[[c:file#section]]` tokens link people,
 sources and chapters. Generated JSON is an index, not another editable source.
 The editor stages Markdown and the index through the same pending-file store.
 

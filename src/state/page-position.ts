@@ -1,7 +1,8 @@
+import { rememberNavigationState, navigateHref } from './navigation';
 // Full-document section navigation keeps normal browser Back/Forward semantics.
 // Restore after asynchronous chapter content, rather than before its height exists.
 export function rememberPagePosition() {
-  history.replaceState({ ...history.state, archiveScroll: { x: scrollX, y: scrollY } }, '');
+  rememberNavigationState({ archiveScroll: { x: scrollX, y: scrollY } });
 }
 export async function restorePagePosition() {
   const position = history.state?.archiveScroll;
@@ -12,5 +13,5 @@ export async function restorePagePosition() {
 }
 export function navigateFromContent(href: string) {
   rememberPagePosition();
-  location.assign(href);
+  navigateHref(href);
 }

@@ -1,4 +1,4 @@
-export type Language = 'de' | 'en';
+export type Language = 'de' | 'en' | 'pt' | 'pt-BR';
 export type Role = 'admin' | 'user';
 export type ArchiveView = 'overview' | 'chronicle' | 'sources' | 'admin';
 

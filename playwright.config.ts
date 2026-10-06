@@ -1,6 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const port = 18988;
+const port = Number(process.env.STAMMGIT_TEST_PORT || 18988);
+
+const specs = (...names: string[]) => names.map(name => `**/${name}.spec.ts`);
+const narrowSpecs = specs('responsive-layout', 'archive-menu', 'welcome', 'source-layout', 'editor-layout');
+const phoneSpecs = [...narrowSpecs, ...specs('graph-expansion', 'graph-camera', 'person-info-camera', 'start-zoom',
+  'ancestor-fan', 'chronicle-presentation', 'chronicle-design', 'archive',
+  'source-language', 'source-categories', 'gedcom-export')];
+
 export default defineConfig({
   testDir: './tests/browser',
   timeout: 60_000,
@@ -11,13 +18,17 @@ export default defineConfig({
   reporter: 'list',
   snapshotPathTemplate: '{testDir}/snapshots/{testFilePath}/{arg}-{projectName}{ext}',
   use: {
+    locale: 'de-CH', // Existing fixtures start in German; language tests override this.
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  // Desktop runs every spec. Phones repeat only specs with touch or phone
+  // layout behaviour; the narrow width guards against horizontal overflow.
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile', use: { ...devices['iPhone 13'] } },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    { name: 'mobile', use: { ...devices['iPhone 13'] }, testMatch: phoneSpecs },
+    { name: 'narrow', use: { ...devices['iPhone 13'], viewport: { width: 360, height: 740 } }, testMatch: narrowSpecs },
   ],
   webServer: {
     command: 'node scripts/serve-test.mjs',

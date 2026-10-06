@@ -1,16 +1,16 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
-  let { inputId, label, placeholder = label, query = $bindable(''), options, onchoose, onadd, addLabel, noResults, showEmpty = false }: {
+  let { inputId, label, placeholder = label, query = $bindable(''), options, onchoose, onadd, addLabel, noResults, showEmpty = false, clearOnChoose = true }: {
     inputId: string; label: string; placeholder?: string; query?: string;
     options: { id: string; label: string; detail?: string }[]; onchoose(id: string): void;
-    onadd?(id: string): void; addLabel?(name: string): string; noResults: string; showEmpty?: boolean;
+    onadd?(id: string): void; addLabel?(name: string): string; noResults: string; showEmpty?: boolean; clearOnChoose?: boolean;
   } = $props();
   let active = $state(0), open = $state(untrack(() => showEmpty));
   let list = $state<HTMLUListElement>();
   let expanded = $derived(open && (showEmpty || !!query.trim()));
   let selected = $derived(options[Math.min(active, Math.max(0, options.length - 1))]);
   function input() { active = 0; open = true; }
-  function choose(id: string) { onchoose(id); open = false; query = ''; }
+  function choose(id: string) { onchoose(id); open = false; if (clearOnChoose) query = ''; }
   function keydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault(); event.stopPropagation();

@@ -10,7 +10,7 @@ export const modeLabel: Record<GraphMode, string> = {
   family: 'graphFamily', hourglass: 'graphHourglass', descendants: 'graphDescendants', ancestors: 'graphAncestors', connections: 'tabConnections',
 };
 
-export function selectGraph(data: Dataset, center: string, mode: Exclude<GraphMode, 'connections'>, roots = [center]) {
+export function selectGraph(data: Dataset, center: string, mode: Exclude<GraphMode, 'connections'>, roots = [center], hourglassDepth = Infinity) {
   const index = familyIndex(data);
   if (mode === 'family') return { family: selectFamily(index, center), generations: undefined };
   let visible: Set<string>;
@@ -24,13 +24,13 @@ export function selectGraph(data: Dataset, center: string, mode: Exclude<GraphMo
       queue.push(...(data.people[id].parents || []));
     }
   } else {
-    visible = treeVisibility(data, { title: '' }, '', mode, roots, mode === 'descendants' ? center : null).visible;
+    visible = treeVisibility(data, { title: '' }, '', mode, roots, mode === 'descendants' ? center : null, hourglassDepth).visible;
   }
   return { family: projectFamily(index, center, visible), generations: computeGenerations(data.people, visible, center) };
 }
 
 // Shared with the historical compact adapter: selection stays independent of rendering.
-export function treeVisibility(data: Dataset, config: ArchiveConfig, tree: string, mode: 'hourglass' | 'descendants', selected: string[], descendant: string | null) {
+export function treeVisibility(data: Dataset, config: ArchiveConfig, tree: string, mode: 'hourglass' | 'descendants', selected: string[], descendant: string | null, hourglassDepth = Infinity) {
   const people = data.people;
   const inDesc = mode === 'descendants' && descendant && people[descendant] ? descendant : null;
   const configured = defaultRootIds(config, tree, data.meta.focusPersonId).filter((id: string) => people[id]) as string[];
@@ -39,7 +39,7 @@ export function treeVisibility(data: Dataset, config: ArchiveConfig, tree: strin
   const hourglass = !inDesc;
   let visible: Set<string>;
   if (inDesc) visible = computeVisible(people, [inDesc], new Set());
-  else visible = computeHourglass(people, hgRoots);
+  else visible = computeHourglass(people, hgRoots, hourglassDepth);
   const ref = inDesc || hgRoots[0];
   return { visible, ref, inDesc, hourglass, hgRoots };
 }

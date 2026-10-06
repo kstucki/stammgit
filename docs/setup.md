@@ -38,12 +38,22 @@ Connect your private repository to Netlify and set:
 | Variable | Purpose |
 | --- | --- |
 | `FAMILY_TREE_PASSWORD` | admin password (required) |
-| `FAMILY_TREE_USER_PASSWORD` | optional read-only password |
+| `FAMILY_TREE_READERS` | optional JSON object of reader IDs and unique passwords |
+| `FAMILY_TREE_USER_PASSWORD` | legacy read-only password, used only when `FAMILY_TREE_READERS` is absent |
 | `GITHUB_TOKEN` | fine-grained, Contents: Read/Write, this repo only |
 | `GITHUB_REPO` | `owner/repository` |
 
-For a **public demo**, set only the two passwords and never `GITHUB_*`:
-everyone gets the admin experience, nothing can be written.
+For example, set `FAMILY_TREE_READERS` to
+`{"reader_a":"a-unique-secret","reader_b":"another-unique-secret"}`. On Netlify,
+do not include surrounding shell quotes. Removing/renaming a reader or changing
+its password revokes its existing sessions without affecting other readers.
+An empty object disables reader access; invalid JSON fails closed for readers.
+Configuring this variable replaces the legacy password. Existing legacy sessions
+must log in again after migration. These are shared-password access grants,
+not user profiles or a registration system.
+
+For a **public demo**, configure admin/reader passwords and never `GITHUB_*`:
+visitors can edit browser drafts, but cannot write to the hosted repository.
 
 Netlify still builds with `npm run build` and publishes `public/`. Its build
 environment uses Node 24; generated assets do not replace your content folders.

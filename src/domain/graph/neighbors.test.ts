@@ -58,11 +58,11 @@ it('preserves all people, relationships, finite geometry and row spacing on demo
 }, 120_000);
 
 it('does not let another family’s sibling group split a couple', () => {
-  const nodes = arrange(['spouse_a', 'sibling_a', 'sibling_b', 'sibling_c', 'spouse_b'], {
-    partners: [['spouse_a', 'spouse_b']],
+  const nodes = arrange(['partner_a', 'sibling_a', 'sibling_b', 'sibling_c', 'partner_b'], {
+    partners: [['partner_a', 'partner_b']],
   });
   const ids = nodes.map(n => n.id);
-  expect(Math.abs(ids.indexOf('spouse_a') - ids.indexOf('spouse_b'))).toBe(1);
+  expect(Math.abs(ids.indexOf('partner_a') - ids.indexOf('partner_b'))).toBe(1);
   expect(ids.filter(id => ['sibling_a', 'sibling_b', 'sibling_c'].includes(id))).toEqual(['sibling_a', 'sibling_b', 'sibling_c']);
 });
 it('leaves the complete order unchanged when no partnerships are supplied', () => {
@@ -72,11 +72,11 @@ it('leaves the complete order unchanged when no partnerships are supplied', () =
 });
 
 it('moves an unrelated couple outside a sibling group without reversing siblings', () => {
-  const nodes = arrange(['s1', 's2', 'partner_a', 'partner_b', 's3'], {
-    partners: [['partner_a', 'partner_b']], siblingGroups: [['s3', 's1', 's2']],
+  const nodes = arrange(['s1', 's2', 'partner_left', 'partner_right', 's3'], {
+    partners: [['partner_left', 'partner_right']], siblingGroups: [['s3', 's1', 's2']],
   });
-  expect(nodes.map(n => n.id)).toEqual(['s1', 's2', 's3', 'partner_a', 'partner_b']);
-  expect(nodes.find(n => n.id === 'partner_b')!.x - nodes.find(n => n.id === 'partner_a')!.x).toBeCloseTo(256, 6);
+  expect(nodes.map(n => n.id)).toEqual(['s1', 's2', 's3', 'partner_left', 'partner_right']);
+  expect(nodes.find(n => n.id === 'partner_right')!.x - nodes.find(n => n.id === 'partner_left')!.x).toBeCloseTo(256, 6);
 });
 it('permits a sibling’s own partner between siblings', () => {
   const nodes = arrange(['s1', 'partner', 's2', 's3'], {

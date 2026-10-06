@@ -1,10 +1,20 @@
 import { test as base, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 
-export const test = base.extend<{ browserErrors: string[] }>({
-  browserErrors: [async ({ page, context, baseURL }, use) => {
+export const test = base.extend<{ browserErrors: string[]; showWelcome: boolean }>({
+  showWelcome: [false, { option: true }],
+  browserErrors: [async ({ page, context, baseURL, showWelcome, browserName }, use, testInfo) => {
+    // Existing feature tests represent returning visitors; onboarding opts in below.
+    if (!showWelcome) await context.addInitScript(skipWelcome);
     const errors: string[] = [];
-    page.on('pageerror', error => errors.push(error.message));
+    // Keep the known WebKit delivery notice visible in reports; do not suppress
+    // other ResizeObserver errors or the same message from other browsers.
+    page.on('pageerror', error => {
+      if (browserName === 'webkit' && error.message === 'ResizeObserver loop completed with undelivered notifications.') {
+        if (!testInfo.annotations.some(a => a.type === 'webkit-layout-notice'))
+          testInfo.annotations.push({ type: 'webkit-layout-notice', description: error.message });
+      } else errors.push(error.message);
+    });
     // External requests cannot reach GitHub or any real service from these tests.
     await context.route('**/*', route => {
       const url = new URL(route.request().url());
@@ -15,11 +25,29 @@ export const test = base.extend<{ browserErrors: string[] }>({
   }, { auto: true }],
 });
 
+const skipWelcome = () => { if (location.protocol === 'http:' || location.protocol === 'https:') localStorage.setItem('stammbaum.welcomeSeen', 'true'); };
+
+/** A second, empty browser profile of a returning visitor, limited to the test server. */
+export async function freshContext(browser: Browser, options: Parameters<Browser['newContext']>[0] & { baseURL: string }) {
+  const fresh = await browser.newContext(options);
+  await fresh.addInitScript(skipWelcome);
+  await fresh.route('**/*', route => new URL(route.request().url()).origin === new URL(options.baseURL).origin ? route.continue() : route.abort());
+  return fresh;
+}
+
 export async function login(page: Page, password = 'fixture-admin') {
   await page.goto('/');
-  await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.locator('#password').fill(password);
+  await page.locator('button[type="submit"]').click();
   await expect(page.locator('.archive-navigation')).toBeVisible();
+}
+
+// Admin lives in the archive menu, not in the main navigation.
+export async function openAdmin(page: Page) {
+  const menu = page.locator('.archive-menu');
+  if (await menu.getAttribute('open') === null) await menu.locator('summary').click();
+  await page.locator('.archive-menu [data-view="admin"]').click();
+  await expect(page.locator('#treeSelect')).toBeVisible();
 }
 
 export async function openGraphPerson(page: Page, id: string, touch = false) {
@@ -42,7 +70,6 @@ export async function selectGraphView(page: Page, mode: string) {
 
 export async function changeZoom(page: Page, factor: number) {
   const button = page.getByRole('button', { name: factor > 1 ? 'Vergrössern' : 'Verkleinern', exact: true });
-  await expect(page.locator('.graph-fit')).toBeEnabled();
   if (await button.isVisible()) { await button.click(); await expect(page.locator('.graph-fit')).toBeEnabled(); return; }
   await page.locator('.family-viewport').evaluate((v, factor) => {
     const box = v.getBoundingClientRect();

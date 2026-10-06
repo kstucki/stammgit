@@ -24,6 +24,7 @@ jobs:
         include:
           - { project: desktop, mode: production, engine: chromium }
           - { project: mobile, mode: production, engine: webkit }
+          - { project: narrow, mode: production, engine: webkit }
           - { project: desktop, mode: dev, engine: chromium }
     steps:
       - uses: actions/checkout@v4

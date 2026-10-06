@@ -1,18 +1,18 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import type { Workspace } from '../state/workspace.svelte';
-  import type { ChronicleIndex } from '../domain/person';
+  import { findPeople, type ChronicleIndex } from '../domain/person';
   import { parseChapter } from '../../public/assets/chronicle.js';
   import { sourceDocuments } from '../domain/sources';
   import { chapterText, chapterCandidate, stageChapter } from '../data/chronicle';
   import { freeResize } from '../data/images.js';
   import ChapterContent from './ChapterContent.svelte';
-  let { store, file, chapters, ondone, oncancel, onperson }: { store: Workspace; file: string; chapters: ChronicleIndex; ondone(file: string): void; oncancel(): void; onperson(id: string): void } = $props();
+  let { store, file, language, chapters, ondone, oncancel, onperson }: { store: Workspace; file: string; language: string; chapters: ChronicleIndex; ondone(file: string): void; oncancel(): void; onperson(id: string): void } = $props();
   let frontmatter = $state<Record<string, string>>({});
   let title = $state(''), subtitle = $state(''), date = $state(''), body = $state(''), unsourced = $state(false), loading = $state(true), busy = $state(false), status = $state(''), preview = $state(false);
   let personQuery = $state(''), source = $state(''), photos = $state<FileList>(), area: HTMLTextAreaElement;
-  let documents = $derived(sourceDocuments(store.dataset.people));
-  let matches = $derived(personQuery.trim() ? Object.keys(store.dataset.people).filter(id => (store.dataset.people[id].name || id).toLowerCase().includes(personQuery.trim().toLowerCase())).sort((a, b) => (store.dataset.people[a].name || a).localeCompare(store.dataset.people[b].name || b)).slice(0, 8) : []);
+  let documents = $derived(sourceDocuments(store.dataset.people, store.sourceFiles, store.dataset.sourceDetails));
+  let matches = $derived(findPeople(store.dataset.people, personQuery).slice(0, 8));
   onMount(() => {
     const controller = new AbortController();
     async function load() {
@@ -26,7 +26,8 @@
     body = body.slice(0, start) + text + body.slice(end); await tick(); area.focus(); area.selectionStart = area.selectionEnd = start + text.length;
   }
   function insertPerson() {
-    const exact = matches.find(id => store.dataset.people[id].name === personQuery.trim());
+    const exactMatches = matches.filter(id => [store.dataset.people[id].name, store.dataset.people[id].displayName].includes(personQuery.trim()));
+    const exact = exactMatches.length === 1 ? exactMatches[0] : undefined;
     if (exact || matches.length === 1) { void insert(`[[p:${exact || matches[0]}]]`); personQuery = ''; }
     else status = store.t.get(matches.length ? 'chapterPersonAmbiguous' : 'chapterPersonMiss', { names: matches.map(id => store.dataset.people[id].name).join(' · ') });
   }
@@ -38,9 +39,10 @@
   async function save() {
     busy = true;
     try {
-      const candidate = chapterCandidate({ file, title, date, body, unsourced, frontmatter: { ...frontmatter, subtitle: subtitle.trim() } }, store.snapshot(), chapters, store.t);
-      await stageChapter(store.tree, candidate); await store.refreshFiles();
-      store.chronicle = { ...store.chronicle, ...candidate.set };
+      const candidate = chapterCandidate({ file, title, date, body, unsourced, language, frontmatter: { ...frontmatter, subtitle: subtitle.trim() } }, store.snapshot(), chapters, store.t);
+      await stageChapter(store.tree, language, candidate); await store.refreshFiles();
+      if (language) store.chronicle = { ...(store.chronicle || { chapters: [] }), variants: { ...store.chronicle?.variants, [language]: candidate.set } };
+      else store.chronicle = { ...store.chronicle, ...candidate.set };
       store.edit(() => {}); ondone(candidate.file);
     } catch (error) { status = error instanceof Error ? error.message : String(error); } finally { busy = false; }
   }
@@ -60,7 +62,7 @@
     <div class="toolbar"><input id="chPhoto" type="file" accept="image/*" bind:files={photos} aria-label={store.t.get('photo')} /><button id="chInsPhoto" onclick={photo}>{store.t.get('chapterInsPhoto')}</button></div>
     <label>{store.t.get('chapterBody')}<textarea id="chBody" bind:this={area} bind:value={body} rows="18"></textarea></label>
     <button id="chPreviewBtn" onclick={() => preview = !preview}>{store.t.get('chapterPreview')}</button>
-    {#if preview}<div class="chronicle-preview" id="chPreview"><ChapterContent {store} {body} {chapters} {onperson} onchapter={(file, section) => { window.open(`/?view=chronicle&chapter=${encodeURIComponent(file)}${section ? `#${encodeURIComponent(section)}` : ''}`, '_blank', 'noopener'); }} /></div>{/if}
+    {#if preview}<div class="chronicle-preview" id="chPreview"><ChapterContent {store} {body} {chapters} {onperson} onchapter={(file, section) => { window.open(`/?view=chronicle&chapter=${encodeURIComponent(file)}&language=${encodeURIComponent(language)}${section ? `#${encodeURIComponent(section)}` : ''}`, '_blank', 'noopener'); }} /></div>{/if}
     <button id="chSave" onclick={save}>{store.t.get('chapterSave')}</button>
   </fieldset><button id="chCancel" onclick={oncancel}>{store.t.get('cancel')}</button><p id="chStatus" role={status ? 'alert' : 'status'}>{status || store.t.get('chapterHint')}</p>
 </section>

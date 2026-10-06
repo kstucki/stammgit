@@ -106,6 +106,16 @@ export function absorbPerson(data, keepId, dropId) {
   if (keepId === dropId) return { ok: false, reason: "same" };
   const keep = people[keepId], drop = people[dropId];
   if (!keep || !drop) return { ok: false, reason: "not_found" };
+  // Complete translations must stay paired with their base content. Do not
+  // silently combine an untranslated note list with a translated one.
+  for (const [base, translated] of [["notes", "notes_pt"], ["occupation", "occupation_pt"], ["notes", "notes_en"], ["occupation", "occupation_en"]]) {
+    const value = (p, key) => Array.isArray(p[key]) ? p[key].filter(v => v.trim()) : (p[key] || "").trim();
+    const a = value(keep, base), b = value(drop, base), ap = value(keep, translated), bp = value(drop, translated);
+    if ((ap.length || bp.length) && (a.length || ap.length) && (b.length || bp.length)
+        && (JSON.stringify(a) !== JSON.stringify(b) || (ap.length && bp.length && JSON.stringify(ap) !== JSON.stringify(bp)))) {
+      return { ok: false, reason: "translation_conflict" };
+    }
+  }
   // A duplicate merge can collapse incompatible parent groups or pair facts.
   // Until a conflict editor exists, reject affected annotated merges atomically.
   if (mergeNeedsReview(data, keepId) || mergeNeedsReview(data, dropId)) return { ok: false, reason: "relationship_details" };
@@ -126,9 +136,16 @@ export function absorbPerson(data, keepId, dropId) {
   const seen = new Set();
   const sources = srcUnion.filter((s) => !seen.has(s.url) && seen.add(s.url));
   if (sources.length) keep.sources = sources;
+  const linkKeys = new Set();
+  const links = [...(keep.links || []), ...(drop.links || [])].filter(link => !linkKeys.has(link.url) && linkKeys.add(link.url));
+  if (links.length) keep.links = links;
   const notes = [...new Set([...(keep.notes || []), ...(drop.notes || [])])];
   if (notes.length) keep.notes = notes;
+  if (!keep.notes_pt?.some(n => n.trim()) && drop.notes_pt) keep.notes_pt = [...drop.notes_pt];
+  if (!keep.notes_en?.some(n => n.trim()) && drop.notes_en) keep.notes_en = [...drop.notes_en];
   if (!keep.displayName?.trim() && drop.displayName?.trim()) keep.displayName = drop.displayName;
+  if (!keep.occupation_pt?.trim() && drop.occupation_pt) keep.occupation_pt = drop.occupation_pt;
+  if (!keep.occupation_en?.trim() && drop.occupation_en) keep.occupation_en = drop.occupation_en;
   for (const key of ["birth", "death", "birthPlace", "deathPlace", "occupation", "photo", "gender", "evidenceStatus"]) {
     if (!keep[key] && drop[key]) keep[key] = drop[key];
   }

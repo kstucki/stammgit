@@ -5,7 +5,7 @@
   import { formatLifespan } from '../domain/dates';
   let { title, people, exclude = [], t, onpick }: { title: string; people: Dataset['people']; exclude?: string[]; t: { locale?: string; get(key: string): string }; onpick(id: string | null): void } = $props();
   let dialog: HTMLDialogElement, query = $state('');
-  let matches = $derived(Object.keys(people).filter(id => !exclude.includes(id) && `${people[id].name || ''} ${people[id].displayName || ''} ${id}`.toLowerCase().includes(query.toLowerCase().trim()))
+  let matches = $derived(Object.keys(people).filter(id => !exclude.includes(id) && `${people[id].name || ''} ${id}`.toLowerCase().includes(query.toLowerCase().trim()))
     .sort((a, b) => (people[a].name || a).localeCompare(people[b].name || b, 'de')).slice(0, 60));
   onMount(() => dialog.showModal());
 </script>

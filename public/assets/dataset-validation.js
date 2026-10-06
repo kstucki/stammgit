@@ -8,6 +8,9 @@
 // Plain relative import is also traced by the serverless function packager.
 // Browser assets are served with must-revalidate headers.
 import { PARENT_TYPES, PARTNER_KINDS, dateRange, partnerDetail } from "./relationships.js";
+import { SOURCE_CATEGORIES } from "./source-categories.js";
+import { isValidDate } from "./date-grammar.js";
+import { isWebUrl, validWebLinks } from "./web-links.js";
 
 const REL_KEYS = ["parents", "children", "partners", "siblings"];
 const PHOTO_RE = /^\/photos\/[a-zA-Z0-9._-]+\.(?:png|jpe?g)$/;
@@ -48,8 +51,8 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
       fail(`'${pid}'.name must be a string.`);
     }
 
-    for (const key of ["displayName", "occupation", "birthPlace", "deathPlace"]) {
-      if (p[key] !== undefined && typeof p[key] !== "string") fail(`'${pid}'.${key} must be a string.`);
+    if (p.displayName !== undefined && typeof p.displayName !== "string") {
+      fail(`'${pid}'.displayName must be a string.`);
     }
 
     if (p.gender !== undefined && !["m", "f", "d"].includes(p.gender)) {
@@ -59,6 +62,16 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
     if (p.evidenceStatus !== undefined && !["unsicher", "gut", "gesichert"].includes(p.evidenceStatus)) {
       fail(`'${pid}'.evidenceStatus must be unsicher, gut or gesichert (or omitted when unassessed).`);
     }
+
+    for (const field of ["birth", "death"]) {
+      if (p[field] !== undefined && !isValidDate(p[field])) {
+        fail(`'${pid}'.${field}: unknown date «${p[field]}»; allowed: YYYY, YYYY-MM, YYYY-MM-DD, «um/vor/nach YYYY», «YYYY od. YYYY», «YYYY ?».`);
+      }
+    }
+    if (p.birthSurname !== undefined && (typeof p.birthSurname !== "string" || !p.birthSurname.trim())) {
+      fail(`'${pid}'.birthSurname must be a non-empty string (or omitted when unknown).`);
+    }
+    if (p.living !== undefined && typeof p.living !== "boolean") fail(`'${pid}'.living must be true or false.`);
 
     for (const rel of REL_KEYS) {
       if (p[rel] === undefined) continue;
@@ -90,12 +103,19 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
       }
     }
 
-    if (p.notes !== undefined &&
-        !(Array.isArray(p.notes) && p.notes.every((n) => typeof n === "string"))) {
-      fail(`'${pid}'.notes must be a list of strings.`);
+    for (const key of ["occupation", "occupation_pt", "occupation_en", "birthPlace", "deathPlace"]) {
+      if (p[key] !== undefined && typeof p[key] !== "string") fail(`'${pid}'.${key} must be a string.`);
+    }
+    for (const key of ["notes", "notes_pt", "notes_en"]) {
+      if (p[key] !== undefined && !(Array.isArray(p[key]) && p[key].every(n => typeof n === "string"))) {
+        fail(`'${pid}'.${key} must be a list of strings.`);
+      }
     }
     if (p.sources !== undefined && !sources(p.sources)) {
       fail(`'${pid}'.sources must be a list of { label, url }.`);
+    }
+    if (p.links !== undefined && !validWebLinks(p.links)) {
+      fail(`'${pid}'.links must be a list of { label?, url } with absolute HTTP(S) URLs.`);
     }
     if (p.photo !== undefined && !PHOTO_RE.test(String(p.photo))) {
       fail(`'${pid}'.photo must be /photos/<file>.jpg|png, got '${p.photo}'.`);
@@ -133,7 +153,7 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
         if (detail.kind !== undefined && !PARTNER_KINDS.includes(detail.kind)) fail(`${field}: invalid kind.`);
         for (const key of ["start", "end"]) {
           if (detail[key] !== undefined && typeof detail[key] !== "string") fail(`${field}.${key} must be a string.`);
-          if (typeof detail[key] === "string" && /^\d{4}(?:-\d{2}(?:-\d{2})?)?$/.test(detail[key]) && !dateRange(detail[key])) fail(`${field}.${key}: invalid date.`);
+          if (typeof detail[key] === "string" && !isValidDate(detail[key])) fail(`${field}.${key}: invalid date «${detail[key]}».`);
         }
         const shared = partnerDetail(people, pid, partner);
         const begin = dateRange(shared.start), end = dateRange(shared.end);
@@ -147,5 +167,46 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
     }
   }
 
+  if (data.sourceCategories !== undefined) {
+    if (!object(data.sourceCategories)) fail("'sourceCategories' must be an object.");
+    else for (const [url, category] of Object.entries(data.sourceCategories)) {
+      if (!SOURCE_CATEGORIES.includes(category)) fail(`sourceCategories['${url}'] must be one of ${SOURCE_CATEGORIES.join(", ")}.`);
+    }
+  }
+
+  if (data.sourceDetails !== undefined) {
+    if (!object(data.sourceDetails)) fail("'sourceDetails' must be an object.");
+    else {
+      const ids = new Set();
+      for (const [url, detail] of Object.entries(data.sourceDetails)) {
+        const label = `sourceDetails['${url}']`;
+        if (!/^\/sources\/[a-zA-Z0-9._-]+\.(pdf|png|jpe?g)$/.test(url) && !isWebUrl(url)) fail(`${label}: invalid document URL.`);
+        if (!object(detail)) { fail(`${label} must be an object.`); continue; }
+        if (typeof detail.title !== 'string' || !detail.title.trim()) fail(`${label}.title must be a nonempty string.`);
+        for (const key of ['citation', 'original', 'archive', 'retrieved', 'kind', 'scope']) {
+          if (detail[key] !== undefined && typeof detail[key] !== 'string') fail(`${label}.${key} must be a string.`);
+        }
+        if (detail.id !== undefined) {
+          if (typeof detail.id !== 'string' || !/^B\d{6}$/.test(detail.id) || ids.has(detail.id)) fail(`${label}.id must be a unique B identifier with six digits.`);
+          ids.add(detail.id);
+        }
+        if (detail.tags !== undefined && (!Array.isArray(detail.tags) || detail.tags.some(tag => typeof tag !== 'string' || !tag.trim()) || new Set(detail.tags).size !== detail.tags.length)) fail(`${label}.tags must be unique nonempty strings.`);
+      }
+    }
+  }
+
   return errors;
+}
+
+// Build hint for legacy German dates (DD.MM.YYYY); validation rejects them, the editor and GEDCOM import normalize them.
+export function dateWarnings(dataset) {
+  const warnings = [];
+  for (const [id, person] of Object.entries(dataset.people || {})) {
+    for (const field of ['birth', 'death']) {
+      if (/^\d{2}\.\d{2}\.\d{4}$/.test(String(person[field] || ''))) {
+        warnings.push(`${id}.${field}: DD.MM.YYYY; ISO YYYY-MM-DD bevorzugen (${person[field]}).`);
+      }
+    }
+  }
+  return warnings;
 }

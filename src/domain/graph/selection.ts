@@ -73,39 +73,38 @@ export function computeVisible(people: People, baseRootIds: readonly string[], e
 
 // Hourglass view: only the direct ancestor line of the center person (no side branches)
 // plus their complete descendants.
-export function computeHourglass(people: People, rootId: string | string[]): Set<string> {
-  // Union of independent views: ancestor traversal must run for every root,
-  // even if it was already included as another root's partner or descendant.
-  if (Array.isArray(rootId)) {
-    return new Set(rootId.flatMap(id => [...computeHourglass(people, id)]));
-  }
+function hourglassSelection(people: People, roots: readonly string[], depth: number) {
   const visible = new Set<string>();
-  if (!people[rootId]) return visible;
-  // downwards: person, partners, all descendants (like the base hull)
-  const addDown = (id: string) => {
-    if (!people[id] || visible.has(id)) return;
-    visible.add(id);
-    for (const partner of people[id].partners || []) addDown(partner);
-    for (const child of people[id].children || []) addDown(child);
-  };
-  addDown(rootId);
-  // upwards: the parent chain without siblings – but ALWAYS with all
-  // partners of each ancestor (second marriages stay visible even though
-  // they are off the direct line; their own kin is not pulled in).
-  const expanded = new Set<string>();
-  const addAnc = (id: string) => {
-    for (const parent of (people[id]?.parents || [])) {
-      if (!people[parent] || expanded.has(parent)) continue;
-      expanded.add(parent);
-      visible.add(parent);
-      for (const sp of people[parent].partners || []) {
-        if (people[sp]) visible.add(sp);
+  let maxDepth = 0;
+  for (const root of roots) {
+    // Separate shortest distances for each root and direction. A person reached
+    // along a shorter route must be revisited, even if already visible.
+    for (const direction of ['children', 'parents'] as const) {
+      const distances = new Map<string, number>();
+      const queue: [string, number][] = [[root, 0]];
+      for (let i = 0; i < queue.length; i++) {
+        const [id, distance] = queue[i];
+        if (!people[id] || distance > depth || (distances.get(id) ?? Infinity) <= distance) continue;
+        distances.set(id, distance);
+        visible.add(id);
+        for (const partner of people[id].partners || []) {
+          if (direction === 'children') queue.push([partner, distance]);
+          else if (distance > 0 && people[partner]) visible.add(partner);
+        }
+        for (const next of people[id][direction] || []) queue.push([next, distance + 1]);
       }
-      addAnc(parent);
+      for (const distance of distances.values()) maxDepth = Math.max(maxDepth, distance);
     }
-  };
-  addAnc(rootId);
-  return visible;
+  }
+  return { visible, maxDepth };
+}
+
+export function computeHourglass(people: People, rootId: string | string[], depth = Infinity): Set<string> {
+  return hourglassSelection(people, Array.isArray(rootId) ? rootId : [rootId], depth).visible;
+}
+
+export function hourglassMaxDepth(people: People, roots: readonly string[]): number {
+  return hourglassSelection(people, roots, Infinity).maxDepth;
 }
 
 // Persons where a hidden ancestor line can be expanded.
@@ -165,4 +164,3 @@ export function computeGenerations(people: People, visible: ReadonlySet<string>,
   }
   return gen;
 }
-

@@ -33,7 +33,7 @@ export function partnerStyle(dataset: Dataset, a: string, b: string): LineStyle 
   return 'default';
 }
 
-// One person-dialog projection for graph, chronicle and sources.
+// One person-dialog projection for graph, chronicle, sources and map.
 import { familyIndex, siblingsFor } from './family';
 import { orderedPartners } from '../../public/assets/relationships.js';
 export function personRelations(dataset: Dataset, id: string, t: { locale?: string; get(key: string, values?: Record<string, string | number>): string }): { key: string; items: { id: string; description: string; sources?: Source[] }[] }[] {

@@ -52,6 +52,9 @@ for (const mode of ['family', 'hourglass', 'descendants', 'connections', 'ancest
     await dialog.locator('[data-info-person="person_b"]').click();
     await expect(page.locator('#family-person-title')).toHaveText('Test Bruno');
     await expectCameraUnchanged(page, before);
+    await page.goBack();
+    await expect(page.locator('#family-person-title')).toHaveText('Test Anna');
+    await expectCameraUnchanged(page, before);
 
     if (isMobile) {
       for (const level of ['collapsed', 'half', 'full']) {

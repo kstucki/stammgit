@@ -34,6 +34,7 @@ test('admin can set, preserve and clear evidence status in a draft', async ({ pa
   for (const value of ['unsicher', 'gut', 'gesichert', '']) {
     await show(page, 'unassessed');
     await page.locator('[data-edit-person]').click();
+    await page.locator('#editor-section-tab-sources').click();
     await page.locator('select[name="evidenceStatus"]').selectOption(value);
     await page.locator('#personEditor button[type="submit"]').click();
     await expect(page.locator('#editDialog')).toHaveCount(0);
@@ -43,7 +44,9 @@ test('admin can set, preserve and clear evidence status in a draft', async ({ pa
     await show(page, 'unassessed');
     await expect(page.locator('.person-evidence')).toHaveCount(value === 'unsicher' ? 1 : 0);
     await page.locator('[data-edit-person]').click();
+    await page.locator('#editor-section-tab-sources').click();
     await expect(page.locator('select[name="evidenceStatus"]')).toHaveValue(value);
+    await page.locator('#editor-section-tab-person').click();
     await page.locator('input[name="occupation"]').fill('Example occupation');
     await page.locator('#personEditor button[type="submit"]').click();
     const retained = await page.evaluate(() => JSON.parse(localStorage.getItem('familyTreeDraft:demo')!).people.unassessed);

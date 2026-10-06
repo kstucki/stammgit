@@ -7,3 +7,6 @@ public/index.html
 public/assets/ui/
 test-results/
 playwright-report/
+
+.venv/
+__pycache__/

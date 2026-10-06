@@ -17,11 +17,11 @@ npm run test:server # isolated local HTTP/save smoke checks
 Frontend code lives in `src/`; edit `index.html`, not generated
 `public/index.html`. Vite hashes browser assets. Keep `public/` content intact.
 Read [AGENTS.md](../AGENTS.md) and [architecture.md](architecture.md) before
-changing graph behavior. UI strings stay bilingual in `public/assets/strings.js`.
+changing graph behavior. UI strings stay in German, English and Portuguese in `public/assets/strings.js`.
 
 ```bash
 npx playwright install --with-deps chromium webkit
-npm run test:e2e       # desktop Chromium and mobile WebKit, production build
+npm run test:e2e       # desktop Chromium, mobile and narrow WebKit, production build
 npm run test:e2e:dev   # desktop Chromium, Vite mode
 npm run metrics -- data/trees/napoleon.yaml
 npm run thumbnails    # local PDF previews with Poppler; never in the hosted build
@@ -71,3 +71,27 @@ and panned graphs while person panels open, change person, resize and close.
 and worker layouts. `ancestor-fan.spec.ts` exercises every depth from 1 to 10.
 The display-name, life-places and search-keyboard browser cases cover the matching
 editor, reader and keyboard behavior using only synthetic fixtures.
+
+## Source and export checks
+
+The source catalogue, language variants, editor tabs, dates, GEDCOM and GEDZIP
+checks use synthetic fixtures. Run the matching `source-*`, `editor-layout`,
+`gedcom-export` and language browser specs after changes. Source publishing tools
+are optional local commands; see [source-editions](source-editions/README.md).
+Use separate `STAMMGIT_TEST_PORT` values and Playwright `--output` directories
+for concurrent runs. CI retains production, development, mobile and narrow checks.
+
+## Known browser limitations
+
+Four explicit expected-failure cases remain from the current application:
+
+- Without a chosen “Me” person, the first connection selection may retain the
+  center from page load instead of the person centered afterwards.
+- Returning from Admin through the tree link can reset hourglass mode to family.
+- Unequal ancestry paths with a shared child can align partners whose ancestor
+  paths place them on different rows. Two cases cover local and worker layouts.
+
+These tests execute their assertions and fail on an unexpected pass, so a fix
+requires removing the expected-failure annotation. They do not mark the affected
+behavior as verified. Other geometry, descendant ordering and camera checks
+remain ordinary passing assertions.

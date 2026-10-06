@@ -3,6 +3,7 @@ meta:
   focusPersonId: lea
 people:
   lea:
+    living: true
     name: Lea Beispiel
     birth: "um 1980"
     occupation: Eine kurze vorhandene Berufsangabe
@@ -18,41 +19,52 @@ people:
       old: {status: geschieden, kind: marriage, start: "2000", end: "2010"}
       next: {kind: partnership, start: "2012"}
   p1:
+    living: true
     name: Elternteil Eins
     children: [lea, sibling, half]
   p2:
+    living: true
     name: Elternteil Zwei
     children: [lea, sibling]
   p3:
+    living: true
     name: Weiterer Elternteil
     children: [half]
   sibling:
+    living: true
     name: Geschwisterperson
     parents: [p1, p2]
     parentDetails: {p1: {type: biological}, p2: {type: biological}}
   half:
+    living: true
     name: Halbgeschwisterperson
     parents: [p1, p3]
     parentDetails: {p1: {type: biological}, p3: {type: biological}}
   old:
+    living: true
     name: Alex Beispiel
     partners: [lea]
     partnerDetails:
       lea: {status: geschieden, kind: marriage, start: "2000", end: "2010"}
     children: [child_old]
   next:
+    living: true
     name: Robin Beispiel
     partners: [lea]
     partnerDetails: {lea: {kind: partnership, start: "2012"}}
     children: [child_next]
   child_old:
+    living: true
     name: Erstes Kind
     parents: [lea, old]
   child_next:
+    living: true
     name: Weiteres Kind
     parents: [lea, next]
   child_solo:
+    living: true
     name: Kind mit einem erfassten Elternteil
     parents: [lea]
   separate:
+    living: true
     name: Einzelperson

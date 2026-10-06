@@ -1,0 +1,25 @@
+import { expect } from '@playwright/test';
+import { test, login } from './support';
+for (const role of ['reader','admin']) test(`Portuguese UI, relationships and language persistence: ${role}`, async ({page},info)=>{
+  await login(page,`fixture-${role}`);
+  await page.route('**/data/trees/demo.json',route=>route.fulfill({json:{meta:{focusPersonId:'a'},people:{a:{name:'Ana',gender:'f',parents:['b']},b:{name:'Berta',gender:'f',children:['a'],occupation:'Lehrerin',notes:['Deutsche Originalnotiz.'],evidenceStatus:'unsicher'}}}}));
+  await page.evaluate(()=>{localStorage.setItem('chronicleLanguage','pt');sessionStorage.setItem('familyCenter:demo','a');});
+  await page.goto('/?person=b&action=person');
+  await expect(page.locator('html')).toHaveAttribute('lang','pt-BR');
+  await expect(page.locator('[data-person-kinship]')).toHaveText('mãe de Ana');
+  await expect(page.locator('#personDialog')).toContainText('Lehrerin');
+  await expect(page.locator('#personDialog')).toContainText('Deutsche Originalnotiz.');
+  await page.goto('/?view=family&action=connections&connect=a&connect=b&language=pt');
+  await expect(page.locator('[data-connection-description]')).toContainText('Berta é mãe de Ana.');
+  await expect(page.getByRole('radio',{name:'Conexões',exact:true})).toBeChecked();
+  await page.screenshot({path:info.outputPath('pt-connections.png')});
+  await page.locator('.archive-menu summary').click();
+  await expect(page.locator('[data-view="sources"]')).toHaveText('Fontes e documentos');
+  await expect(page.locator('[data-view="admin"]')).toHaveCount(role==='admin'?1:0);
+  await page.locator('[data-language-menu]').click();
+  await page.locator('[data-language="de"]').click();
+  await expect(page.locator('[data-connection-description]')).toContainText('Berta ist Mutter von Ana.');
+  await expect(page.getByRole('radio',{name:'Verbindung',exact:true})).toBeChecked();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('lang','de');
+});

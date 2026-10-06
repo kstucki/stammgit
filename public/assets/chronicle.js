@@ -103,6 +103,10 @@ export function containsRawHtml(body) {
 //   personLabel(id) -> string | null (null marks a broken link)
 //   sourceLabel(url) -> string
 //   chapterLabel(ref) -> string | null for [[c:file.md]] or [[c:file.md#slug]]
+/**
+ * @param {string} body
+ * @param {{ personLabel?: (id: string) => string | null, sourceLabel?: (url: string) => string | null, chapterLabel?: (ref: string) => string | null }} [options]
+ */
 export function renderChapter(body, { personLabel, sourceLabel, chapterLabel } = {}) {
   // Tokens are rendered to HTML, but they must not travel through marked as
   // raw HTML — that path is closed. They are parked as placeholders from the

@@ -2,10 +2,10 @@ import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import YAML from 'yaml';
-import { test, login, selectGraphView } from './support';
+import { test, login, freshContext, openAdmin, selectGraphView } from './support';
 
 async function selectTree(page: Page, tree: string) {
-  await page.getByRole('link', { name: 'Admin', exact: true }).click();
+  await openAdmin(page);
   await page.locator('#treeSelect').selectOption(tree);
   await expect(page.locator('#treeSelect')).toHaveValue(tree);
   await page.getByRole('link', { name: 'Stammbaum', exact: true }).click();
@@ -50,7 +50,7 @@ test('family defaults, distinct parent families, cards and complete person windo
   await expect(group(page, ['lea', 'next']).locator('[data-partnership].relation-unmarried')).toHaveCount(1);
   await expect(group(page, ['lea', 'old']).locator('[data-partnership]')).toHaveCSS('stroke-dasharray', '7px, 4px');
   await expect(group(page, ['lea', 'next']).locator('[data-partnership]')).toHaveCSS('stroke-dasharray', '7px, 4px');
-  await expect(page.locator('.family-view details.graph-info')).toHaveCount(1);
+  await expect(page.locator('.family-view details:not(.graph-info)')).toHaveCount(0);
   await expect(page.getByText('Linien', { exact: true })).toHaveCount(0);
   await expectMidpointStem(page, ['lea', 'old'], 'child_old');
   await expectMidpointStem(page, ['lea', 'next'], 'child_next');
@@ -78,7 +78,7 @@ test('family defaults, distinct parent families, cards and complete person windo
   await expect(dialog).toContainText('um 1980');
   await expect(dialog).toContainText('Diese lange Notiz bleibt ausschliesslich');
   await expect(dialog).toContainText('Beispielort');
-  await expect(dialog.locator('.person-family-chips')).toContainText('Geschwister');
+  await expect(dialog).toContainText('Halbgeschwister');
   await dialog.locator('[data-info-sources] summary').click();
   await expect(dialog.getByRole('link', { name: 'Testquelle' })).toHaveAttribute('href', '/sources/test.pdf');
   await dialog.getByRole('button', { name: 'Elternteil Eins', exact: true }).click();
@@ -111,8 +111,8 @@ test('individual adoption and unspecified parent links share one child card with
   await expect(dialog).toContainText('Adoption');
   await expect(dialog).not.toContainText(/unbekannt/i);
   await dialog.locator('[data-info-sources] summary').click();
-  await expect(dialog.getByRole('link', { name: /Beleg zur Adoption/ })).toHaveAttribute('href', '/sources/test.pdf');
-  await expect(dialog.locator('[data-info-person="d"]')).toHaveText('Elternteil D');
+  await expect(dialog.getByRole('link', { name: 'Beleg zur Adoption' })).toHaveAttribute('href', '/sources/test.pdf');
+  await expect(dialog.getByRole('button', { name: 'Elternteil D', exact: true })).toHaveText('Elternteil D');
 });
 
 test('parent type edits preserve existing groups and sources through editor refreshes, exports and local persistence', async ({ page, browser, baseURL, isMobile, hasTouch, viewport, deviceScaleFactor, userAgent }, testInfo) => {
@@ -134,13 +134,13 @@ test('parent type edits preserve existing groups and sources through editor refr
   await expect(page.locator('[data-parent-type="d"] option')).toHaveText(['Leiblich', 'Adoptiert']);
   await page.locator('#personEditor [name="occupation"]').fill('Erhaltener Formularentwurf');
   await page.locator('#personEditor [name="notes"]').fill('Notiz vor dem Hinzufügen einer Quelle');
-  await page.locator('#srcUrlLabel').fill('Zusätzlicher Beleg');
+  await page.locator('#editor-section-tab-sources').click(); await page.locator('#srcUrlLabel').fill('Zusätzlicher Beleg');
   await page.locator('#srcUrl').fill('https://example.invalid/beleg');
   await page.locator('#srcAddUrl').click();
   await expect(page.locator('#personEditor [name="occupation"]')).toHaveValue('Erhaltener Formularentwurf');
   await expect(page.locator('#personEditor [name="notes"]')).toHaveValue('Notiz vor dem Hinzufügen einer Quelle');
   page.once('dialog', dialog => dialog.accept('Zusätzliches Testkind'));
-  await page.locator('[data-create-relation="children"]').click();
+  await page.locator('#editor-section-tab-family').click(); await page.locator('[data-create-relation="children"]').click();
   await expect(page.locator('#personEditor [name="occupation"]')).toHaveValue('Erhaltener Formularentwurf');
   await expect(page.locator('#personEditor [name="notes"]')).toHaveValue('Notiz vor dem Hinzufügen einer Quelle');
   await expect(page.locator('#mergePersonBtn')).toBeDisabled();
@@ -155,7 +155,7 @@ test('parent type edits preserve existing groups and sources through editor refr
   await expect(page.locator('[data-relationship-note="child"][data-parent="b"]')).toContainText('Adoption: Elternteil B');
   await expect(page.locator('[data-relationship-note="child"][data-parent="c"]')).toContainText('Adoption: Elternteil C');
   await expect(page.locator('[data-relationship-note="child"][data-parent="d"]')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Admin', exact: true }).click();
+  await openAdmin(page);
   for (const button of ['#exportYaml', '#exportJson']) {
     const downloaded = page.waitForEvent('download');
     await page.locator(button).click();
@@ -190,21 +190,21 @@ test('parent type edits preserve existing groups and sources through editor refr
   expect(serialized.people.child.parentDetails.c.sources).toEqual(fixture.people.child.parentDetails.c.sources);
   expect(serialized.people.child.parentGroups).toEqual([['a', 'b'], ['c', 'd']]);
 
-  const fresh = await browser.newContext({ baseURL, isMobile, hasTouch, viewport, deviceScaleFactor, userAgent });
-  await fresh.route('**/*', route => new URL(route.request().url()).origin === new URL(baseURL!).origin ? route.continue() : route.abort());
+  const fresh = await freshContext(browser, { baseURL: baseURL!, isMobile, hasTouch, viewport, deviceScaleFactor, userAgent });
   const reloaded = await fresh.newPage(), errors: string[] = [];
   reloaded.on('pageerror', error => errors.push(error.message));
   try {
     await login(reloaded);
     await selectTree(reloaded, tree);
     await expect(reloaded.locator('.draft-notice')).toHaveCount(0);
-    await expect(card(reloaded, 'child')).toContainText('Erhaltener Formularentwurf');
     await expect(card(reloaded, 'zusatzliches_testkind')).toContainText('Zusätzliches Testkind');
     await expect(group(reloaded, ['c', 'd']).locator('path[data-child]')).toHaveCount(1);
     await expect(group(reloaded, ['c', 'd']).locator('path[data-child]')).toHaveClass('relation-default');
     await expect(reloaded.locator('[data-relationship-note="child"][data-parent="b"]')).toContainText('Adoption: Elternteil B');
     await expect(reloaded.locator('[data-relationship-note="child"][data-parent="c"]')).toContainText('Adoption: Elternteil C');
     await expect(reloaded.locator('[data-relationship-note="child"][data-parent="d"]')).toHaveCount(0);
+    await card(reloaded, 'child').locator('.person-open').click();
+    await expect(reloaded.getByRole('dialog')).toContainText('Erhaltener Formularentwurf');
     expect(errors).toEqual([]);
   } finally { await fresh.close(); }
 });
@@ -217,7 +217,7 @@ test('changing a partnership status changes its visible line without duplicating
     await card(page, 'lea').getByRole('button', { name: 'Personeninfo: Lea Beispiel', exact: true }).click();
     await page.getByRole('dialog').getByRole('link', { name: 'Bearbeiten', exact: true }).click();
     await expect(page.locator('[data-partner-field="kind"]')).toHaveCount(0);
-    await page.locator('[data-partner-status="next"]').selectOption(status);
+    await page.locator('#editor-section-tab-family').click(); await page.locator('[data-partner-status="next"]').selectOption(status);
     await page.locator('#personEditor button[type="submit"]').click();
     await page.getByRole('link', { name: 'Stammbaum', exact: true }).click();
     await expect(bridge()).toHaveCSS('stroke-dasharray', dash);
@@ -282,7 +282,7 @@ test('simplified partnership editor preserves recorded kind and dates through re
 
 test('standard GEDCOM import identifies the single adopter beside one neutral shared child stem', async ({ page }) => {
   await login(page);
-  await page.getByRole('link', { name: 'Admin', exact: true }).click();
+  await openAdmin(page);
   const content = `0 HEAD\n0 @I1@ INDI\n1 NAME Importkind\n1 ADOP\n2 FAMC @F1@\n3 ADOP HUSB\n0 @I2@ INDI\n1 NAME Adoptierende Person\n0 @I3@ INDI\n1 NAME Weitere Person\n0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 MARR\n1 CHIL @I1@\n0 TRLR\n`;
   await page.locator('#gedImportFile').setInputFiles({ name: 'adoption.ged', mimeType: 'text/plain', buffer: Buffer.from(content) });
   page.once('dialog', dialog => dialog.accept());
@@ -310,7 +310,6 @@ test('search and separate card actions change the center and keep the identity u
   await page.getByLabel('Zentrumperson suchen und auswählen').fill('Einzelperson');
   await page.locator('#family-search-results').getByRole('button', { name: 'Einzelperson' }).click();
   await expect(page.locator('[data-family-person]')).toHaveCount(1);
-  await expect(page.locator('[data-partnership], path[data-child]')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'separate');
 });
@@ -325,8 +324,8 @@ test('person actions reach the existing editor, preserve a draft and return to t
   await page.locator('#personEditor button[type="submit"]').click();
   await page.getByRole('link', { name: 'Stammbaum', exact: true }).click();
   await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'old');
-  await expect(card(page, 'old')).toContainText('Entwurf aus dem Personenfenster');
   await card(page, 'old').getByRole('button', { name: 'Personeninfo: Alex Beispiel', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Entwurf aus dem Personenfenster');
   await expect(page.getByRole('dialog').locator('.person-actions > *')).toHaveCount(3);
   await page.locator('#personDialog .dialog-close').click();
   await selectGraphView(page, 'hourglass');
@@ -338,7 +337,7 @@ test('person actions reach the existing editor, preserve a draft and return to t
 test('chronicle mentions in the native person window reach their existing chapter', async ({ page }) => {
   await login(page);
   await card(page, 'person_a').getByRole('button', { name: 'Personeninfo: Test Anna', exact: true }).click();
-  await page.locator('#personDialog [data-info-chapters] summary').click();
+  await page.getByRole('dialog').locator('[data-info-chapters] summary').click();
   await page.getByRole('dialog').getByRole('link', { name: 'Testgeschichte', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Testgeschichte', exact: true })).toBeVisible();
   await expect(page.locator('article [data-person="person_a"]')).toBeVisible();

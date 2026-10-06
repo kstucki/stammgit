@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 import { validateDataset } from '../../netlify/shared/validate.mjs';
 import { orderedPartners, parentGroups, partnerDetail, setParentDetail, setParentGroup, setPartnerDetail, linkRecordedRelation } from '../../public/assets/relationships.js';
-import { exportGedcom, importGedcom } from '../../public/assets/gedcom.js';
+import { exportGedcom, exportGedcom7, importGedcom } from '../../public/assets/gedcom.js';
 import { removePersonFromData, mergeImportedPeople, absorbPerson, countSourceLinks, removeSourceLinks } from '../../public/assets/model.js';
 import { familyIndex, selectFamily, familyKey } from './family';
 import { parentStyle, partnerStyle } from './relationship-view';
@@ -176,8 +176,10 @@ describe('preserving metadata in existing operations', () => {
 });
 
 describe('GEDCOM relationships against independently specified expectations', () => {
-  it('preserves all four parent links and exact annotations on the application roundtrip', () => {
-    const data = annotated(), returned = importGedcom(exportGedcom(data));
+  it.each(['551', '7'])('preserves parent links and annotations on the GEDCOM %s roundtrip', version => {
+    const data = annotated();
+    if (version === '551') delete data.people.child.parentDetails!.c.sources;
+    const returned = importGedcom(version === '551' ? exportGedcom(data) : exportGedcom7(data).text);
     for (const id of Object.keys(data.people)) {
       for (const field of ['parents', 'children', 'partners', 'parentDetails', 'parentGroups', 'partnerDetails'] as const)
         expect(returned.people[id][field], `${id}.${field}`).toEqual(data.people[id][field]);

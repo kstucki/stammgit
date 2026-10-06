@@ -6,9 +6,9 @@
   import thumbnails from '../../public/assets/source-thumbnails.json';
   import { formatChapterPresentation } from './chapter-presentation';
   import { formatChapterMedia } from './chapter-media';
-  let { store, body, chapters, onperson, onchapter }: { store: Workspace; body: string; chapters: ChronicleIndex; onperson(id: string): void; onchapter(file: string, section?: string): void } = $props();
+  let { store, body, chapters, onperson, onchapter, adminLinks = true }: { adminLinks?: boolean; store: Workspace; body: string; chapters: ChronicleIndex; onperson(id: string): void; onchapter(file: string, section?: string): void } = $props();
   let html = $derived.by(() => {
-    const documents = sourceDocuments(store.dataset.people);
+    const documents = sourceDocuments(store.dataset.people, store.sourceFiles, store.dataset.sourceDetails);
     const text = renderChapter(body, {
       personLabel: (id: string) => store.dataset.people[id] ? displayPersonName(store.dataset.people[id], id) : null,
       sourceLabel: (url: string) => documents.find(doc => doc.url === url)?.label || null,
@@ -16,6 +16,10 @@
     });
     // Only sanitized Markdown is HTML. No application controls are rendered here.
     const parsed = new DOMParser().parseFromString(text, 'text/html');
+    for (const link of parsed.querySelectorAll('a[href]')) {
+      const url = link.getAttribute('href')!;
+      link.setAttribute('href', store.sourcePath(url));
+    }
     formatChapterPresentation(parsed.body, thumbnails, location.origin);
     formatChapterMedia(parsed.body);
     for (const el of parsed.querySelectorAll('img[src], a[href]')) {

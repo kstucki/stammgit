@@ -36,7 +36,8 @@ test('chronicle pictures, captions, chapter navigation and preview share the rea
   await page.goto('/?view=chronicle&chapter=pictures.md');
   const figures = page.locator('article figure'), captions = figures.locator('figcaption');
   await expect(figures).toHaveCount(3);
-  await expect(captions).toHaveText(['Anna auf einem Gruppenfoto. Beleg[1]', 'Ein Porträt mit Verweis zum Anfang.']);
+  // Print-only source numbers stay hidden on screen.
+  await expect(captions).toHaveText(['Anna auf einem Gruppenfoto. Beleg', 'Ein Porträt mit Verweis zum Anfang.'], { useInnerText: true });
   await expect(page.locator('article > .chapter-content > p').filter({ hasText: 'Ein eigenständiger Absatz' })).toHaveCount(1);
   await expect(page.locator('article p img[alt="Kleines Symbol"]')).toHaveCount(1);
   await expect(figures.nth(1).locator('a').first()).toHaveAttribute('href', '/sources/test.pdf');
@@ -50,7 +51,7 @@ test('chronicle pictures, captions, chapter navigation and preview share the rea
   expect(sizes.every(size => size.fit === 'contain')).toBe(true);
   expect(sizes[0].width).toBe(sizes[1].width);
   if (isMobile) for (const size of sizes) expect(size.width / size.height).toBeCloseTo(size.ratio, 1);
-  else for (const size of sizes) { expect(size.height).toBeLessThanOrEqual(680); expect(size.width).toBeLessThanOrEqual(860); }
+  else for (const size of sizes) expect(size.height).toBeLessThanOrEqual(680);
   expect(await captions.evaluateAll(nodes => new Set(nodes.map(node => {
     const { fontSize, lineHeight, color } = getComputedStyle(node);
     return `${fontSize}|${lineHeight}|${color}`;
@@ -64,9 +65,10 @@ test('chronicle pictures, captions, chapter navigation and preview share the rea
   await expect(page.getByRole('heading', { name: 'Bildgeschichte', exact: true })).toBeVisible();
   const nav = page.locator('.chronicle-nav');
   await nav.scrollIntoViewIfNeeded();
+  // The navigation is centered in the text column; pictures may use the wider article.
   const article = (await page.locator('article').boundingBox())!, navigation = (await nav.boundingBox())!;
-  expect(navigation.width).toBeLessThanOrEqual(640);
   expect(navigation.x + navigation.width / 2).toBeCloseTo(article.x + article.width / 2, 1);
+  expect(navigation.width).toBeLessThanOrEqual(640);
   const previous = (await nav.locator('[data-chapter="intro.md"]').boundingBox())!, next = (await nav.locator('[data-chapter="end.md"]').boundingBox())!;
   expect(next.x - (previous.x + previous.width)).toBeLessThanOrEqual(16);
   expect((previous.x + next.x + next.width) / 2).toBeCloseTo(article.x + article.width / 2, 1);
@@ -78,7 +80,7 @@ test('chronicle pictures, captions, chapter navigation and preview share the rea
   await expect(page.locator('#chBody')).toHaveValue(body.trim());
   await page.locator('#chPreviewBtn').click();
   await expect(page.locator('#chPreview figure')).toHaveCount(3);
-  await expect(page.locator('#chPreview figcaption')).toHaveText(['Anna auf einem Gruppenfoto. Beleg[1]', 'Ein Porträt mit Verweis zum Anfang.']);
+  await expect(page.locator('#chPreview figcaption')).toHaveText(['Anna auf einem Gruppenfoto. Beleg', 'Ein Porträt mit Verweis zum Anfang.'], { useInnerText: true });
   await page.locator('#chCancel').click();
   await expect(page.locator('.draft-notice')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -35,7 +35,8 @@ function familyGenerations(family: FamilySlice): Map<string, number> {
 }
 
 // Solve parent -> child = +1 within each ancestry component. Partnerships
-// never merge these constraints. Only inconsistent ancestry needs longest paths.
+// never merge these constraints. Conflicting paths retain focus-relative rows
+// and move only ancestors upward until every parent is above its children.
 export function consistentGenerations(family: FamilySlice, preferred: Map<string, number>): Map<string, number> {
   const adjacent = new Map(family.people.map(id => [id, [] as { id: string; delta: number }[]]));
   const children = new Map(family.people.map(id => [id, new Set<string>()]));
@@ -58,13 +59,23 @@ export function consistentGenerations(family: FamilySlice, preferred: Map<string
       else if (rows.get(next.id) !== level) consistent = false;
     }
     if (!consistent) {
-      const degree = new Map(ids.map(id => [id, parents.get(id)!.size]));
+      // Expansion keeps the base scene's preferences. Infer missing cards
+      // from those known rows, not from the arbitrary component traversal root.
+      const proposed = new Map(ids.filter(id => preferred.has(id)).map(id => [id, preferred.get(id)!]));
+      if (!proposed.size) proposed.set(root, 0);
+      const pending = [...proposed.keys()];
+      for (let i = 0; i < pending.length; i++) for (const next of adjacent.get(pending[i])!) {
+        if (proposed.has(next.id)) continue;
+        proposed.set(next.id, proposed.get(pending[i])! + next.delta);
+        pending.push(next.id);
+      }
+      const degree = new Map(ids.map(id => [id, children.get(id)!.size]));
       const queue = ids.filter(id => degree.get(id) === 0);
-      ids.forEach(id => rows.set(id, 0));
-      for (let i = 0; i < queue.length; i++) for (const child of children.get(queue[i])!) {
-        rows.set(child, Math.max(rows.get(child)!, rows.get(queue[i])! + 1));
-        degree.set(child, degree.get(child)! - 1);
-        if (!degree.get(child)) queue.push(child);
+      ids.forEach(id => rows.set(id, proposed.get(id)!));
+      for (let i = 0; i < queue.length; i++) for (const parent of parents.get(queue[i])!) {
+        rows.set(parent, Math.min(rows.get(parent)!, rows.get(queue[i])! - 1));
+        degree.set(parent, degree.get(parent)! - 1);
+        if (!degree.get(parent)) queue.push(parent);
       }
       // Invalid ancestry cycles cannot be layered. Keep all cards finite;
       // never loop, discard a person or change the stored relationships.

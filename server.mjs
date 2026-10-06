@@ -173,7 +173,7 @@ async function sessionRole(req) {
   if (!adminPassword) return null;
   const cookies = String(req.headers.cookie || "");
   const match = cookies.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
-  return match ? roleFromCookieValue(adminPassword, match[1]) : null;
+  return match ? roleFromCookieValue(adminPassword, match[1], process.env.FAMILY_TREE_READERS, process.env.FAMILY_TREE_USER_PASSWORD) : null;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -203,7 +203,7 @@ const server = http.createServer(async (req, res) => {
       }
       const role = await sessionRole(req);
       if (!role) {
-        res.writeHead(302, { location: "/login.html" });
+        res.writeHead(302, { location: `/login.html?next=${encodeURIComponent(req.url)}` });
         return res.end();
       }
     }

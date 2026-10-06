@@ -3,9 +3,7 @@ import { familyChips, lowEvidence, personInitials, personLifeDetails } from './p
 import { getT } from '../../public/assets/strings.js';
 import type { Dataset } from './person';
 const t = getT('de');
-it('keeps complete recorded dates and does not invent evidence ratings', () => {
-  expect(personLifeDetails({ birth: '22.10.1960', occupation: 'Lehrerin' })).toEqual(['* 22.10.1960']);
-  expect(personLifeDetails({ death: '2000' })).toEqual(['† 2000']);
+it('keeps initials and does not invent evidence ratings', () => {
   expect(personInitials('Alex Sample-Smith')).toBe('AS');
   expect(lowEvidence({})).toBe(false);
   expect(lowEvidence({ notes: ['Belegstufe 1.'] })).toBe(false);
@@ -25,4 +23,16 @@ it('separates former marriage, marks adoption and keeps complete names', () => {
   expect(groups[0].items[0].annotation).toBe('Adoption');
   expect(groups.map(group => group.label)).toContain('frühere Ehe');
   expect(groups.map(group => group.label)).toContain('Ehe');
+});
+
+
+it('formats independent life events with full dates, local places and invariant symbols', () => {
+  const person = { birth: '1926-05-02', birthPlace: 'Basel', death: '2025-09-05', deathPlace: 'Ittigen' };
+  expect(personLifeDetails(person)).toEqual(['* 2.5.1926 in Basel', '† 5.9.2025 in Ittigen']);
+  expect(personLifeDetails(person, 'pt-BR')).toEqual(['* 2 de maio de 1926 em Basel', '† 5 de setembro de 2025 em Ittigen']);
+  expect(personLifeDetails(person, 'en')).toEqual(['* 2 May 1926 in Basel', '† 5 Sep 2025 in Ittigen']);
+  expect(personLifeDetails({ birth: '1960' })).toEqual(['* 1960']);
+  expect(personLifeDetails({ death: 'um 1900' })).toEqual(['† um 1900']);
+  expect(personLifeDetails({ birthPlace: 'Basel', deathPlace: 'Ittigen' })).toEqual(['* in Basel', '† in Ittigen']);
+  expect(personLifeDetails({ occupation: 'Lehrerin' })).toEqual([]);
 });

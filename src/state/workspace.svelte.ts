@@ -1,10 +1,13 @@
+import { availableSources, localizedSource, sourceBase, sourceVariant } from '../domain/source-language';
+import { sourceUrl } from '../data/family';
+import { setSourceCategory, removeSourceDetails } from '../domain/sources';
 import { getT } from '../../public/assets/strings.js';
 import { validateDataset } from '../../netlify/shared/validate.mjs';
 import * as pending from '../../public/assets/pending.js';
 import { countSourceLinks, removeSourceLinks } from '../../public/assets/model.js';
 import { syncArchive } from '../data/sync';
 import { hydrateChronicle } from '../data/chronicle';
-import type { ArchiveSnapshot, TreeIndex } from '../domain/archive';
+import type { ArchiveSnapshot, TreeIndex, Language } from '../domain/archive';
 import type { Dataset, ChronicleIndex } from '../domain/person';
 import type { FamilySession } from '../data/family';
 
@@ -12,8 +15,13 @@ export class Workspace {
   dataset = $state<Dataset>({ meta: { focusPersonId: '' }, people: {} });
   chronicle = $state<ChronicleIndex | null>(null);
   assets = $state<ReadonlyMap<string, string>>(new Map());
+  publishedSources = $state<string[]>([]);
+  sourcePath(url: string) { return localizedSource(url, this.language, this.sourceFiles); }
+  sourceHref(url: string) { return sourceUrl(this.sourcePath(url), this.assets); }
   files = $state<string[]>([]);
   deletions = $state<string[]>([]);
+  sourceFiles = $derived(availableSources(this.publishedSources, this.assets, this.deletions));
+
   draft = $state(false);
   legacyPending = $state(false);
   saving = $state(false);
@@ -24,16 +32,20 @@ export class Workspace {
   contentHash: string | null = null;
   isNew = false;
   readonly archive: ArchiveSnapshot;
-  readonly t: ReturnType<typeof getT>;
+  language = $state<Language>('de');
+  t = $derived(getT(this.language));
   private urls: string[] = [];
   constructor(archive: ArchiveSnapshot, session: FamilySession) {
-    this.archive = archive; this.t = getT(archive.config.language === 'en' ? 'en' : 'de');
+    this.archive = archive;
+    const configured = archive.config.language;
+    this.language = configured === 'en' ? 'en' : configured === 'pt' || configured === 'pt-BR' ? 'pt' : 'de';
+    try { const saved = localStorage.getItem('chronicleLanguage'); if (saved === 'de' || saved === 'pt' || saved === 'en') this.language = saved; } catch { /* Optional language preference. */ }
     this.dataset = session.dataset; this.draft = session.hasDraft; this.chronicle = session.chronicle;
   }
   get tree() { return this.archive.tree.id; }
   get admin() { return this.archive.role === 'admin'; }
   get pending() { return this.draft || this.files.length > 0 || this.deletions.length > 0; }
-  get session(): FamilySession { return { dataset: this.dataset, chronicle: this.chronicle, assets: this.assets, hasDraft: this.draft }; }
+  get session(): FamilySession { return { dataset: this.dataset, chronicle: this.chronicle, assets: this.assets, sourceFiles: this.sourceFiles, hasDraft: this.draft }; }
   get draftKey() { return `familyTreeDraft:${this.tree}`; }
   get baseKey() { return `familyTreeDraftBase:${this.tree}`; }
   snapshot(): Dataset { return $state.snapshot(this.dataset) as Dataset; }
@@ -41,6 +53,9 @@ export class Workspace {
     this.index = this.archive.index || await (await fetch('/data/trees/index.json', { cache: 'no-store' })).json();
     const links = await fetch('/data/source-links.json', { cache: 'no-store' });
     this.sourceLinks = links.ok ? await links.json() : {};
+    const inventory = await fetch('/data/source-files.json', { cache: 'no-store' });
+    const sourceFiles: unknown = inventory.ok ? await inventory.json() : [];
+    this.publishedSources = Array.isArray(sourceFiles) ? sourceFiles.filter((url): url is string => typeof url === 'string' && url.startsWith('/sources/')) : [];
     this.isNew = !this.index.trees.some(tree => tree.id === this.tree);
     this.contentHash = this.index.trees.find(tree => tree.id === this.tree)?.contentHash || null;
     // Reading remains possible when browser storage is unavailable.
@@ -114,15 +129,29 @@ export class Workspace {
     });
   }
   async deleteSource(url: string) {
-    const count = countSourceLinks(this.dataset.people, url);
+    if (!this.admin || this.saving || this.fileBusy) throw new Error(this.t.get('editUnavailable'));
+    const base = sourceBase(url), variants = ['pt', 'en'].map(code => sourceVariant(base, code)).filter((path): path is string => !!path);
+    const count = url === base ? countSourceLinks(this.dataset.people, base) : 0;
     if (!confirm(this.t.get(count ? 'sourceDeleteLinked' : 'sourceDeleteUnlinked', { n: count }))) return;
     await this.fileOperation(async () => {
-      this.edit(data => removeSourceLinks(data.people, url));
+      if (url === base) this.edit(data => {
+        removeSourceLinks(data.people, base);
+        for (const variant of variants) removeSourceLinks(data.people, variant);
+        if (!url.startsWith('/sources/')) { setSourceCategory(data, base, 'andere'); removeSourceDetails(data, base); }
+      });
       if (url.startsWith('/sources/')) {
-        const name = url.slice(9), other = Object.entries(this.sourceLinks[url] || {}).filter(([tree, n]) => tree !== this.tree && n > 0).map(([tree]) => tree);
-        if (this.files.includes(name)) await pending.pendingRemoveFile(name, this.tree);
-        else if (other.length) alert(this.t.get('sourceKeptOtherTrees', { trees: other.join(', ') }));
-        else if (confirm(this.t.get('sourceDeleteFile'))) await pending.pendingQueueDeletion(name, this.tree);
+        const targets = url === base ? [base, ...variants.filter(path => this.sourceFiles.has(path))] : [url];
+        const other = [...new Set([base, ...variants].flatMap(path => Object.entries(this.sourceLinks[path] || {})
+          .filter(([tree, n]) => tree !== this.tree && n > 0).map(([tree]) => tree)))];
+        if (other.length) alert(this.t.get('sourceKeptOtherTrees', { trees: other.join(', ') }));
+        else if (targets.every(path => this.files.includes(path.slice(9))) || confirm(this.t.get('sourceDeleteFile'))) {
+          for (const target of targets) {
+            const name = target.slice(9);
+            if (this.files.includes(name)) await pending.pendingRemoveFile(name, this.tree);
+            if (this.publishedSources.includes(target)) await pending.pendingQueueDeletion(name, this.tree);
+          }
+          if (url === base) this.edit(data => { setSourceCategory(data, base, 'andere'); removeSourceDetails(data, base); });
+        }
         await this.refreshFiles();
       }
     });
@@ -132,11 +161,15 @@ export class Workspace {
     if (this.legacyPending) { alert(this.t.get('legacyPendingUnassigned')); return; }
     this.saving = true;
     try {
+      const deletedSources = [...this.deletions];
+      const uploadedSources = [...this.assets.keys()].filter(url => url.startsWith('/sources/'));
       const result = await syncArchive({ data: this.snapshot(), tree: this.tree, create: this.isNew, baseHash: localStorage.getItem(this.baseKey) || this.contentHash },
         (key, values) => { this.progress = this.t.get(key, values); });
       localStorage.removeItem(this.draftKey); localStorage.removeItem(this.baseKey);
+      this.publishedSources = [...new Set([...this.publishedSources, ...uploadedSources])];
       this.contentHash = result.contentHash || this.contentHash; this.draft = false; this.isNew = false;
       await this.refreshFiles();
+      this.publishedSources = this.publishedSources.filter(url => !deletedSources.some(name => url === `/sources/${name}` && !this.deletions.includes(name)));
       const message = result.mode === 'local'
         ? this.t.get('savedLocal', { target: result.branch || this.t.get('savedWorkingDirectory'), commit: result.commit || this.t.get('savedNoCommit') })
         : this.t.get('saved', { commit: result.commit || this.t.get('savedFallback') }) + (result.branch ? this.t.get('savedBranch', { branch: result.branch }) : '');

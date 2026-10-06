@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { personContent } from "../../public/assets/person-language.js";
   import PersonSearch from './PersonSearch.svelte';
   import { tick } from 'svelte';
   import ResponsivePanel from './ResponsivePanel.svelte';
@@ -6,15 +7,16 @@
   import { navigateFromContent } from '../state/page-position';
   import { chapterHref, personHref } from '../domain/person';
   import type { Dataset, ChronicleIndex } from '../domain/person';
+  import { localizedSource } from '../domain/source-language';
   import { sourceUrl } from '../data/family';
   import { familyChips, personInitials, personLifeDetails, lowEvidence } from '../domain/person-info';
   import { relationshipEngine } from '../domain/relationship-engine';
   import { formatKinship } from '../domain/kinship';
   import { personRelations } from '../domain/relationship-view';
-  let { id, center, dataset, assets, chronicle, admin, t, onclose, onfamily, onconnect }: {
-    id: string; center: string; dataset: Dataset; assets: ReadonlyMap<string, string>; chronicle: ChronicleIndex | null;
+  let { id, center, dataset, assets, sourceFiles = new Set<string>(), chronicle, chronicleLanguage = '', admin, t, onclose, onfamily, onconnect, onperson }: {
+    id: string; center: string; dataset: Dataset; assets: ReadonlyMap<string, string>; sourceFiles?: ReadonlySet<string>; chronicle: ChronicleIndex | null; chronicleLanguage?: string;
     admin: boolean; t: { locale?: string; get(key: string, values?: Record<string, string | number>): string };
-    onclose(): void; onfamily?(id: string): void; onconnect?(from: string, to: string): void;
+    onperson?(id: string): void; onclose(): void; onfamily?(id: string): void; onconnect?(from: string, to: string): void;
   } = $props();
   let trail = $state<string[]>([]);
   $effect(() => { void id; trail = []; });
@@ -24,7 +26,9 @@
   let level = $state<PanelLevel>('full');
   let heading = $state<HTMLHeadingElement>();
   let groups = $derived(familyChips(dataset, shown, t));
-  let notes = $derived((person.notes || []).filter(note => note.trim()));
+  let notes = $derived(personContent(person, t.locale).notes);
+  let occupation = $derived(personContent(person, t.locale).occupation);
+  let lifeDetails = $derived(personLifeDetails(person, t.locale));
   let mentions = $derived((chronicle?.chapters || []).filter(chapter => chapter.persons.includes(shown)));
   let sources = $derived([...new Map([
     ...(person.sources || []),
@@ -38,7 +42,7 @@
     if (onconnect) { onconnect(from, to); return; }
     navigateFromContent(`/?${new URLSearchParams([['view', 'family'], ['action', 'connections'], ['connect', from], ['connect', to]])}`);
   }
-  function openPerson(other: string) { trail = [...(trail.length ? trail : [id]), other]; }
+  function openPerson(other: string) { if (onperson) onperson(other); else trail = [...(trail.length ? trail : [id]), other]; }
   function showFamily(event: MouseEvent) {
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault(); if (onfamily) onfamily(shown); else navigateFromContent(personHref(shown, 'family'));
@@ -54,8 +58,9 @@
       {:else}<span class="person-info-avatar person-initials" aria-hidden="true">{personInitials(person.name || shown)}</span>{/if}
       <div class="person-info-heading">
         <h2 bind:this={heading} tabindex="-1" id="family-person-title">{person.name || shown}</h2>
-        {#if personLifeDetails(person, t.locale).length}<div class="person-info-life">{#each personLifeDetails(person, t.locale) as detail}<p>{detail}</p>{/each}</div>{/if}
-        {#if person.occupation}<p class="person-info-occupation">{person.occupation}</p>{/if}
+        {#if person.birthSurname && !(person.name || '').split(/[\s()-]+/).includes(person.birthSurname.split(' ').pop() || '')}<p class="person-info-birthname">{t.get('infoBirthSurname', { name: person.birthSurname })}</p>{/if}
+        {#if lifeDetails.length}<div class="person-info-life">{#each lifeDetails as event}<p>{event}</p>{/each}</div>{/if}
+        {#if occupation}<p class="person-info-occupation">{occupation}</p>{/if}
         {#if lowEvidence(person)}<span class="person-evidence">{t.get('infoLowEvidence')}</span>{/if}
       </div>
     </header>
@@ -85,8 +90,11 @@
         </div>{/each}
       </section>{/if}
       {#if person.locations?.length}<details class="person-disclosure"><summary>{t.get('places')}</summary>{#each person.locations as place}<p><strong>{place.label}:</strong> {place.value}</p>{/each}</details>{/if}
-      {#if sources.length}<details class="person-disclosure" data-info-sources><summary>{t.get(sources.length === 1 ? 'infoSource' : 'infoSources', { n: sources.length })}</summary><ul>{#each sources as source}<li>{#if sourceUrl(source.url, assets)}<a href={sourceUrl(source.url, assets)} target="_blank" rel="noreferrer">{source.label || source.url}</a>{:else}{source.label || source.url}{/if}</li>{/each}</ul></details>{/if}
-      {#if mentions.length}<details class="person-disclosure" data-info-chapters><summary>{t.get(mentions.length === 1 ? 'infoChapter' : 'infoChapters', { n: mentions.length })}</summary><ul>{#each mentions as chapter}<li><a href={chapterHref(chapter.file)}>{chapter.title}</a></li>{/each}</ul></details>{/if}
+      {#if person.links?.length}<section class="person-disclosure person-web-links" data-info-links>
+        <h3>{t.get('webLinks')}</h3><ul>{#each person.links as link}<li><a href={link.url} target="_blank" rel="noreferrer">{link.label || link.url}</a></li>{/each}</ul>
+      </section>{/if}
+      {#if sources.length}<details class="person-disclosure" data-info-sources><summary>{t.get(sources.length === 1 ? 'infoSource' : 'infoSources', { n: sources.length })}</summary><ul>{#each sources as source}<li>{#if sourceUrl(localizedSource(source.url, t.locale, sourceFiles), assets)}<a href={sourceUrl(localizedSource(source.url, t.locale, sourceFiles), assets)} target="_blank" rel="noreferrer">{source.label || source.url}</a>{:else}{source.label || source.url}{/if}</li>{/each}</ul></details>{/if}
+      {#if mentions.length}<details class="person-disclosure" data-info-chapters><summary>{t.get(mentions.length === 1 ? 'infoChapter' : 'infoChapters', { n: mentions.length })}</summary><ul>{#each mentions as chapter}<li><a href={chapterHref(chapter.file, chronicleLanguage)}>{chapter.title}</a></li>{/each}</ul></details>{/if}
     </div>
   </article>
   {/key}

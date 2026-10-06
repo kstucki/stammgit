@@ -1,11 +1,13 @@
 import type { Person } from './person';
 import { getT } from '../../public/assets/strings.js';
-type Lang = 'de' | 'en';
-const language = (lang?: string): Lang => lang?.startsWith('en') ? 'en' : 'de';
+type Lang = 'de' | 'pt' | 'en';
+const language = (lang?: string): Lang => lang?.startsWith('pt') ? 'pt' : lang?.startsWith('en') ? 'en' : 'de';
 const months: Record<Lang, string[]> = {
   de: ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sept.', 'Okt.', 'Nov.', 'Dez.'],
+  pt: ['jan.', 'fev.', 'mar.', 'abr.', 'maio', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'],
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 };
+const fullPortuguese = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 function exact(raw: string): { year: string; month?: number; day?: number } | null {
   const iso = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(raw);
   const dotted = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(raw);
@@ -34,9 +36,10 @@ export function formatDate(raw: string | number | null | undefined, lang = 'de',
   if (!date) return original;
   const { year, month, day } = date;
   if (!month) return year;
-  if (!day) return `${months[code][month - 1]} ${year}`;
+  if (!day) return `${months[code][month - 1]}${code === 'pt' ? ' de' : ''} ${year}`;
   if (code === 'de') return `${day}.${month}.${year}`;
-  return `${day} ${months.en[month - 1]} ${year}`;
+  if (code === 'en') return `${day} ${months.en[month - 1]} ${year}`;
+  return style === 'long' ? `${day} de ${fullPortuguese[month - 1]} de ${year}` : `${day}/${month}/${year}`;
 }
 export function formatLifespan(person: Pick<Person, 'birth' | 'death'>, lang = 'de', style: 'card' | 'info' = 'card'): string {
   const code = language(lang);

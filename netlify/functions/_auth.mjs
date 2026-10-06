@@ -9,7 +9,7 @@ export async function roleFromRequest(request) {
   const cookies = String(request.headers.get("cookie") || "");
   const match = cookies.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
   if (!match) return null;
-  return roleFromCookieValue(adminPassword, match[1]);
+  return roleFromCookieValue(adminPassword, match[1], process.env.FAMILY_TREE_READERS, process.env.FAMILY_TREE_USER_PASSWORD);
 }
 
 export async function requireAdmin(request) {

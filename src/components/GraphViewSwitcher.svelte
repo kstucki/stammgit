@@ -1,7 +1,7 @@
 <script lang="ts">
   import { graphModes } from '../domain/tree-selection';
   import type { GraphMode } from '../domain/tree-selection';
-  let { mode = $bindable(), t }: { mode: GraphMode; t: { get(key: string): string } } = $props();
+  let { mode, t, onchange }: { mode: GraphMode; onchange(mode: GraphMode): void; t: { get(key: string): string } } = $props();
   const labels: Record<GraphMode, string> = {
     family: 'graphFamilyShort', hourglass: 'graphHourglassShort', descendants: 'graphDescendantsShort',
     ancestors: 'graphAncestorsShort', connections: 'tabConnections',
@@ -11,7 +11,7 @@
 <div class="graph-view-switcher" role="radiogroup" aria-label={t.get('graphView')}>
   {#each graphModes as value}
     <label class="graph-mode">
-      <input type="radio" name="graph-mode" aria-label={t.get(labels[value]).replace(/\s+/g, ' ')} {value} bind:group={mode} />
+      <input type="radio" name="graph-mode" aria-label={t.get(labels[value]).replace(/\s+/g, ' ')} {value} checked={mode === value} onchange={() => onchange(value)} />
       <span class="graph-mode-face">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           {#if value === 'family'}

@@ -7,6 +7,7 @@ export interface FamilySession {
   hasDraft: boolean;
   chronicle: ChronicleIndex | null;
   assets: ReadonlyMap<string, string>;
+  sourceFiles?: ReadonlySet<string>;
 }
 
 export async function loadFamilySession(archive: ArchiveSnapshot, {
@@ -40,7 +41,8 @@ export async function loadFamilySession(archive: ArchiveSnapshot, {
 }
 
 export function sourceUrl(url: string, assets: ReadonlyMap<string, string>): string | undefined {
-  if (assets.has(url)) return assets.get(url);
+  const path = url.split(/[?#]/)[0];
+  if (assets.has(path)) return assets.get(path)! + url.slice(path.length);
   try {
     if (['http:', 'https:'].includes(new URL(url, 'https://archive.invalid').protocol)) return url;
   } catch { /* Invalid source URLs are displayed as text. */ }

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import YAML from 'yaml';
 import { expect } from '@playwright/test';
 import { test, login, selectGraphView } from './support';
 test('combobox starts on first result, clamps arrows, escapes twice, tabs normally', async ({ page }) => {
@@ -21,10 +23,26 @@ test('connection search adds the first hit without a history entry', async ({ pa
   await expect(page.locator('[data-connection-selected="person_b"]')).toBeVisible();
   expect(await page.evaluate(() => history.length)).toBe(length);
 });
-test('PersonPicker selects a relation with Enter', async ({ page }) => {
-  await login(page);
+test('source search and PersonPicker use the same keyboard contract', async ({ page }) => {
+  await login(page); await page.goto('/?view=sources');
+  await page.locator('#sourcesSearch').fill('Testquelle');
+  await expect(page.getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
+  const pagesBefore = page.context().pages().length;
+  await page.locator('#sourcesSearch').press('Enter');
+  await expect(page.locator('#sourcesSearch')).toHaveValue('Testquelle');
+  await expect(page.locator('#sourcesSearch')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.source-doc')).toHaveCount(1);
+  await expect(page.locator('#sourceDialog').getByRole('link', { name: 'Dokument öffnen' })).toBeVisible();
+  expect(page.context().pages()).toHaveLength(pagesBefore);
+  await page.locator('#sourceDialog .dialog-close').click();
+  await page.locator('#sourcesSearch').fill('Testqu');
+  await page.getByRole('option').getByRole('button', { name: 'Testquelle', exact: true }).click();
+  await expect(page.locator('#sourcesSearch')).toHaveValue('Testquelle');
+  await expect(page.locator('#sourcesSearch')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#sourceDialog').getByRole('link', { name: 'Dokument öffnen' })).toBeVisible();
+  expect(page.context().pages()).toHaveLength(pagesBefore);
   await page.goto('/?person=person_a&action=edit');
-  await page.locator('[data-add-relation="parents"]').click();
+  await page.locator('#editor-section-tab-family').click(); await page.locator('[data-add-relation="parents"]').click();
   await page.locator('#pickerInput').fill('Dora'); await page.locator('#pickerInput').press('Enter');
   await expect(page.locator('#pickerDialog')).toHaveCount(0);
   await expect(page.locator('#personEditor')).toContainText('Test Dora');

@@ -1,11 +1,13 @@
 import { expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { parse } from 'yaml';
 import { test, login, openGraphPerson, selectGraphView } from './support';
 
 test('fixed tree surface, five labels, navigation, info and logout cancellation', async ({ page, isMobile }, info) => {
   await login(page);
   await expect(page.locator('.archive-identity')).toHaveCount(0);
   const bar = page.locator('.graph-view-switcher');
-  await expect(bar.locator('.graph-mode-face > span')).toHaveText(['Familie', 'Sanduhr', 'Nachkommen', 'Ahnen', 'Verbindung']);
+  await expect(bar.locator('.graph-mode-face > span')).toHaveText(['Familie', 'Sanduhr', 'Nachkommen', 'Fächer', 'Verbindung']);
   expect(await bar.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
   for (const face of await bar.locator('.graph-mode-face').all()) await expect(face).toBeInViewport({ ratio: 1 });
   const graph = (await page.locator('.graph-frame').boundingBox())!;
@@ -17,7 +19,7 @@ test('fixed tree surface, five labels, navigation, info and logout cancellation'
   expect(await page.evaluate(() => scrollY)).toBe(0);
   const header = (await page.locator('.archive-header').boundingBox())!;
   const search = (await page.locator('#family-search').boundingBox())!;
-  const logout = (await page.locator('.logout-button').boundingBox())!;
+  const logout = (await page.locator('.archive-menu summary').boundingBox())!;
   expect(search.y).toBeGreaterThanOrEqual(header.y);
   expect(logout.x).toBeGreaterThan(search.x + search.width);
   if (isMobile) {
@@ -33,13 +35,14 @@ test('fixed tree surface, five labels, navigation, info and logout cancellation'
   await expect(page.locator('.graph-info p')).toBeVisible();
   const url = page.url();
   page.once('dialog', async dialog => { expect(dialog.message()).toBe('Wirklich abmelden?'); await dialog.dismiss(); });
-  await page.locator('.logout-button').click();
+  await page.locator('.archive-menu summary').click();
+  await page.getByRole('button', { name: 'Abmelden', exact: true }).click();
   await expect(page).toHaveURL(url);
   await expect(page.locator('.family-viewport')).toBeVisible();
   await page.screenshot({ path: info.outputPath('responsive-tree.png') });
 });
 
-test('person sheet/sidebar and tree-internal actions do not add history entries', async ({ page, isMobile }) => {
+test('person sheet/sidebar and graph navigation add history entries', async ({ page, isMobile }) => {
   await login(page, 'fixture-reader');
   const length = await page.evaluate(() => history.length);
   await openGraphPerson(page, 'person_a');
@@ -59,7 +62,7 @@ test('person sheet/sidebar and tree-internal actions do not add history entries'
   await panel.locator('[data-show-family]').click();
   await expect(panel).toHaveCount(0);
   await selectGraphView(page, 'ancestors');
-  expect(await page.evaluate(() => history.length)).toBe(length);
+  expect(await page.evaluate(() => history.length)).toBe(length + 3);
 });
 
 test('chronicle person jump and Back restore chapter and scroll position', async ({ page }) => {
@@ -97,8 +100,11 @@ test('sources restore their filter and scroll position after a person jump', asy
   });
   await page.goto('/?view=sources');
   await page.locator('#sourcesSearch').fill('Rückkehr');
-  const person = page.locator('.source-doc [data-open-person="person_a"]').last();
-  await person.scrollIntoViewIfNeeded();
+  await page.locator('#sourcesSearch').press('Escape');
+  const source = page.locator('[data-open-source]').last();
+  await source.scrollIntoViewIfNeeded();
+  await source.click();
+  const person = page.locator('#sourceDialog [data-open-person="person_a"]');
   const position = await page.evaluate(() => scrollY);
   expect(position).toBeGreaterThan(500);
   await person.click();
@@ -115,8 +121,9 @@ test('sources restore their filter and scroll position after a person jump', asy
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(position, 0);
 });
 
-test('two-finger pinch changes the shared reading scale without changing layout', async ({ page, isMobile }) => {
-  test.skip(!isMobile);
+test('two-finger pinch changes the shared reading scale without changing layout', async ({ page, browserName }) => {
+  // Synthetic touches need the Touch constructor, which Playwright's WebKit lacks.
+  test.skip(browserName !== 'chromium', 'Touch constructor only in Chromium');
   await login(page);
   const viewport = page.locator('.family-viewport');
   const scale = () => page.locator('.family-plane').evaluate(e => new DOMMatrix(getComputedStyle(e).transform).a);

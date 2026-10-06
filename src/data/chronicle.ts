@@ -14,7 +14,8 @@ export async function chapterText(tree: string, file: string, signal?: AbortSign
 export async function hydrateChronicle(tree: string, published: ChronicleIndex | null, files: string[]) {
   let index: ChronicleIndex = structuredClone(published) || { chapters: [] };
   for (const key of files) {
-    if (key !== `chronicle/${tree}/index.yaml`) continue;
+    const match = key.match(new RegExp(`^chronicle/${tree}/index(?:\\.([a-z]+))?\\.yaml$`));
+    if (!match) continue;
     const local = await pendingGetFile(key, tree); if (!local) continue;
     const config = YAML.parse(await new Blob([local.blob]).text());
     const chapters: Chapter[] = [];
@@ -23,11 +24,12 @@ export async function hydrateChronicle(tree: string, published: ChronicleIndex |
       chapters.push({ subtitle: parsed.frontmatter.subtitle, cover: parsed.frontmatter.cover, author: parsed.frontmatter.author, year: parsed.frontmatter.year, file, title: parsed.frontmatter.title || file, date: parsed.frontmatter.date || undefined,
         ...extractTokens(text), sections: extractHeadings(text).map(h => ({ id: h.id, text: h.text })) });
     }
-    index = { chapters };
+    const set = { language: config.language, chapters };
+    if (match[1]) index.variants = { ...index.variants, [match[1]]: set }; else index = { ...index, ...set };
   }
-  return index.chapters.length ? index : published;
+  return index.chapters.length || Object.keys(index.variants || {}).length ? index : published;
 }
-export function chapterCandidate(input: { file: string; title: string; date: string; body: string; unsourced: boolean; frontmatter?: Record<string, string> }, data: Dataset, set: ChronicleIndex, t: { get(key: string, values?: Record<string, string | number>): string }) {
+export function chapterCandidate(input: { file: string; title: string; date: string; body: string; unsourced: boolean; language: string; frontmatter?: Record<string, string> }, data: Dataset, set: ChronicleIndex, t: { get(key: string, values?: Record<string, string | number>): string }) {
   if (!input.title.trim()) throw new Error(t.get('chapterNeedTitle'));
   const tokens = extractTokens(input.body), unknown = tokens.persons.filter(id => !data.people[id]);
   if (unknown.length) throw new Error(t.get('chapterBadPersons', { ids: unknown.join(', ') }));
@@ -35,7 +37,7 @@ export function chapterCandidate(input: { file: string; title: string; date: str
   const html = containsRawHtml(input.body);
   if (html.length) throw new Error(t.get('chapterRawHtml', { lines: html.join(', ') }));
   const base = input.title.toLowerCase().replace(/[äöü]/g, c => ({ ä: 'ae', ö: 'oe', ü: 'ue' })[c]!).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'kapitel';
-  const file = input.file || `${base}.md`;
+  const file = input.file || `${base}${input.language ? `.${input.language}` : ''}.md`;
   if (!input.file && set.chapters.some(ch => ch.file === file)) throw new Error(t.get('chapterAlreadyExists'));
   const sections = extractHeadings(input.body).map(h => ({ id: h.id, text: h.text }));
   const bad = tokens.chapters.filter(ref => {
@@ -50,9 +52,9 @@ export function chapterCandidate(input: { file: string; title: string; date: str
   const entry: Chapter = { subtitle: input.frontmatter?.subtitle, cover: input.frontmatter?.cover, author: input.frontmatter?.author, year: input.frontmatter?.year, file, title: input.title.trim(), date: input.date || undefined, ...tokens, sections };
   const chapters = [...set.chapters.filter((ch, i, all) => all.findIndex(other => other.file === ch.file) === i)];
   const at = chapters.findIndex(ch => ch.file === file); if (at < 0) chapters.push(entry); else chapters[at] = entry;
-  return { file, text, set: { ...set, chapters }, index: YAML.stringify({ chapters: chapters.map(ch => ch.file) }) };
+  return { file, text, set: { ...set, chapters }, index: YAML.stringify({ ...(set.language ? { language: set.language } : {}), chapters: chapters.map(ch => ch.file) }) };
 }
-export async function stageChapter(tree: string, candidate: ReturnType<typeof chapterCandidate>) {
+export async function stageChapter(tree: string, language: string, candidate: ReturnType<typeof chapterCandidate>) {
   await pendingPutFile(`chronicle/${tree}/${candidate.file}`, new Blob([candidate.text], { type: 'text/markdown' }), tree);
-  await pendingPutFile(`chronicle/${tree}/index.yaml`, new Blob([candidate.index], { type: 'text/yaml' }), tree);
+  await pendingPutFile(`chronicle/${tree}/index${language ? `.${language}` : ''}.yaml`, new Blob([candidate.index], { type: 'text/yaml' }), tree);
 }

@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-10-06 — Source catalogue, multilingual archive and GEDZIP
+
+- Organise source documents into seven categories, with stable evidence IDs,
+  bibliography, family filters, search, 25-item pages and compact detail panels.
+  Page citations and translated PDFs share one source identity; personal web
+  links remain separate from evidence. Add optional local PDF publishing,
+  verification and dataset-specific metadata sync tools with empty manifests.
+- Add GEDCOM 7/GEDZIP with cited documents and portraits, language selection,
+  conservative living-person protection and media-conflict checks on import.
+  GEDCOM 5.5.1 intentionally omits sources. Add birth surnames, explicit living
+  status and broader date grammar; older datasets may still omit living flags.
+- Support German, English and Portuguese UI and optional person/chronicle/PDF
+  language variants. Book printing follows the active language. Add a welcome
+  screen, optional device-local identity, archive menu and browser navigation
+  through centers, views and person panels.
+- Share the centred close control between panels. Group person editing into
+  Person, Family, Sources and Photo tabs, retaining language drafts and photo
+  crops, with persistent actions and validation across hidden panels.
+- Add configurable hourglass depth and focus-relative generation handling for
+  unequal ancestry paths. Add individually revocable reader access alongside
+  the existing admin and legacy reader passwords.
+- Preserve public demo content, configuration, Netlify Node 24 and isolated
+  server/CI coverage. Extend CI with narrow WebKit. Transfer only generic code,
+  documentation and synthetic tests; no private data, media, map or Git history.
+
+Validation: build with 331 unit tests, Svelte/TypeScript and design checks passed.
+Desktop production and development each cover 153 browser cases after focused
+reruns: 149 pass and four execute as documented expected failures. Mobile/narrow
+WebKit has 98 passes and two explicit Chromium-only gesture skips. The geometry
+reference was visually reviewed and updated for the current layout; assertions
+still check every connection fits, and the test now waits for settled geometry.
+Local production/development/read-only HTTP and save checks passed. Synthetic
+evidence rendering verified text, appendix images, five links and a page citation.
+Public content/configuration hashes and compact metrics are unchanged (0 crossings,
+maximum hole 622px, width 7463px). No hosted or physical-device test was run.
+
+The four expected failures represent three known limitations, described in
+[development](development.md#known-browser-limitations); they are not fixed by
+this sync and are not counted as verified behavior.
+
 ## 2026-09-29 — Camera, person details and search
 
 - Save the first fitted family zoom immediately and reuse it across card views,

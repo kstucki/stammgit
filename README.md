@@ -25,16 +25,34 @@ Edits stay in your browser; the repository is unchanged.
   sibling groups, without imposing a birth-date order.
 - Connections between any number of people, including longer routes, partnerships
   and adoption; shared people appear once.
-- Edit people and relationships in the browser, including merge and delete.
+- Edit people in compact Person, Family, Sources and Photo tabs, including merge and delete.
   Changes stay on your device until **Sync**.
 - Compact person panels, relationship descriptions and source evidence.
 - Optional display names and recorded birth/death places, with full names and dates
   in person information and keyboard navigation in person search.
 - Optional evidence ratings; an orange person-info badge highlights uncertainty.
-- Markdown chronicles with subtitles, document cards and book printing.
+- A searchable source catalogue with categories, individual evidence IDs, family
+  filters, pagination and source details linked to the relevant people.
+- Markdown chronicles with subtitles, document cards, optional translations and book printing.
+- Optional device-local “Me” selection for relationship descriptions and starting points.
 - Responsive desktop/mobile navigation, local fonts and accessible colour tokens.
-- GEDCOM import/export, multiple datasets, YAML/JSON/GEDCOM/ZIP downloads.
-- Admin and read-only roles with server-side checks; English and German UI.
+- GEDCOM 5.5.1 and GEDCOM 7/GEDZIP import/export, including cited PDFs and portraits
+  in GEDZIP; full YAML/JSON backups and source ZIP downloads.
+- Admin and individually revocable reader access with server-side checks;
+  English, German and Portuguese UI.
+
+## Sources that remain usable
+
+Keep original documents, family accounts and research articles as independent
+sources. For a web page or individual finding, create a short evidence PDF with
+a stable ID, citation, relevant facts and exact references. Update that item as
+research improves. The catalogue groups documents into seven categories; family
+tags filter evidence without becoming part of the PDFs or exchange exports.
+Page citations and language versions refer to one canonical document.
+
+See [Sources](docs/sources.md) for the structure, export boundaries and local
+editorial tools. The public demo retains its existing sample documents; it does
+not contain a private family archive.
 
 ## Get started
 
@@ -71,6 +89,7 @@ genealogy suite, [Gramps](https://gramps-project.org) is excellent.
 - [Setup](docs/setup.md) — private copy, local server and Netlify
 - [Configuration](docs/configuration.md) — datasets, default view and starting points
 - [Data format](docs/data-format.md) — people, relationships, sources and GEDCOM
+- [Sources](docs/sources.md) — categories, evidence PDFs, metadata and exports
 - [Chronicle](docs/chronicle.md) — writing and linking chapters
 - [Architecture](docs/architecture.md) — non-goals, design decisions and graph rules
 - [Development](docs/development.md) — tests, layout metrics and editing workflow

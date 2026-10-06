@@ -1,8 +1,9 @@
+import { dateWarnings } from '../public/assets/dataset-validation.js';
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
-import { personSources } from "../public/assets/relationships.js";
 import { contentHash } from "../netlify/shared/content-hash.mjs";
+import { personSources } from "../public/assets/relationships.js";
 
 import { validateExtraLines, validateDefaultPersons } from "../public/assets/view-config.js";
 
@@ -21,6 +22,7 @@ for (const file of fs.readdirSync(treesDir).filter((f) => f.endsWith(".yaml")).s
   const id = file.replace(/\.yaml$/, "");
   const raw = fs.readFileSync(path.join(treesDir, file), "utf8");
   const data = YAML.parse(raw);
+  for (const warning of dateWarnings(data)) console.warn(`Warning: ${id}: ${warning}`);
   fs.writeFileSync(path.join(outTrees, `${id}.json`), JSON.stringify(data, null, 2), "utf8");
   fs.copyFileSync(path.join(treesDir, file), path.join(outTrees, `${id}.yaml`));
   index.push({ id, title: data.meta?.title || id, people: Object.keys(data.people || {}).length, contentHash: contentHash(raw) });
@@ -53,34 +55,53 @@ if (configErrors.length) {
 fs.writeFileSync(path.join(outDir, "config.json"), JSON.stringify(config, null, 2), "utf8");
 fs.writeFileSync(path.join(outDir, "source-links.json"), JSON.stringify(sourceLinks, null, 2), "utf8");
 
+// Inventory is generated from actual files, never guessed by fetching variants.
+const sourceFiles = fs.existsSync(path.join(root, 'public/sources'))
+  ? fs.readdirSync(path.join(root, 'public/sources'), { withFileTypes: true })
+    .filter(entry => entry.isFile()).map(entry => `/sources/${entry.name}`).sort() : [];
+fs.writeFileSync(path.join(outDir, 'source-files.json'), JSON.stringify(sourceFiles, null, 2));
+
 // Point out source files no longer referenced by any dataset (not an error).
 const sourcesDir = path.join(root, "public", "sources");
 if (fs.existsSync(sourcesDir)) {
   const orphans = fs.readdirSync(sourcesDir)
-    .filter((f) => !f.startsWith(".") && !sourceLinks[`/sources/${f}`]);
+    .filter((f) => !f.startsWith(".") && !sourceLinks[`/sources/${f}`] && !sourceLinks[`/sources/${f.replace(/\.(pt|en)\.pdf$/, '.pdf')}`]);
   if (orphans.length) {
     console.log(`Note: ${orphans.length} source file(s) not referenced by any dataset: ${orphans.join(", ")}`);
   }
 }
 // Chronicle: emit public/data/chronicle-<tree>.json for trees with chapters.
+// index.yaml is the base language; index.<lang>.yaml (e.g. index.pt.yaml)
+// adds full translated chapter sets, exposed as variants in the same JSON.
 for (const tree of index.map((t) => t.id)) {
   const dir = path.join(root, "public", "chronicle", tree);
-  const idxFile = path.join(dir, "index.yaml");
-  if (!fs.existsSync(idxFile)) continue;
+  if (!fs.existsSync(path.join(dir, "index.yaml"))) continue;
   const { parseChapter, extractTokens, extractHeadings } = await import("../public/assets/chronicle.js");
-  const order = [...new Set(YAML.parse(fs.readFileSync(idxFile, "utf8"))?.chapters || [])];
-  const chapters = [];
-  for (const file of order) {
-    const full = path.join(dir, file);
-    if (!fs.existsSync(full)) continue; // test.mjs turns this into a failure
-    const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
-    for (const m of body.matchAll(/\/photos\/[a-zA-Z0-9._-]+/g)) photoRefs.add(m[0]);
-    if (frontmatter.cover?.startsWith("/photos/")) photoRefs.add(frontmatter.cover);
-    const tokens = extractTokens(body);
-    chapters.push({ subtitle: frontmatter.subtitle, cover: frontmatter.cover, author: frontmatter.author, year: frontmatter.year, file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources, sections: extractHeadings(body).map((h) => ({ id: h.id, text: h.text })) });
+  const buildSet = (idxFile) => {
+    const idx = YAML.parse(fs.readFileSync(idxFile, "utf8")) || {};
+    const order = [...new Set(idx.chapters || [])];
+    const chapters = [];
+    for (const file of order) {
+      const full = path.join(dir, file);
+      if (!fs.existsSync(full)) continue; // test.mjs turns this into a failure
+      const { frontmatter, body } = parseChapter(fs.readFileSync(full, "utf8"));
+      for (const m of body.matchAll(/\/photos\/[a-zA-Z0-9._-]+/g)) photoRefs.add(m[0]);
+      if (frontmatter.cover?.startsWith("/photos/")) photoRefs.add(frontmatter.cover);
+      const tokens = extractTokens(body);
+      chapters.push({ subtitle: frontmatter.subtitle, cover: frontmatter.cover, author: frontmatter.author, year: frontmatter.year, file, title: frontmatter.title || file, date: frontmatter.date || null, persons: tokens.persons, sources: tokens.sources, sections: extractHeadings(body).map((h) => ({ id: h.id, text: h.text })) });
+    }
+    return { language: idx.language || null, chapters };
+  };
+  const base = buildSet(path.join(dir, "index.yaml"));
+  const variants = {};
+  for (const f of fs.readdirSync(dir).sort()) {
+    const m = f.match(/^index\.([a-z]{2})\.yaml$/);
+    if (m) variants[m[1]] = buildSet(path.join(dir, f));
   }
-  fs.writeFileSync(path.join(root, "public", "data", `chronicle-${tree}.json`), JSON.stringify({ chapters }, null, 2));
-  console.log(`chronicle ${tree}: ${chapters.length} chapter(s)`);
+  const out = { ...base, ...(Object.keys(variants).length ? { variants } : {}) };
+  fs.writeFileSync(path.join(root, "public", "data", `chronicle-${tree}.json`), JSON.stringify(out, null, 2));
+  const vNote = Object.keys(variants).length ? ` (+${Object.keys(variants).join(", ")})` : "";
+  console.log(`chronicle ${tree}: ${base.chapters.length} chapter(s)${vNote}`);
 }
 
 const photosDir = path.join(root, "public", "photos");

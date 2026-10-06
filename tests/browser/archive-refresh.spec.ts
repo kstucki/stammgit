@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { test, login, openGraphPerson } from './support';
 
-test('person info keeps full family names, internal back and empty sections', async ({ page }) => {
+test('person info keeps full family names, browser back and empty sections', async ({ page }) => {
   await login(page, 'fixture-reader');
   await openGraphPerson(page, 'person_a');
   const panel = page.locator('#personDialog');
@@ -11,7 +11,7 @@ test('person info keeps full family names, internal back and empty sections', as
   await panel.locator('[data-info-person="person_b"]').click();
   await expect(panel.locator('.person-info-heading')).toContainText('Test Bruno');
   await expect(panel.locator('.person-stories, [data-info-sources]')).toHaveCount(0);
-  await panel.locator('.person-info-back').click();
+  await page.goBack();
   await expect(panel.locator('.person-info-heading')).toContainText('Test Anna');
 });
 

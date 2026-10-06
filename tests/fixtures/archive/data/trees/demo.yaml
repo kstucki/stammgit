@@ -3,6 +3,7 @@ meta:
   focusPersonId: person_a
 people:
   person_a:
+    living: true
     name: Test Anna
     birth: "1980"
     occupation: Testberuf
@@ -12,14 +13,17 @@ people:
     sources:
       - {label: Testquelle, url: /sources/test.pdf}
   person_b:
+    living: true
     name: Test Bruno
     birth: "1981"
     partners: [person_a]
     children: [person_c]
   person_c:
+    living: true
     name: Test Clara
     birth: "2010"
     parents: [person_a, person_b]
   person_d:
+    living: true
     name: Test Dora
     birth: "1950"

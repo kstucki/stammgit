@@ -3,6 +3,7 @@ meta:
   focusPersonId: child
 people:
   child:
+    living: true
     name: Kind Beispiel
     parents: [a, b, c, d]
     parentGroups: [[a, b], [c], [d]]
@@ -13,17 +14,21 @@ people:
         type: adoptive
         sources: [{label: Beleg zur Adoption, url: /sources/test.pdf}]
   a:
+    living: true
     name: Elternteil A
     children: [child]
   b:
+    living: true
     name: Elternteil B
     children: [child]
   c:
+    living: true
     name: Elternteil C
     children: [child]
     partners: [d]
     partnerDetails: {d: {kind: marriage, start: "1950"}}
   d:
+    living: true
     name: Elternteil D
     children: [child]
     partners: [c]

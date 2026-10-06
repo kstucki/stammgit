@@ -8,7 +8,7 @@ export function personInitials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map(word => [...word][0] || '').join('').toLocaleUpperCase();
 }
 export function personLifeDetails(person: Person, language = 'de'): string[] {
-  const t = getT(language.startsWith('en') ? 'en' : 'de');
+  const t = getT(language.startsWith('pt') ? 'pt' : language.startsWith('en') ? 'en' : 'de');
   return (['birth', 'death'] as const).flatMap(kind => {
     const date = formatDate(person[kind], language, 'long');
     const place = person[`${kind}Place`]?.trim() || '';

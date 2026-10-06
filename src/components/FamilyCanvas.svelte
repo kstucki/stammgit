@@ -7,9 +7,9 @@
   import { childConnection, partnerStyle, lineLabel } from '../domain/relationship-view';
   import { hiddenRelatives, type Direction } from '../domain/graph-expansion';
   import PersonCard from './PersonCard.svelte';
-  let { family, dataset, assets, t, onopen, oncenter, generations, engine = 'typescript', mode = 'family', initialScale, onscale, selectedIds, onexpand }: {
+  let { family, dataset, assets, t, onopen, oncenter, generations, engine = 'typescript', mode = 'family', fitOnMount = false, initialScale, onscale, selectedIds, onexpand }: {
     onexpand(id: string, direction: Direction): void; selectedIds?: string[]; family: FamilySlice; dataset: Dataset; assets: ReadonlyMap<string, string>;
-    engine?: LayoutEngine; generations?: Map<string, number>; mode?: string; initialScale?: number; onscale(value: number): void;
+    fitOnMount?: boolean; engine?: LayoutEngine; generations?: Map<string, number>; mode?: string; initialScale?: number; onscale(value: number): void;
     t: { get(key: string, values?: Record<string, string | number>): string };
     onopen(id: string): void; oncenter(id: string): void;
   } = $props();
@@ -64,7 +64,7 @@
   <p role="alert">{t.get('graphLayoutFailed')} <button onclick={() => retry++}>{t.get('archiveRetry')}</button></p>
 {:else if !layout}<p role="status">{t.get('loading')}</p>
 {:else}
-<GraphViewport bind:this={viewport} {anchorPoint} initialFit={mode === 'family'} info={t.get(({ connections: 'graphConnectionsDescription', family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} ready={displayed.people.every(id => heights.has(id))}
+<GraphViewport bind:this={viewport} {anchorPoint} initialFit={mode === 'family' || fitOnMount} info={t.get(({ connections: 'graphConnectionsDescription', family: 'graphFamilyDescription', hourglass: 'graphHourglassDescription', descendants: 'graphDescendantsDescription', ancestors: 'graphAncestorsDescription' })[mode] || 'graphFamilyDescription')} width={layout.width} height={layout.height} {initialScale} {onscale} {t} ready={displayed.people.every(id => heights.has(id))}
   center={midpoint(displayed.center)!}>
     <svg class="family-lines" width={layout.width} height={layout.height} aria-hidden="true">
       {#each displayed.groups as group}

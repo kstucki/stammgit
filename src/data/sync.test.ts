@@ -39,8 +39,8 @@ describe('existing save transaction', () => {
     const h = harness('delete-source'); const result = await syncArchive(input, () => {}, h);
     expect(result.deleteWarnings).toEqual(['old.pdf: rejected']); expect(h.deletions.size).toBe(1);
   });
-  it('addresses chapter indexes and portraits with the existing upload API', () => {
-    expect(uploadTarget('chronicle/demo/index.yaml')).toEqual({ filename: 'index.yaml', kind: 'chronicle', tree: 'demo' });
+  it('addresses language files and portraits with the existing upload API', () => {
+    expect(uploadTarget('chronicle/demo/index.pt.yaml')).toEqual({ filename: 'index.pt.yaml', kind: 'chronicle', tree: 'demo' });
     expect(uploadTarget('photos/a.jpg')).toEqual({ filename: 'a.jpg', kind: 'photo' });
     expect(uploadTarget('test.pdf')).toEqual({ filename: 'test.pdf', kind: 'source' });
   });

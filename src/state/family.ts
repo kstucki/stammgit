@@ -41,3 +41,18 @@ export function readZoom(tree: string, storage?: Pick<Storage, 'getItem'>, legac
 export function rememberZoom(scale: number | undefined, storage?: Pick<Storage, 'setItem'>) {
   if (validZoom(scale)) try { storage?.setItem('graphZoom', JSON.stringify(scale)); } catch { /* Optional persistence. */ }
 }
+
+
+// Infinity is stored as a string so it survives persistence without JSON null.
+export function readHourglassDepth(tree: string, storage?: Pick<Storage, 'getItem'>): number {
+  try {
+    const raw = storage?.getItem(`hourglassDepth:${tree}`);
+    if (raw === 'Infinity') return Infinity;
+    const value = Number(raw);
+    if (Number.isSafeInteger(value) && value >= 1) return value;
+  } catch { /* Optional view preference. */ }
+  return 5;
+}
+export function rememberHourglassDepth(tree: string, depth: number, storage?: Pick<Storage, 'setItem'>): void {
+  try { storage?.setItem(`hourglassDepth:${tree}`, String(depth)); } catch { /* Optional preference. */ }
+}

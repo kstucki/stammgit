@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { computeGenerations } from '../../public/assets/graph.js';
-import { orderFamily, layoutFamily, childPath, familyBridgePath, CARD_WIDTH, CARD_HEIGHT } from './family-layout';
+import { consistentGenerations, orderFamily, layoutFamily, childPath, familyBridgePath, CARD_WIDTH, CARD_HEIGHT } from './family-layout';
 import { familyIndex, selectFamily, projectFamily } from './family';
 import type { FamilySlice } from './family';
 import type { FamilyLayout } from './family-layout';
@@ -102,25 +102,29 @@ it('keeps the shared stem neutral for mixed types and names only the actual spec
   expect(childConnection(data, ['a', 'b'], 'child')).toEqual({ style: 'default', annotations: [] });
 });
 
-it('keeps ancestry levels despite marriage, using longest paths only for conflicting parent routes', () => {
-  // One branch reaches a partner in two generations, the other in three.
-  const data: Dataset = { meta: { focusPersonId: 'root' }, people: {
+it('absorbs unequal ancestry paths above the focus family, preserving partners and children', () => {
+  const data: Dataset = { meta: { focusPersonId: 'child' }, people: {
     root: { children: ['a', 'b'] }, a: { parents: ['root'], children: ['wife'] },
     b: { parents: ['root'], children: ['c'] }, c: { parents: ['b'], children: ['husband'] },
     wife: { parents: ['a'], partners: ['husband'], children: ['child'] },
-    husband: { parents: ['c'], partners: ['wife'], children: ['child'] }, child: { parents: ['wife', 'husband'] },
+    husband: { parents: ['c'], partners: ['wife'], children: ['child'] },
+    child: { parents: ['wife', 'husband'], partners: ['partner'], children: ['baby'] },
+    partner: { partners: ['child'], children: ['baby'] }, baby: { parents: ['child', 'partner'] },
   } };
-  const family = projectFamily(familyIndex(data), 'root', new Set(Object.keys(data.people)));
-  for (const center of Object.keys(data.people)) {
-    const preferred = computeGenerations(data.people, new Set(family.people), center);
-    const order = orderFamily(family, preferred);
-    const levels = new Map(order.nodes.map(node => [node.id, node.gen]));
-    expect(levels.get('wife')! - levels.get('root')!).toBe(2);
-    expect(levels.get('husband')! - levels.get('root')!).toBe(3);
-    expect(levels.get('child')! - levels.get('root')!).toBe(4);
-    for (const [child, person] of Object.entries(data.people)) for (const parent of person.parents || []) expect(levels.get(child)!).toBeGreaterThan(levels.get(parent)!);
-    expect(order.nodes).toHaveLength(7);
-  }
+  const family = projectFamily(familyIndex(data), 'child', new Set(Object.keys(data.people)));
+  const preferred = computeGenerations(data.people, new Set(family.people), 'child');
+  const before = structuredClone(family), beforePreferred = new Map(preferred);
+  const rows = consistentGenerations(family, preferred);
+  expect(Object.fromEntries(rows)).toEqual({
+    root: -4, a: -2, b: -3, c: -2, wife: -1, husband: -1, child: 0, partner: 0, baby: 1,
+  });
+  // Only the shorter historical route skips a row; no identity or edge is lost.
+  for (const { parent, child } of family.generationParents)
+    expect(rows.get(parent)!).toBeLessThan(rows.get(child)!);
+  expect(consistentGenerations({ ...family, people: [...family.people].reverse() }, preferred)).toEqual(rows);
+  expect(family).toEqual(before);
+  expect(preferred).toEqual(beforePreferred);
+  expect(orderFamily(family, preferred).nodes.map(n => n.id).sort()).toEqual([...family.people].sort());
 });
 
 function levels(data: Dataset, center = data.meta.focusPersonId) {

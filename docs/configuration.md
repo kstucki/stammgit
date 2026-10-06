@@ -6,15 +6,17 @@ Instance settings live in `data/config.yaml`. The application reads this file;
 it does not rewrite it. Dataset content is separate in `data/trees/*.yaml`.
 
 ```yaml
-language: en                # UI language: de | en
+language: en                # fallback UI language: de | en | pt
 title: "Family Tree"        # browser title
 defaultTree: napoleon       # dataset filename without .yaml
 overview:
   defaultPersons: [napoleon_i_bonaparte, josephine_de_beauharnais]
 ```
 
-The tree opens in family mode around the dataset's `meta.focusPersonId`, or
-restores the browser's previous center and mode. Use the mode controls for
+First-time visitors can choose an optional device-local “Me” person or continue
+without one. The tree starts from that identity or the dataset’s
+`meta.focusPersonId`, and restores graph state when applicable. This identity is
+separate from the currently centered person. The menu changes or clears it. Use the mode controls for
 ancestors, descendants, their combined hourglass view, and connections.
 
 `overview.defaultPersons` supplies ordered hourglass roots when opening the
@@ -23,7 +25,10 @@ Without it, that dataset's focus is used. A link with `person=<id>&action=tree`
 opens an hourglass around that person; `action=descendants` opens descendants.
 Multiple roots combine their graphs without duplicate people.
 
-The header has no page heading. `title` remains the browser title. The old
+The header/menu provides language selection, sources, Admin and logout. Language
+selection is remembered; a URL `language` overrides it. The login page initially
+uses the first supported browser language (otherwise German). The configured
+language remains the application fallback when no saved choice exists. The header has no page heading. `title` remains the browser title. The old
 `eyebrow`, `overview.heading`, `overview.intro`, `note`, `linesHeading` and
 `extraLines` fields remain accepted for compatibility but are not rendered.
 There is no full view. Old data/configuration need not be rewritten to migrate.

@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 
+import YAML from 'yaml';
 import { describeConnections } from './kinship';
 import { relationshipEngine, relationshipStations } from './relationship-engine';
 import { getT } from '../../public/assets/strings.js';
@@ -92,6 +93,7 @@ it('prefers a recorded partnership over a shared child in both directions', () =
   const exp = relationshipEngine(d).explain('a','b')!;
   expect(relationshipStations(exp.segments.flatMap(s => s.steps))).toHaveLength(2);
 });
+
 function inLawFamily(): Dataset {
   return { meta: { focusPersonId: 'a' }, people: {
     a: { name: 'A', partners: ['spouse'], partnerDetails: { spouse: { status: 'verheiratet' } } },
@@ -144,6 +146,29 @@ it('contracts within longer descriptions without transitively inventing affinity
   expect(describe(d, ['a', 'last']).chain).toEqual(['A', 'Sibling (Schwägerin)', 'Grandparent (Schwiegerelternteil)', 'Last (Partner/Partnerin)']);
 });
 
+it.each([
+  [1,0,'pai'], [2,0,'avô'], [3,0,'bisavô'], [4,0,'trisavô'],
+  [5,0,'ancestral de 5ª geração'], [8,0,'ancestral de 8ª geração'],
+  [0,3,'bisneto'], [0,5,'descendente de 5ª geração'], [1,1,'irmão'],
+  [2,1,'tio'], [1,2,'sobrinho'], [2,2,'primo'], [3,3,'primo de 2º grau'],
+])('localises Portuguese blood relation (%i,%i)', (a,b,label) => {
+  const d = family(Number(a),Number(b),'m'), before = JSON.stringify(d);
+  expect(output(d,['a','b'],getT('pt'))).toBe(`B é ${label} de A.`);
+  expect(JSON.stringify(d)).toBe(before);
+});
+it('uses Portuguese formulations for anchors, affinity, half siblings and adoption', () => {
+  const pt=getT('pt');
+  expect(output(family(4,3,'f'),['a','b'],pt)).toBe('B é prima de 2º grau de p1, mãe de A.');
+  const d=inLawFamily(); d.people.parent.gender='f';
+  expect(output(d,['a','parent'],pt)).toBe('Parent é sogra de A.');
+  d.people.a.partnerDetails!.spouse.end='2001';
+  expect(output(d,['a','parent'],pt)).toContain('ex-sogra');
+  const half=family(1,1,'f'); half.people.x={}; half.people.y={};
+  half.people.a.parents!.push('x'); half.people.b.parents!.push('y');
+  expect(output(half,['a','b'],pt)).toBe('B é meia-irmã de A.');
+  const adopted=family(3,0,'m'); adopted.people.p1.parentDetails={p2:{type:'adoptive'}};
+  expect(output(adopted,['a','b'],pt)).toContain('adoção');
+});
 it('explains English direct, neutral, distant and adopted relationships', () => {
   const en = getT('en');
   expect(output(family(1,0,'f'),['a','b'],en)).toBe('B is mother of A.');

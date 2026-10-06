@@ -27,8 +27,18 @@ Text with [[p:person_id]], [[s:/sources/document.pdf|Source]] and
 
 Only `title` is required here. Use simple single-line frontmatter values, without
 inline YAML comments. Deliberately unsourced personal writing can set
-`unsourced: true`; other chapters must cite a source. The public app has one
-chapter set per dataset. UI language (German/English) does not translate content.
+`unsourced: true`; other chapters must cite a source.
+
+## Optional language versions
+
+The base set uses `index.yaml`. Add `index.en.yaml` / `index.pt.yaml` and matching
+`chapter.en.md` / `chapter.pt.md` files for independent English/Portuguese sets.
+The index can declare its `language`. Chapter references stay within that set.
+The menu changes the UI language and opens the corresponding chapter version
+when available; untranslated sets fall back to the base content. There is no
+automatic translation. Keep titles, subtitles, captions and document cards
+consistent when editing supplied translations. Source PDFs use existing
+`.en.pdf`/`.pt.pdf` variants and otherwise the original.
 
 ## Typography, images and quotations
 
@@ -70,7 +80,7 @@ Previous and next chapter cards share a row, style and size on mobile and deskto
 Person links open the person panel. Jumping from a chapter into the tree and
 using browser Back restores the chapter's scroll position.
 
-**Admin → Exports → Print as a book** loads all chapters, including local drafts,
+**Admin → Exports → Print as a book** loads all chapters in the active language, including local drafts,
 waits for images/fonts and opens the browser print dialog. The book has its own
 title page using the introduction's cover or first photo. Each chapter starts on
 a new page. Navigation and controls disappear; person links become plain text,

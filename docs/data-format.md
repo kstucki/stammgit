@@ -49,11 +49,22 @@ Unknown formats remain verbatim. Cards show separate `*` birth and `†` death
 year rows; person information retains full dates, places and occupation. Display
 formatting never rewrites stored values or converts them through a time zone.
 
+Optional `birthSurname` records the family name at birth independently of the
+full name. `living: false` explicitly records that someone is deceased even
+when the death date is unknown; `living: true` must not accompany a death date.
+Existing datasets may omit this flag. When excluding living details, export
+conservatively anonymises people lacking both `living: false` and a death date.
+
+`notes_en` / `notes_pt` and `occupation_en` / `occupation_pt` provide optional
+language variants of the base `notes` and `occupation` fields. Missing variants
+fall back per field; names, dates, places and source titles are not translated.
+The person editor keeps all language drafts while changing tabs.
+
 ## Evidence status
 
 Optional `evidenceStatus` accepts `unsicher` (uncertain), `gut` (good), or
 `gesichert` (confirmed). Omit the field when unassessed. These stored literals
-are the same in both UI languages. The rating assesses the person and their
+are the same in all UI languages. The rating assesses the person and their
 placement in the recorded lineage together; it is not inferred from notes,
 source counts or historical prominence.
 
@@ -88,7 +99,10 @@ unknown rather than guessing.
 
 Source documents live in `public/sources/`; reference them with a
 `label` and a URL such as `/sources/document.pdf`. External source URLs
-are also supported. Portraits live in `public/photos/` and are referenced
+are also supported. Categories and bibliography are stored once per canonical
+document in `sourceCategories` and `sourceDetails`; see [Sources](sources.md).
+A person’s `links` array uses `{label, url}` for websites/profiles that are not
+factual citations and therefore stay outside the source catalogue. Portraits live in `public/photos/` and are referenced
 by the person's `photo` field. Preserve the referenced files when moving data.
 
 The browser can upload sources and portraits. Uploads remain on your device
@@ -97,8 +111,12 @@ see [Writing a chronicle](chronicle.md).
 
 ## Exchange and validation
 
-Use GEDCOM to exchange trees with other genealogy tools. The app also
-exports YAML, JSON and ZIP files. Keep the repository as the complete archive,
-including sources, photos and chronicle chapters.
+GEDCOM 5.5.1 exchanges people and relationships in one language without sources.
+GEDCOM 7/GEDZIP adds cited source documents and portraits, page citations and
+source IDs. Import supports both GEDCOM files and GEDZIP; file conflicts require
+review instead of silently overwriting existing media. Website family tags are
+not exchanged. See [export boundaries](sources.md#exports). YAML/JSON preserve
+all dataset metadata; keep the repository for the complete archive including
+source files, photos and chronicle chapters.
 
 Run `npm run build` after manual edits to validate relationships and references.

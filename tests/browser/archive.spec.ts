@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
-import { test, login, openGraphPerson, selectGraphView, expectGraphFits } from './support';
+import { openSource } from './source-support';
+import { test, login, freshContext, openAdmin, openGraphPerson, selectGraphView, expectGraphFits } from './support';
 
 test('Svelte entry, existing tree, search, person window and return', async ({ page, isMobile }, testInfo) => {
   await login(page);
@@ -24,7 +25,7 @@ test('Svelte entry, existing tree, search, person window and return', async ({ p
   await expect(page.locator('#personDialog')).toHaveCount(0);
 });
 
-test('chronicle, person and source targets remain reachable', async ({ page }) => {
+test('chronicle languages, person and source targets remain reachable', async ({ page }) => {
   await login(page);
   await page.getByRole('link', { name: /^Chronik/ }).click();
   await expect(page.locator('.archive-header input[type="search"]')).toHaveCount(0);
@@ -32,26 +33,17 @@ test('chronicle, person and source targets remain reachable', async ({ page }) =
   await expect(page.locator('.archive-navigation').getByRole('link', { name: 'Stammbaum', exact: true })).toHaveAttribute('href', '/');
   await expect(page.getByRole('heading', { name: 'Testgeschichte', exact: true })).toBeVisible();
   await expect(page.locator('a.chronicle-source')).toHaveAttribute('href', '/sources/test.pdf');
+  await page.locator('.archive-menu summary').click();
+  await page.locator('[data-language-menu]').click();
+  await page.locator('[data-language="pt"]').click();
+  await expect(page.getByRole('heading', { name: 'História de teste', exact: true })).toBeVisible();
   await page.locator('article [data-person="person_a"]').click();
-  await expect(page.locator('#personDialog')).toContainText('Eine vorhandene Notiz.');
+  await expect(page.locator('#personDialog h2')).toHaveText('Test Anna');
   await page.locator('#personDialog [data-info-chapters] summary').click();
-  await expect(page.locator('#personDialog').getByRole('link', { name: 'Testgeschichte', exact: true })).toHaveAttribute('href', '/?view=chronicle&chapter=intro.md');
+  await expect(page.locator('#personDialog').getByRole('link', { name: 'História de teste', exact: true })).toHaveAttribute('href', '/?view=chronicle&chapter=intro.pt.md&language=pt');
   await page.locator('#personDialog .dialog-close').click();
-  await page.locator('article [data-section="anfang"]').click();
-  await expect(page.locator('#anfang')).toBeInViewport();
-});
-
-test('sources and admin are accessible to admin', async ({ page }) => {
-  await login(page);
-  await page.getByRole('link', { name: /^Quellen/ }).click();
-  await page.locator('#sourcesSearch').fill('Testquelle');
-  await expect(page.locator('.source-doc')).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'Dokument öffnen' })).toHaveAttribute('href', '/sources/test.pdf');
-  await page.locator('[data-view="admin"]').click();
-  await expect(page.locator('.archive-header input[type="search"]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible();
-  await expect(page.locator('#treeSelect')).toHaveValue('demo');
-  await expect(page.locator('#adminSync')).toBeDisabled();
+  await page.locator('article [data-section="in-cio"]').click();
+  await expect(page.locator('#in-cio')).toBeInViewport();
 });
 
 test('read-only role and unauthenticated requests retain server-side gates', async ({ page, request }) => {
@@ -63,6 +55,7 @@ test('read-only role and unauthenticated requests retain server-side gates', asy
   await expect(page.locator('#personDialog [data-edit-person]')).toHaveCount(0);
   await page.locator('#personDialog .dialog-close').click();
   await expect(page.locator('a[href$="view=admin"]')).toHaveCount(0);
+  await expect(page.locator('a[href$="view=map"]')).toHaveCount(0);
   // Vite can also resolve source files below /public/ in development.
   expect((await page.request.post('/.netlify/functions/save-family', { data: {} })).status()).toBe(403);
   await page.goto('/legacy.html?view=admin');
@@ -89,7 +82,7 @@ test('draft survives document changes and local sync survives a fresh browser co
   await page.locator('#personEditor [name="occupation"]').fill(newOccupation);
   await page.locator('#personEditor button[type="submit"]').click();
   await page.getByRole('link', { name: 'Stammbaum', exact: true }).click();
-  await page.getByRole('link', { name: /^Admin/ }).click();
+  await openAdmin(page);
   await expect(page.locator('.draft-notice')).toBeVisible();
   const saved = page.waitForResponse(response => response.url().endsWith('/save-family'));
   page.once('dialog', dialog => dialog.accept());
@@ -101,9 +94,7 @@ test('draft survives document changes and local sync survives a fresh browser co
   const yaml = await page.request.get('/data/trees/demo.yaml');
   expect(await yaml.text()).toContain(newOccupation);
 
-  const fresh = await browser.newContext({ baseURL, isMobile, hasTouch, viewport, deviceScaleFactor, userAgent });
-  await fresh.route('**/*', route => new URL(route.request().url()).origin === new URL(baseURL!).origin
-    ? route.continue() : route.abort());
+  const fresh = await freshContext(browser, { baseURL: baseURL!, isMobile, hasTouch, viewport, deviceScaleFactor, userAgent });
   const reloaded = await fresh.newPage();
   const errors: string[] = [];
   reloaded.on('pageerror', error => errors.push(error.message));
@@ -116,39 +107,3 @@ test('draft survives document changes and local sync survives a fresh browser co
     expect(errors).toEqual([]);
   } finally { await fresh.close(); }
 });
-
-for (const role of ['admin', 'reader']) {
-  test(`person tree action opens the centered family and closes dialogs for ${role}`, async ({ page, isMobile }) => {
-    await login(page, `fixture-${role}`);
-    async function showFamily(id: string) {
-      const dialog = page.locator('#personDialog');
-      await expect(dialog.locator('[data-edit-person]')).toHaveCount(role === 'admin' ? 1 : 0);
-      const action = dialog.getByRole('link', { name: 'Im Baum', exact: true });
-      await expect(action).toHaveAttribute('data-show-family', id);
-      await action.click();
-      await expect(page.locator('.family-view')).toHaveAttribute('data-mode', 'family');
-      await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', id);
-      await expect(page.locator('#personDialog, #editDialog')).toHaveCount(0);
-      // Center actions preserve the camera; fitting is now an explicit action.
-      await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
-      await expectGraphFits(page);
-    }
-    await selectGraphView(page, 'hourglass');
-    await openGraphPerson(page, 'person_c', isMobile);
-    await showFamily('person_c');
-    await page.goto('/?view=chronicle&chapter=intro.md');
-    await page.locator('article [data-person="person_a"]').click();
-    // Following a relative within the dialog must update the action's target too.
-    await page.locator('#personDialog [data-info-person="person_b"]').click();
-    await showFamily('person_b');
-    await page.reload();
-    await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'person_b');
-    await expect(page.locator('#personDialog')).toHaveCount(0);
-    await page.getByRole('link', { name: 'Stammbaum', exact: true }).click();
-    await expect(page.locator('.central-person')).toHaveAttribute('data-family-person', 'person_b');
-    await page.goto('/?view=sources');
-    await page.locator('[data-open-person="person_a"]').first().click();
-    await showFamily('person_a');
-
-  });
-}

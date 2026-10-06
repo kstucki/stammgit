@@ -14,7 +14,17 @@ function walk(dir) {
   }
 }
 walk(path.join(publicDir, 'chronicle'));
+for (const url of [...urls]) {
+  for (const code of ['pt', 'en']) {
+    const translated = url.replace(/\.pdf$/, `.${code}.pdf`);
+    if (fs.existsSync(path.join(publicDir, translated))) urls.add(translated);
+  }
+}
 const manifest = {};
+const manifestFile = path.join(publicDir, 'assets/source-thumbnails.json');
+if (fs.existsSync(manifestFile)) for (const url of Object.keys(JSON.parse(fs.readFileSync(manifestFile, 'utf8')))) {
+  if (fs.existsSync(path.join(publicDir, url))) urls.add(url);
+}
 fs.mkdirSync(path.join(publicDir, 'sources/thumbnails'), { recursive: true });
 for (const url of [...urls].sort()) {
   const file = path.resolve(publicDir, '.' + url);
