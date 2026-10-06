@@ -15,6 +15,8 @@ browser, on your phone as well as on a desktop.
 password `admin` (editing) or `user` (read-only).
 Edits stay in your browser; the repository is unchanged.
 
+[![Napoleon demo tree in hourglass view with person details](docs/demo.png)](https://stammgit-demo.netlify.app)
+
 ## Features
 
 - Family, descendants and combined ancestors & descendants views.
