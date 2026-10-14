@@ -1,9 +1,26 @@
 import { formatDate } from './dates';
 import { getT } from '../../public/assets/strings.js';
-import type { Dataset, Person } from './person';
+import type { Dataset, Person, Source } from './person';
 import { personRelations } from './relationship-view';
 import { partnerDetail } from '../../public/assets/relationships.js';
+import { associationsFor, associationDescription } from '../../public/assets/associations.js';
 type T = { get(key: string, values?: Record<string, string | number>): string };
+// Only documented enslavement has relationship evidence. Family citations
+// belong to the involved people's sources, including adoption and marriage.
+export function personSourceSections(dataset: Dataset, id: string, t: T) {
+  const unique = (sources: Source[] = []) => [...new Map(sources.map(source => [JSON.stringify([source.url, source.label || '']), source])).values()];
+  return {
+    own: unique(dataset.people[id]?.sources),
+    relationships: associationsFor(dataset.people, id)
+      .filter(link => link.detail.type === 'enslavement' && link.detail.sources?.length)
+      .map(link => ({
+        key: link.id,
+        person: dataset.people[link.other]?.name || link.other,
+        description: associationDescription(link, id, t),
+        sources: unique(link.detail.sources),
+      })),
+  };
+}
 export function personInitials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map(word => [...word][0] || '').join('').toLocaleUpperCase();
 }
@@ -31,6 +48,10 @@ export function familyChips(dataset: Dataset, id: string, t: T) {
         const ended = [detail, reverse].some(d => d.end || ['geschieden', 'verwitwet'].includes(d.status || ''));
         label = t.get(marriage ? ended ? 'infoFormerMarriage' : 'infoMarriage' : ended ? 'infoFormerPartner' : 'relPartners');
         annotation = '';
+      } else if (section.key === 'relAssociations') {
+        const link = associationsFor(dataset.people, id).find(link => link.other === item.id)!;
+        label = t.get(link.outgoing ? 'associationEnslaver' : 'associationEnslaved');
+        annotation = link.detail.documented?.length ? t.get('associationDocumented', { dates: link.detail.documented.join(', ') }) : '';
       } else if (section.key === 'relSiblings') {
         annotation = item.description === t.get('familyHalfSibling') ? item.description : '';
       } else if (annotation === t.get('familyBiological')) annotation = '';

@@ -64,7 +64,7 @@ const key = (id: string, last: string, previousParent = '') => JSON.stringify([i
 
 export function relationshipEngine(data: Dataset) {
   const graph = new Map(Object.keys(data.people).map(id => [id, [] as RelationshipStep[]]));
-  for (const edge of connectionEdges(data)) {
+  for (const edge of connectionEdges(data).filter(edge => edge.kind !== 'association')) {
     if (edge.kind === 'parent') {
       const type = parentType(data.people, edge.a, edge.b) as ParentType;
       graph.get(edge.a)!.push({ from: edge.a, to: edge.b, direction: 'down', parentType: type });

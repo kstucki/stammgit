@@ -1,8 +1,31 @@
 import { expect, it } from 'vitest';
-import { familyChips, lowEvidence, personInitials, personLifeDetails } from './person-info';
+import { familyChips, lowEvidence, personInitials, personLifeDetails, personSourceSections } from './person-info';
 import { getT } from '../../public/assets/strings.js';
 import type { Dataset } from './person';
 const t = getT('de');
+it('shows only enslavement evidence in both directions and all languages', () => {
+  const own = { label: 'Eigene Biografie', url: '/sources/own.pdf#page=1' };
+  const shared = { label: 'Register', url: '/sources/shared.pdf#page=2' };
+  const data: Dataset = { meta: { focusPersonId: 'a' }, people: {
+    a: { name: 'Person A', sources: [own, shared], associations: { b: { type: 'enslavement', sources: [shared] } } },
+    b: { name: 'Person B', sources: [shared] },
+    c: { name: 'Person C', parents: ['b'], parentDetails: { b: { type: 'adoptive', sources: [shared] } } },
+  } };
+  const before = structuredClone(data);
+  for (const code of ['de','en','pt']) {
+    const a = personSourceSections(data, 'a', getT(code)), b = personSourceSections(data, 'b', getT(code));
+    expect(a.own).toEqual([own, shared]); expect(b.own).toEqual([shared]);
+    expect(a.relationships[0].sources).toEqual([shared]);
+    expect(b.relationships).toHaveLength(1);
+    expect(b.relationships.every(group => group.sources[0].label === 'Register')).toBe(true);
+    expect(personSourceSections(data, 'c', getT(code))).toEqual({ own: [], relationships: [] });
+  }
+  expect(data).toEqual(before);
+  delete data.people.b.sources;
+  expect(personSourceSections(data, 'b', t).own).toEqual([]);
+  expect(personSourceSections(data, 'b', t).relationships).toHaveLength(1);
+  expect(data.people.a.sources).toEqual([own, shared]);
+});
 it('keeps initials and does not invent evidence ratings', () => {
   expect(personInitials('Alex Sample-Smith')).toBe('AS');
   expect(lowEvidence({})).toBe(false);
@@ -35,4 +58,18 @@ it('formats independent life events with full dates, local places and invariant 
   expect(personLifeDetails({ death: 'um 1900' })).toEqual(['† um 1900']);
   expect(personLifeDetails({ birthPlace: 'Basel', deathPlace: 'Ittigen' })).toEqual(['* in Basel', '† in Ittigen']);
   expect(personLifeDetails({ occupation: 'Lehrerin' })).toEqual([]);
+});
+
+
+it('has no relationship section for an undocumented association or personal sources alone', () => {
+  const data: Dataset = { meta: { focusPersonId: 'a' }, people: {
+    a: { sources: [{ url: '/sources/register.pdf' }], associations: { b: { type: 'enslavement' } } },
+    b: {},
+  } };
+  for (const code of ['de', 'en', 'pt']) {
+    expect(personSourceSections(data, 'a', getT(code)).relationships).toEqual([]);
+    expect(personSourceSections(data, 'b', getT(code)).relationships).toEqual([]);
+    data.people.a.associations!.b.sources = [];
+    expect(personSourceSections(data, 'a', getT(code)).relationships).toEqual([]);
+  }
 });

@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-14 — Historical links, ancestry paths and catalogue filters
+
+- Add directed historical associations with labelled lines, an initially collapsed
+  editor and GEDCOM ASSO records. Keep these separate from family relationships.
+- Report additional direct ancestry generations and exact path counts, including
+  adoption; handle generation gaps and cycles without misleading totals.
+- Add descendant depth, independent three-generation defaults for descendants and
+  hourglass, and a compact count of visible people.
+- Keep person evidence with its owner. Extend the family filter to all source
+  categories, use a searchable tag picker and preserve categories during metadata
+  sync. Register extracts remain registers regardless of their evidence ID.
+- Update synthetic adoption and tag-picker tests. Export tests surface actual
+  failure messages instead of waiting silently for a missing download.
+- Preserve the public demo, configuration, media, dependencies and existing
+  public-only tests; no private content, map or private Git history transferred.
+
+Validation: build with 353 unit tests and no type errors. Isolated production,
+development and read-only server checks passed. Compact metrics are unchanged:
+0 crossings, maximum hole 622px, width 7463px. Full browser and Linux CI results
+will be recorded after the final run; existing expected failures remain explicit.
+
 ## 2026-10-06 — Source catalogue, multilingual archive and GEDZIP
 
 - Organise source documents into seven categories, with stable evidence IDs,

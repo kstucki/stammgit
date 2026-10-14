@@ -27,9 +27,13 @@ it('paginates canonical documents, intersects family/category/search, and counts
   expect(matchesSource(docs[0], 'b000001 anna', data)).toBe(true);
   expect(sourcePage(docs, data, 'absent', initial).page).toBe(1);
 });
-it('sanitises restored filters without carrying a family into another category', () => {
+it('preserves a family filter in every category and across the whole catalogue', () => {
   expect(readSourceFilter(null)).toEqual({ category: 'all', family: '', page: 1, selected: '' });
-  expect(readSourceFilter({ category: 'register', family: 'Meyer', page: -3 })).toMatchObject({ family: '', page: 1 });
+  expect(readSourceFilter({ category: 'register', family: 'Meyer', page: -3 })).toMatchObject({ family: 'Meyer', page: 1 });
+  const data = catalogue(), docs = sourceDocuments(data.people, new Set(), data.sourceDetails);
+  expect(sourcePage(docs, data, '', readSourceFilter({ category: 'register', family: 'Müller' })).total).toBe(0);
+  expect(sourcePage(docs, data, '', readSourceFilter({ category: 'all', family: 'Müller' })).total).toBe(2);
+  expect(sourcePage(docs, data, '', readSourceFilter({ category: 'register', family: 'Meyer' })).total).toBe(1);
   expect(readSourceFilter({ category: 'belege', family: 'Meyer', page: 3, selected: '/sources/test.pdf' })).toMatchObject({ family: 'Meyer', page: 3, selected: '/sources/test.pdf' });
 });
 it('validates unique evidence identifiers and family metadata at the shared boundary', () => {

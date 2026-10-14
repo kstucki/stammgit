@@ -71,15 +71,15 @@ export function computeVisible(people: People, baseRootIds: readonly string[], e
   return visible;
 }
 
-// Hourglass view: only the direct ancestor line of the center person (no side branches)
-// plus their complete descendants.
-function hourglassSelection(people: People, roots: readonly string[], depth: number) {
+// A generation is one parent/child step; partners cost no step. Descendants
+// include stepfamilies, while the upward direction follows direct ancestors.
+function lineageSelection(people: People, roots: readonly string[], depth: number, directions: readonly ('children' | 'parents')[]) {
   const visible = new Set<string>();
   let maxDepth = 0;
   for (const root of roots) {
     // Separate shortest distances for each root and direction. A person reached
     // along a shorter route must be revisited, even if already visible.
-    for (const direction of ['children', 'parents'] as const) {
+    for (const direction of directions) {
       const distances = new Map<string, number>();
       const queue: [string, number][] = [[root, 0]];
       for (let i = 0; i < queue.length; i++) {
@@ -100,11 +100,19 @@ function hourglassSelection(people: People, roots: readonly string[], depth: num
 }
 
 export function computeHourglass(people: People, rootId: string | string[], depth = Infinity): Set<string> {
-  return hourglassSelection(people, Array.isArray(rootId) ? rootId : [rootId], depth).visible;
+  return lineageSelection(people, Array.isArray(rootId) ? rootId : [rootId], depth, ['children', 'parents']).visible;
 }
 
 export function hourglassMaxDepth(people: People, roots: readonly string[]): number {
-  return hourglassSelection(people, roots, Infinity).maxDepth;
+  return lineageSelection(people, roots, Infinity, ['children', 'parents']).maxDepth;
+}
+
+export function computeDescendants(people: People, root: string, depth = Infinity): Set<string> {
+  return lineageSelection(people, [root], depth, ['children']).visible;
+}
+
+export function descendantsMaxDepth(people: People, root: string): number {
+  return lineageSelection(people, [root], Infinity, ['children']).maxDepth;
 }
 
 // Persons where a hidden ancestor line can be expanded.

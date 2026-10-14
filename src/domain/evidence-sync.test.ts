@@ -12,6 +12,7 @@ function fixture() {
   for (const directory of ['data/trees', 'docs/source-editions/belege', 'public/sources']) fs.mkdirSync(path.join(root, directory), { recursive: true });
   const file = path.join(root, 'data/trees/demo.yaml'), url = '/sources/beleg-b000001.pdf';
   fs.writeFileSync(file, YAML.stringify({ meta: { focusPersonId: 'example' }, people: { example: { name: 'Example' } },
+    sourceCategories: { [url]: 'register' },
     sourceDetails: { [url]: { id: 'B000001', title: 'Old title', tags: ['Example family'] } } }));
   const recordFile = path.join(root, 'docs/source-editions/belege/B000001.json');
   const record = { id: 'B000001', title: 'Recorded title', citation: 'Example register, p. 3', tags: ['Ignored editorial tag'] };
@@ -28,7 +29,7 @@ it('checks without writing, updates only the selected catalogue and preserves we
   expect(syncEvidence({ root, tree: 'demo', check: true })).toBe(1);
   const data = YAML.parse(fs.readFileSync(file, 'utf8'));
   expect(data.sourceDetails[url]).toMatchObject({ id: 'B000001', title: 'Recorded title', tags: ['Example family'] });
-  expect(data.sourceCategories[url]).toBe('belege');
+  expect(data.sourceCategories[url]).toBe('register');
   expect(data.people).toEqual({ example: { name: 'Example' } });
 });
 it('rejects an omitted dataset, traversal, mismatched IDs and duplicate manifests without changing YAML', () => {

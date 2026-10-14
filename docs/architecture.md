@@ -39,6 +39,10 @@ These rules are the specification. Update them before changing behavior.
 - Family shows the center, parents, siblings, partners and children.
 - Ancestors & descendants (hourglass) combines any number of roots, their
   ancestor lines, descendants and included partners without duplicating people.
+  Both hourglass and descendants start at three generations; each remembers its
+  own depth per dataset. Infinity includes all generations. Changing depth clears
+  local expansions and fits the graph. The adjacent count includes unique visible
+  people, including partners, historical associates and expanded relatives.
 - The ancestor fan and descendants have their own modes. There is no full view;
   old stored `full` selections fall back to family.
 - Children connect to their documented parent family. Explicit `parentGroups`
@@ -175,6 +179,24 @@ former relationships. Search minimizes displayed relationship stations without
 discarding the underlying evidence or contracting guardianship into ancestry.
 English cousin degrees use ordinal wording.
 
+Direct ancestor/descendant explanations additionally count every direct path by
+its generation depth using `direct-descent.ts`. The existing main relationship
+stays first. Only consecutive extra depths form a range; gaps are listed explicitly.
+Adoptive paths are counted and labelled once per path; guardianship and other
+social links are excluded. Counts use exact integers without enumerating paths.
+Cyclic ancestry suppresses the count while retaining the ordinary explanation.
+Collateral and affinity descriptions keep their existing selection rules.
+
+### Historical associations
+
+`associations` stores directed enslavement records separately from family edges.
+The referenced person appears beside the recorded enslaver in card views, with a
+labelled dashed historical line. Both roles are readable from either endpoint.
+These records never create partnerships, parentage or ancestor-fan positions.
+Connections may include historical routes, but kinship calculation excludes them.
+The family editor keeps this section collapsed initially. Dates mark documented
+attestations, not an inferred duration. See [data format](data-format.md#historical-associations).
+
 ### Camera and navigation
 
 One `localStorage.graphZoom` value applies to every card mode and dataset. Changing
@@ -203,7 +225,9 @@ life dates/places, occupation, relationship to the chosen “Me” person (or th
 names. Show full names without collapsing relatives. Browser Back follows previously opened relatives; the close action dismisses
 the complete panel history without shifting the graph. There is no internal
 Back button.
-Sources and chapter mentions are disclosures. Editing is admin-only.
+Sources and chapter mentions are disclosures. Person sources stay with their owner;
+the separate relationship-evidence disclosure contains cited enslavement records
+only. Editing is admin-only.
 Cards show the explicit optional display name and separate birth/death year rows;
 occupation and places appear in person information. Full names stay in search,
 accessible labels and person information. Person search and relation pickers
@@ -240,9 +264,12 @@ without those credentials cannot write to GitHub.
 Source identity is the canonical URL without a page/query suffix or translated
 PDF suffix. `sourceDetails` stores bibliography and stable evidence IDs;
 `sourceCategories` stores one of seven category keys. The catalogue unites person
-and parent-edge citations, metadata and local files; source counts are document
-counts. Search, 25-row pages and an evidence-family tag filter keep long lists
-compact. Details share the person panel's close control and collapse long lists
+citations, legacy parent-edge citations, historical evidence, metadata and local files; source counts are document
+counts. Search, 25-row pages and a family filter across every category keep long lists
+compact. The family picker reuses existing names, normalizes case/spacing/Unicode,
+suggests similar spellings and requires an explicit action to create a name.
+Metadata sync preserves document categories instead of assigning them from IDs.
+Details share the person panel's close control and collapse long lists
 of linked people. Website tags stay out of PDFs and exchange exports.
 
 GEDCOM 5.5.1 exports one language without sources. GEDCOM 7/GEDZIP exports cited

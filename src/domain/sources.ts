@@ -1,6 +1,7 @@
+import { familyTags } from './family-tags';
 import { sourceBase } from './source-language';
 import { personSources } from '../../public/assets/relationships.js';
-import type { ChronicleIndex, Dataset, SourceCategory } from './person';
+import type { ChronicleIndex, Dataset, Source, SourceCategory } from './person';
 import { SOURCE_CATEGORIES, DEFAULT_SOURCE_CATEGORY } from '../../public/assets/source-categories.js';
 // A page anchor (`#page=n`) points to one item inside a document; the document is the file.
 export const documentUrl = (url: string) => sourceBase(url).replace(/[?#].*$/, '');
@@ -23,12 +24,21 @@ function documentLabel(labels: Map<string, number>) {
 }
 export function sourceDocuments(people: Dataset['people'], files: ReadonlySet<string> = new Set(), details: Dataset['sourceDetails'] = {}) {
   const docs = new Map<string, { labels: Map<string, number>; persons: string[] }>();
-  for (const [id, person] of Object.entries(people)) for (const source of personSources(person)) {
+  const add = (id: string, source: Source) => {
+    if (!people[id]) return;
     const url = documentUrl(source.url);
     const entry = docs.get(url) || { labels: new Map<string, number>(), persons: [] };
     entry.labels.set(source.label || source.url, (entry.labels.get(source.label || source.url) || 0) + 1);
     if (!entry.persons.includes(id)) entry.persons.push(id);
     docs.set(url, entry);
+  };
+  for (const [id, person] of Object.entries(people)) {
+    for (const source of personSources(person)) add(id, source);
+    // Relationship citations concern both endpoints, regardless of which
+    // endpoint stores them or which direction is displayed in the editor.
+    for (const [other, detail] of [...Object.entries(person.parentDetails || {}), ...Object.entries(person.associations || {})]) {
+      for (const source of detail.sources || []) add(other, source);
+    }
   }
   for (const file of files) {
     if (!/^\/sources\/[^/]+\.(pdf|png|jpe?g)$/i.test(file)) continue;
@@ -46,7 +56,7 @@ export type SourceFilter = { category: SourceCategory | 'all'; family: string; p
 export function readSourceFilter(value: unknown): SourceFilter {
   const v = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const category = sourceCategories.includes(v.category as SourceCategory) ? v.category as SourceCategory : 'all';
-  return { category, family: category === 'belege' && typeof v.family === 'string' ? v.family : '', page: Number.isSafeInteger(v.page) && Number(v.page) > 0 ? Number(v.page) : 1, selected: typeof v.selected === 'string' ? v.selected : '' };
+  return { category, family: typeof v.family === 'string' ? v.family : '', page: Number.isSafeInteger(v.page) && Number(v.page) > 0 ? Number(v.page) : 1, selected: typeof v.selected === 'string' ? v.selected : '' };
 }
 export function matchesSource(doc: SourceDocument, query: string, data: Dataset) {
   const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
@@ -55,11 +65,11 @@ export function matchesSource(doc: SourceDocument, query: string, data: Dataset)
   return normalize(query.trim()).split(/\s+/).every(word => text.includes(word));
 }
 export function sourcePage(entries: SourceDocument[], data: Dataset, query: string, filter: SourceFilter) {
-  const matches = entries.filter(doc => matchesSource(doc, query, data));
+  const matches = entries.filter(doc => matchesSource(doc, query, data) && (!filter.family || data.sourceDetails?.[doc.url]?.tags?.includes(filter.family)));
   const counts = Object.fromEntries(sourceCategories.map(category => [category, matches.filter(doc => sourceCategory(data.sourceCategories, doc.url) === category).length]));
-  const families = [...new Set(entries.filter(doc => sourceCategory(data.sourceCategories, doc.url) === 'belege').flatMap(doc => data.sourceDetails?.[doc.url]?.tags || []))].sort((a, b) => a.localeCompare(b, 'de'));
+  const families = familyTags(data);
   const filtered = matches.filter(doc => (filter.category === 'all' || sourceCategory(data.sourceCategories, doc.url) === filter.category)
-    && (filter.category !== 'belege' || !filter.family || data.sourceDetails?.[doc.url]?.tags?.includes(filter.family)));
+    && (!filter.family || data.sourceDetails?.[doc.url]?.tags?.includes(filter.family)));
   const pages = Math.max(1, Math.ceil(filtered.length / SOURCE_PAGE_SIZE));
   const page = Math.min(filter.page, pages);
   return { docs: filtered.slice((page - 1) * SOURCE_PAGE_SIZE, page * SOURCE_PAGE_SIZE), total: filtered.length, matched: matches.length, counts, families, pages, page };

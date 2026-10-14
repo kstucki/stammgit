@@ -20,6 +20,7 @@ Edits stay in your browser; the repository is unchanged.
 ## Features
 
 - Family, descendants and combined ancestors & descendants views.
+  Descendants and combined views default to three generations, with a visible person count.
 - Semicircular ancestor fan with 1–10 generations, visible gaps and person information.
 - Fitted first family view, remembered zoom and stable graph position while reading
   person information.
@@ -30,6 +31,8 @@ Edits stay in your browser; the repository is unchanged.
 - Edit people in compact Person, Family, Sources and Photo tabs, including merge and delete.
   Changes stay on your device until **Sync**.
 - Compact person panels, relationship descriptions and source evidence.
+  Repeated direct ancestry shows additional generations and exact path counts.
+- Documented historical associations, kept separate from marriage and ancestry.
 - Optional display names and recorded birth/death places, with full names and dates
   in person information and keyboard navigation in person search.
 - Optional evidence ratings; an orange person-info badge highlights uncertainty.

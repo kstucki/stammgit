@@ -9,10 +9,9 @@
   import type { Dataset, ChronicleIndex } from '../domain/person';
   import { localizedSource } from '../domain/source-language';
   import { sourceUrl } from '../data/family';
-  import { familyChips, personInitials, personLifeDetails, lowEvidence } from '../domain/person-info';
+  import { familyChips, personInitials, personLifeDetails, lowEvidence, personSourceSections } from '../domain/person-info';
   import { relationshipEngine } from '../domain/relationship-engine';
   import { formatKinship } from '../domain/kinship';
-  import { personRelations } from '../domain/relationship-view';
   let { id, center, dataset, assets, sourceFiles = new Set<string>(), chronicle, chronicleLanguage = '', admin, t, onclose, onfamily, onconnect, onperson }: {
     id: string; center: string; dataset: Dataset; assets: ReadonlyMap<string, string>; sourceFiles?: ReadonlySet<string>; chronicle: ChronicleIndex | null; chronicleLanguage?: string;
     admin: boolean; t: { locale?: string; get(key: string, values?: Record<string, string | number>): string };
@@ -30,10 +29,8 @@
   let occupation = $derived(personContent(person, t.locale).occupation);
   let lifeDetails = $derived(personLifeDetails(person, t.locale));
   let mentions = $derived((chronicle?.chapters || []).filter(chapter => chapter.persons.includes(shown)));
-  let sources = $derived([...new Map([
-    ...(person.sources || []),
-    ...personRelations(dataset, shown, t).flatMap(group => group.items.flatMap(item => (item.sources || []).map(source => ({ ...source, label: `${dataset.people[item.id]?.name || item.id}: ${source.label || source.url}` })))),
-  ].map(source => [`${source.url}:${source.label}`, source])).values()]);
+  let sourceSections = $derived(personSourceSections(dataset, shown, t));
+  let sources = $derived(sourceSections.own);
   let engine = $derived(relationshipEngine(dataset));
   let explanation = $derived(shown === center || !dataset.people[center] ? null : engine.explain(center, shown));
   let kinship = $derived(explanation ? formatKinship(dataset, explanation, t) : null);
@@ -85,7 +82,7 @@
         {#each groups as group}<div class="person-family-chip" data-family-chip={group.key}>
           <span class="family-chip-label">{group.label}</span>
           {#each group.items as relative, i}
-            {#if i}<span aria-hidden="true">·</span>{/if}<button data-info-person={relative.id} onclick={() => openPerson(relative.id)}>{relative.name}{#if relative.annotation}<small> ({relative.annotation})</small>{/if}</button>
+            {#if i}<span aria-hidden="true">·</span>{/if}<button data-info-person={relative.id} onclick={() => openPerson(relative.id)}>{relative.name}{#if relative.annotation}{' '}<small>({relative.annotation})</small>{/if}</button>
           {/each}
         </div>{/each}
       </section>{/if}
@@ -94,6 +91,13 @@
         <h3>{t.get('webLinks')}</h3><ul>{#each person.links as link}<li><a href={link.url} target="_blank" rel="noreferrer">{link.label || link.url}</a></li>{/each}</ul>
       </section>{/if}
       {#if sources.length}<details class="person-disclosure" data-info-sources><summary>{t.get(sources.length === 1 ? 'infoSource' : 'infoSources', { n: sources.length })}</summary><ul>{#each sources as source}<li>{#if sourceUrl(localizedSource(source.url, t.locale, sourceFiles), assets)}<a href={sourceUrl(localizedSource(source.url, t.locale, sourceFiles), assets)} target="_blank" rel="noreferrer">{source.label || source.url}</a>{:else}{source.label || source.url}{/if}</li>{/each}</ul></details>{/if}
+      {#if sourceSections.relationships.length}<details class="person-disclosure" data-info-relationship-sources>
+        <summary>{t.get('infoRelationshipSources')}</summary>
+        {#each sourceSections.relationships as group (group.key)}
+          <p><strong>{group.person}</strong> · {group.description}</p>
+          <ul>{#each group.sources as source}<li>{#if sourceUrl(localizedSource(source.url, t.locale, sourceFiles), assets)}<a href={sourceUrl(localizedSource(source.url, t.locale, sourceFiles), assets)} target="_blank" rel="noreferrer">{source.label || source.url}</a>{:else}{source.label || source.url}{/if}</li>{/each}</ul>
+        {/each}
+      </details>{/if}
       {#if mentions.length}<details class="person-disclosure" data-info-chapters><summary>{t.get(mentions.length === 1 ? 'infoChapter' : 'infoChapters', { n: mentions.length })}</summary><ul>{#each mentions as chapter}<li><a href={chapterHref(chapter.file, chronicleLanguage)}>{chapter.title}</a></li>{/each}</ul></details>{/if}
     </div>
   </article>

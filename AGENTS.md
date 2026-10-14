@@ -33,6 +33,8 @@
 - Use the seven stable category keys: `familie` (family narratives), `auskuenfte`
   (recollections/correspondence), `forschung` (research), `register` (trees/registers),
   `todesanzeigen` (obituaries), `belege` (individual evidence) and `andere` (other).
+- Choose categories by document content: church/civil/census register extracts
+  belong in `register`, including those with a B-ID and editorial commentary.
 - Give each evidence item a stable ID such as `B000001` and a self-contained local
   PDF. Update that document instead of adding superseded research notes. Preserve
   original documents as separate sources. Cite exact pages with `#page=N`.
@@ -40,10 +42,11 @@
   keyed by the canonical URL without page/query suffixes. `.en.pdf`/`.pt.pdf` are
   optional versions of one document. Family `tags` organise the website only.
 - Keep personal websites/profiles in `person.links`; factual citations belong in
-  `sources` or `parentDetails.sources`. Explain evidence and its limitations in the
+  `sources` for each supported person. Preserve existing relationship metadata;
+  only enslavement evidence belongs in `associations.<id>.sources`. Explain evidence and its limitations in the
   document; do not use UI descriptions as the only surviving record.
 - Preserve source search, 25-item pagination, category counts and the family filter
-  within `belege`. Keep exported PDFs free of website tags. YAML/JSON backups keep
+  across all categories. Keep exported PDFs free of website tags. YAML/JSON backups keep
   all metadata; the source ZIP contains documents; GEDCOM 5.5.1 omits sources;
   GEDZIP contains cited sources/portraits in one language and omits family tags.
 - PDF rendering and thumbnail generation are local editorial tools, never hosted

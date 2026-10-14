@@ -14,6 +14,8 @@ export interface SourceDetails {
 export type ParentType = 'biological' | 'adoptive' | 'guardian' | 'other' | 'unknown';
 export interface ParentDetail { type?: ParentType; label?: string; sources?: Source[] }
 export interface PartnerDetail { status?: string; kind?: 'marriage' | 'partnership' | 'unknown'; start?: string; end?: string }
+/** Stored once: owner held the referenced person in slavery; documented dates are attestations, not a duration. */
+export interface Association { type: 'enslavement'; documented?: string[]; sources?: Source[] }
 /** Assesses both the person and their placement in the recorded lineage. */
 export type EvidenceStatus = 'unsicher' | 'gut' | 'gesichert';
 
@@ -49,6 +51,7 @@ export interface Person {
   parentDetails?: Record<string, ParentDetail>;
   parentGroups?: string[][];
   partnerDetails?: Record<string, PartnerDetail>;
+  associations?: Record<string, Association>;
 }
 export type SourceCategory = 'familie' | 'auskuenfte' | 'forschung' | 'register' | 'todesanzeigen' | 'belege' | 'andere';
 export interface Dataset {

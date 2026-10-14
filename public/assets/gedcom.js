@@ -3,6 +3,8 @@ import { parentGroups, parentType, partnerDetail } from "./relationships.js";
 import { parseDate, normalizeDate, isValidDate, defaultLiving } from "./date-grammar.js";
 import { validWebLinks } from "./web-links.js";
 import { nameParts } from "./names.js";
+import { associationsFor } from "./associations.js";
+import { getT } from "./strings.js";
 
 // GEDCOM export and import for the internal family tree schema.
 //   exportGedcom   – GEDCOM 5.5.1 for exchange: one language, no sources.
@@ -58,12 +60,12 @@ const today = (now = new Date()) => `${now.getDate()} ${MONTHS[now.getMonth()]} 
 
 // Private underscore extensions preserve exact relationship annotations on our
 // roundtrip. Standard FAMC/PEDI/ADOP links remain available to other readers.
-const REL_FIELDS = ["parents", "children", "partners", "siblings", "parentDetails", "parentGroups", "partnerDetails"];
+const REL_FIELDS = ["parents", "children", "partners", "siblings", "parentDetails", "parentGroups", "partnerDetails", "associations"];
 function mapRelationships(person, map) {
   const result = {};
   for (const key of REL_FIELDS) {
     if (person[key] === undefined) continue;
-    if (["parentDetails", "partnerDetails"].includes(key)) {
+    if (["parentDetails", "partnerDetails", "associations"].includes(key)) {
       result[key] = Object.fromEntries(Object.entries(person[key]).map(([id, detail]) => [map(id), structuredClone(detail)]));
     } else if (key === "parentGroups") result[key] = person[key].map(group => group.map(map));
     else result[key] = person[key].map(map);
@@ -97,7 +99,7 @@ function lines551(level, tag, value) {
 function lines7(level, tag, value) {
   return String(value).split(/\r?\n/).map(line => line.replace(/^@/, "@@")).map((line, index) => `${index ? level + 1 : level} ${index ? "CONT" : tag}${line ? " " + line : ""}`);
 }
-const POINTER_TAGS = new Set(["SUBM", "FAMC", "FAMS", "HUSB", "WIFE", "CHIL", "OBJE", "SOUR"]);
+const POINTER_TAGS = new Set(["ASSO", "SUBM", "FAMC", "FAMS", "HUSB", "WIFE", "CHIL", "OBJE", "SOUR"]);
 const isPointer = (tag, value) => POINTER_TAGS.has(tag) && /^@[^@\s]+@$/.test(String(value));
 const extension = (write, level, tag, value) => write(level, tag, JSON.stringify(value));
 
@@ -215,11 +217,31 @@ function familyRecords(write, people, fams, pointer, hidden) {
 const hiddenTest = (people, includeLiving) => id => !includeLiving && people[id]?.living !== false && !people[id]?.death;
 // Relationship extension without dates or sources that would reveal a hidden living person.
 function relationsFor(p, hidden, selfHidden, includeSources = true) {
-  if (includeSources && !selfHidden && !Object.keys(p.partnerDetails || {}).some(hidden)) return p;
   const copy = { ...p };
+  if (p.associations) {
+    copy.associations = Object.fromEntries(Object.entries(p.associations).filter(([other]) => !selfHidden && !hidden(other))
+      .map(([other, detail]) => { const result = { ...detail }; if (!includeSources) delete result.sources; return [other, result]; }));
+    if (!Object.keys(copy.associations).length) delete copy.associations;
+  }
   if (p.partnerDetails) copy.partnerDetails = Object.fromEntries(Object.entries(p.partnerDetails).map(([other, detail]) => [other, selfHidden || hidden(other) ? { ...(detail.kind ? { kind: detail.kind } : {}), ...(detail.status ? { status: detail.status } : {}) } : detail]));
   if ((!includeSources || selfHidden) && p.parentDetails) copy.parentDetails = Object.fromEntries(Object.entries(p.parentDetails).map(([parent, detail]) => [parent, { ...(!selfHidden && detail.label ? { label: detail.label } : {}), ...(detail.type ? { type: detail.type } : {}) }]));
   return copy;
+}
+
+// ASSO describes a non-family connection. ROLE belongs to the referenced
+// person, not the current record. No FAM, FAMS, MARR or FAMC is created.
+function associationRecords(write, people, id, pointer, hidden, code, version, citation) {
+  if (hidden(id)) return;
+  const t = getT(code);
+  for (const link of associationsFor(people, id)) {
+    if (hidden(link.other)) continue;
+    write(1, 'ASSO', pointer(link.other));
+    const role = t.get(link.outgoing ? 'associationRoleEnslaved' : 'associationRoleEnslaver');
+    if (version === 7) { write(2, 'ROLE', 'OTHER'); write(3, 'PHRASE', role); }
+    else write(2, 'RELA', role);
+    if (link.detail.documented?.length) write(2, 'NOTE', t.get('associationDocumented', { dates: link.detail.documented.join(', ') }));
+    if (citation) for (const source of link.detail.sources || []) citation(2, source);
+  }
 }
 
 // GEDCOM 5.5.1: exchange format in one language, without sources.
@@ -252,6 +274,7 @@ export function exportGedcom(data, lang = "de", { includeLiving = true, now = un
     nameLines(write, p, anonymous, code, 5);
     personBody(write, p, { lang: code, version: 5, anonymous });
     familyLinks(write, id, people, fams, 5);
+    associationRecords(write, people, id, pointer, hidden, code, 5);
     personExtensions(write, p, pointer, anonymous);
     if (!anonymous) extension(write, 1, "_STAMMBAUM_ID", id);
     extension(write, 1, "_STAMMBAUM_REL", { version: 1, ...mapRelationships(relationsFor(p, hidden, anonymous, false), pointer) });
@@ -358,6 +381,7 @@ export function exportGedcom7(data, { language: lang = "de", includeLiving = tru
     nameLines(write, p, anonymous, main, 7);
     personBody(write, p, { lang: main, version: 7, anonymous, version7 });
     familyLinks(write, id, people, fams, 7);
+    associationRecords(write, people, id, pointer, hidden, main, 7, citation);
     personExtensions(write, p, pointer, anonymous);
     if (!anonymous) extension(write, 1, "_STAMMBAUM_ID", id);
     // Parent-detail sources travel inside the relationship extension; package their files too.

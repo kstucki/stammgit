@@ -19,9 +19,12 @@ test('GEDCOM 5.5.1 and GEDCOM 7 exports offer languages and living-person protec
   expect(ged).not.toContain('Test Anna');
 
   await page.locator('#gedLanguage').selectOption('en');
-  download = page.waitForEvent('download');
+  const exported = Promise.race([
+    page.waitForEvent('download'),
+    page.waitForEvent('dialog').then(async dialog => { const message = dialog.message(); await dialog.dismiss(); throw new Error(message); }),
+  ]);
   await page.locator('#exportGedcom7Btn').click();
-  const file = await download;
+  const file = await exported;
   expect(file.suggestedFilename()).toMatch(/-gedcom7-en\.gdz$/);
   const zip = await JSZip.loadAsync(await readFile((await file.path())!));
   const text = await zip.file('gedcom.ged')!.async('text');

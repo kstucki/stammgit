@@ -1,8 +1,9 @@
 import type { Dataset } from './person';
 import type { FamilySlice } from './family';
 import { familyIndex, projectFamily } from './family';
+import { associationEntries } from '../../public/assets/associations.js';
 
-export interface ConnectionEdge { a: string; b: string; kind: 'parent' | 'partner' }
+export interface ConnectionEdge { a: string; b: string; kind: 'parent' | 'partner' | 'association' }
 
 // Only relationships drawn by the shared family graph (the former full view).
 // Explicit sibling fields do not create extra diagram edges. Parent edges retain their direction for display,
@@ -18,6 +19,7 @@ export function connectionEdges(data: Dataset): ConnectionEdge[] {
     for (const parent of person.parents || []) add(parent, id, 'parent');
     for (const partner of person.partners || []) add(id, partner, 'partner');
   }
+  for (const { from, to } of associationEntries(data.people)) add(from, to, 'association');
   return [...edges.values()];
 }
 
@@ -112,8 +114,9 @@ export function selectConnections(data: Dataset, selection: string[]) {
   const family: FamilySlice = { ...projected, groups,
     generationParents: projected.generationParents.filter(({ parent, child }) => parentEdges.has(JSON.stringify([parent, child]))),
   };
+  const associationEdges = new Set(groups.filter(group => group.association).map(group => JSON.stringify([...group.adults].sort())));
   const edges = connectionEdges(data).filter(edge => edge.kind === 'parent'
-    ? parentEdges.has(JSON.stringify([edge.a, edge.b])) : partnerEdges.has(JSON.stringify([edge.a, edge.b].sort())));
+    ? parentEdges.has(JSON.stringify([edge.a, edge.b])) : (edge.kind === 'association' ? associationEdges : partnerEdges).has(JSON.stringify([edge.a, edge.b].sort())));
   const components = paths.components.map(ids => ids.map(id => JSON.parse(id)[1] as string));
   return { selected, edges, components, family };
 }

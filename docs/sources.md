@@ -4,7 +4,7 @@
 
 Original documents and individual evidence items share one catalogue. A document
 has one canonical URL; citations can add `#page=12`. The catalogue joins citations
-on people and parent relationships with document metadata and available local
+on people, legacy parent relationships and historical associations with document metadata and available local
 files, so a page citation or translated PDF does not count as another source.
 
 ## Categories and browsing
@@ -14,14 +14,14 @@ files, so a page citation or translated PDF does not count as another source.
 | `familie` | Memoirs and family narratives |
 | `auskuenfte` | Correspondence, interviews and recollections |
 | `forschung` | Independent research articles and studies |
-| `register` | Family trees, genealogical registers and lists |
+| `register` | Family trees; church, civil, census and address registers, including extracts and indices |
 | `todesanzeigen` | Obituaries and death notices |
 | `belege` | Individual extracts and summaries supporting recorded facts |
 | `andere` | Other documents and sources awaiting classification |
 
 The category sidebar becomes a selector on small screens. Search matches titles,
-IDs, citations, tags and linked people. Lists show 25 items per page. Within
-Evidence, an optional family filter uses `sourceDetails.tags`. Source details open
+IDs, citations, tags and linked people. Lists show 25 items per page. Across all
+categories, an optional family filter uses `sourceDetails.tags`. Source details open
 in a panel; long person lists are collapsed. Search, filters, pagination and
 selection survive navigation and reload.
 
@@ -29,7 +29,7 @@ selection survive navigation and reload.
 
 ```yaml
 sourceCategories:
-  /sources/beleg-b000001.pdf: belege
+  /sources/beleg-b000001.pdf: register
 sourceDetails:
   /sources/beleg-b000001.pdf:
     id: B000001
@@ -44,9 +44,14 @@ sourceDetails:
 ```
 
 Store the category and metadata under the URL without query or page suffixes.
-Link supporting facts from a person's `sources` or a parent's
-`parentDetails.<id>.sources`, with a useful label and exact page. A personal
+Link supporting facts from each supported person's `sources`, with a useful
+label and exact page. Existing parent-edge citations remain preserved, but new
+family evidence belongs to the people. Enslavement evidence may additionally
+belong in `associations.<id>.sources` and appears for both endpoints. A personal
 website/profile belongs in `person.links` unless cited as factual evidence.
+
+Choose the category by the underlying document, not its ID or editorial cover.
+The family picker reuses existing tags and requires explicit creation of new ones.
 
 Each evidence item gets a stable ID such as `B000001`. Family tags may overlap;
 they organise the website and do not appear in the evidence PDF. Keep original

@@ -70,8 +70,9 @@ source counts or historical prominence.
 
 Only `unsicher` displays a terracotta badge, exclusively in person information.
 Good, confirmed and missing values display no badge. Admins can set or clear
-the rating in the person editor. Add a note explaining uncertainty when assigning
-it; the application does not manufacture research judgments or require a note.
+the rating in the person editor. Explain evidence and uncertainty in the cited
+document; keep person descriptions focused on lives and stories. The application
+does not manufacture research judgments or require a biography.
 
 YAML/JSON retain the field. GEDCOM uses the custom `_STAMMBAUM_EVIDENCE` extension
 for this application's roundtrip; other genealogy tools may discard it.
@@ -94,6 +95,26 @@ does not fill them in. GEDCOM roundtrips preserve supported relationship metadat
 Keep existing IDs when correcting a name. Notes are lists of text entries.
 Attach sources to the people whose facts they support; leave unknown details
 unknown rather than guessing.
+
+## Historical associations
+
+Store an enslavement record once, on the person who held the referenced person
+in slavery. This is not a partnership or a parent relationship:
+
+```yaml
+associations:
+  other_person:
+    type: enslavement
+    documented: ["1840", "1845"]
+    sources:
+      - {label: Example register, url: /sources/register.pdf#page=2}
+```
+
+Targets must exist and differ from the owner; do not duplicate the reverse edge.
+Dates are attestations, not inferred start/end dates. The UI reads both directions.
+GEDCOM exports use `ASSO` and role descriptions, with no invented family record;
+custom metadata preserves exact roundtrips. Hiding either living endpoint omits
+association details and association-only media. GEDCOM 5.5.1 still omits sources.
 
 ## Sources and photos
 

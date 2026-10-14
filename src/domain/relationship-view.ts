@@ -2,6 +2,7 @@ import { formatDate } from './dates';
 import { parentType, partnerDetail } from '../../public/assets/relationships.js';
 import type { Dataset, ParentType, PartnerDetail, Source } from './person';
 import { parentDescription, partnershipDescription, siblingDescription } from '../../public/assets/relationship-text.js';
+import { associationsFor, associationDescription } from '../../public/assets/associations.js';
 export type LineStyle = 'default' | 'adoptive' | 'guardian' | 'other' | 'unmarried' | 'ended';
 export const lineLabel: Record<LineStyle, string> = {
   default: 'familyConnection', adoptive: 'familyAdoptive', guardian: 'familyGuardian', other: 'familyOther', unmarried: 'familyUnmarried', ended: 'familyEndedPartnership',
@@ -43,6 +44,7 @@ export function personRelations(dataset: Dataset, id: string, t: { locale?: stri
   return [
     { key: 'relParents', items: byName(person.parents).map(parent => ({ id: parent, description: parentDescription(dataset, parent, id, t), sources: person.parentDetails?.[parent]?.sources })) },
     { key: 'relPartners', items: (orderedPartners(dataset.people, id) as string[]).map(partner => ({ id: partner, description: partnershipDescription(dataset, id, partner, t, (raw: string) => formatDate(raw, t.locale, 'long')) })) },
+    { key: 'relAssociations', items: associationsFor(dataset.people, id).map(link => ({ id: link.other, description: associationDescription(link, id, t), sources: link.detail.sources })) },
     { key: 'relChildren', items: byName(index.children.get(id)).map(child => ({ id: child, description: parentDescription(dataset, id, child, t), sources: dataset.people[child].parentDetails?.[id]?.sources })) },
     { key: 'relSiblings', items: siblingsFor(index, id).map(sibling => ({ id: sibling.id, description: siblingDescription(dataset, id, sibling.id, sibling.sharedParents, t) })) },
   ];

@@ -51,11 +51,12 @@ export function orderedPartners(people, id) {
 }
 
 export function personSources(person) {
-  return [...(person?.sources || []), ...Object.values(person?.parentDetails || {}).flatMap(detail => detail.sources || [])];
+  return [...(person?.sources || []), ...Object.values(person?.parentDetails || {}).flatMap(detail => detail.sources || []),
+    ...Object.values(person?.associations || {}).flatMap(detail => detail.sources || [])];
 }
 
 export function hasRelationshipMetadata(person) {
-  return !!(person?.parentDetails || person?.parentGroups
+  return !!(person?.associations || person?.parentDetails || person?.parentGroups
     || Object.values(person?.partnerDetails || {}).some(detail => ["kind", "start", "end"].some(key => detail[key] !== undefined)));
 }
 

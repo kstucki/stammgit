@@ -3,10 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 const port = Number(process.env.STAMMGIT_TEST_PORT || 18988);
 
 const specs = (...names: string[]) => names.map(name => `**/${name}.spec.ts`);
-const narrowSpecs = specs('responsive-layout', 'archive-menu', 'welcome', 'source-layout', 'editor-layout');
+const narrowSpecs = specs('responsive-layout', 'archive-menu', 'welcome', 'source-layout', 'editor-layout', 'descendants-depth');
 const phoneSpecs = [...narrowSpecs, ...specs('graph-expansion', 'graph-camera', 'person-info-camera', 'start-zoom',
   'ancestor-fan', 'chronicle-presentation', 'chronicle-design', 'archive',
-  'source-language', 'source-categories', 'gedcom-export')];
+  'source-language', 'source-categories', 'gedcom-export', 'associations', 'multiple-descent', 'hourglass-depth')];
 
 export default defineConfig({
   testDir: './tests/browser',

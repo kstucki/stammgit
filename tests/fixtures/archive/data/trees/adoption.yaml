@@ -5,6 +5,7 @@ people:
   child:
     living: true
     name: Kind Beispiel
+    sources: [{label: Beleg zur Adoption, url: /sources/test.pdf}]
     parents: [a, b, c, d]
     parentGroups: [[a, b], [c], [d]]
     parentDetails:
@@ -24,6 +25,7 @@ people:
   c:
     living: true
     name: Elternteil C
+    sources: [{label: Beleg zur Adoption, url: /sources/test.pdf}]
     children: [child]
     partners: [d]
     partnerDetails: {d: {kind: marriage, start: "1950"}}

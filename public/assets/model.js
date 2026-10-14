@@ -7,6 +7,10 @@ export function removePersonFromData(data, id) {
   if (data.meta?.focusPersonId === id) return { ok: false, reason: "focus" };
   delete people[id];
   for (const p of Object.values(people)) {
+    if (p.associations?.[id]) {
+      delete p.associations[id];
+      if (!Object.keys(p.associations).length) delete p.associations;
+    }
     for (const key of ["parents", "children", "partners", "siblings"]) {
       if (!p[key]) continue;
       p[key] = p[key].filter((x) => x !== id);
@@ -42,7 +46,7 @@ export function countSourceLinks(people, url) {
 export function removeSourceLinks(people, url) {
   let removed = 0;
   for (const p of Object.values(people)) {
-    for (const owner of [p, ...Object.values(p.parentDetails || {})]) {
+    for (const owner of [p, ...Object.values(p.parentDetails || {}), ...Object.values(p.associations || {})]) {
       if (!owner.sources) continue;
       const before = owner.sources.length;
       owner.sources = owner.sources.filter((s) => s.url !== url);
@@ -85,6 +89,7 @@ export function mergeImportedPeople(data, importedPeople) {
       q.partnerDetails = Object.fromEntries(Object.entries(q.partnerDetails).map(([k, v]) => [idMap.get(k) || k, v]));
     }
     if (q.parentDetails) q.parentDetails = Object.fromEntries(Object.entries(q.parentDetails).map(([id, detail]) => [idMap.get(id) || id, detail]));
+    if (q.associations) q.associations = Object.fromEntries(Object.entries(q.associations).map(([id, detail]) => [idMap.get(id) || id, detail]));
     if (q.parentGroups) q.parentGroups = q.parentGroups.map(group => group.map(id => idMap.get(id) || id));
     people[id] = q;
     const hit = existingKeys.get(`${norm(p.name)}|${year(p.birth)}`);
@@ -98,7 +103,7 @@ export function mergeImportedPeople(data, importedPeople) {
 // other persons to dropId are rewritten, then dropId is deleted.
 export function mergeNeedsReview(data, id) {
   return Object.entries(data.people).some(([other, p]) => hasRelationshipMetadata(p)
-    && (other === id || ["parents", "partners", "children"].some(key => (p[key] || []).includes(id))));
+    && (other === id || p.associations?.[id] || ["parents", "partners", "children"].some(key => (p[key] || []).includes(id))));
 }
 
 export function absorbPerson(data, keepId, dropId) {

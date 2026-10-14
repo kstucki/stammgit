@@ -178,3 +178,55 @@ it('explains English direct, neutral, distant and adopted relationships', () => 
   expect(output(d,['a','b'],en)).toContain('great-grandfather');
   expect(output(d,['a','b'],en)).toContain('adoption');
 });
+
+// Multiple descent: direct lines report every generation, collateral terms stay shortest.
+function lines(extra: Record<string, string[]>, gender = 'm'): Dataset {
+  const people: Dataset['people'] = { a: { name: 'A', gender: 'm' }, x: { name: 'X', gender } };
+  for (const [id, parents] of Object.entries(extra)) people[id] = { ...(people[id] || { name: id.toUpperCase() }), parents };
+  return { meta: { focusPersonId: 'a' }, people };
+}
+it('names further generations and counts every direct line of descent', () => {
+  const twoGenerations = lines({ a: ['p', 'q'], p: ['x'], q: ['y'], y: ['x'] });
+  expect(output(twoGenerations, ['a', 'x'])).toBe('X ist Grossvater von A (auch Urgrossvater; 2 Abstammungswege).');
+  expect(output(twoGenerations, ['x', 'a'])).toBe('A ist Enkel von X (auch Urenkel; 2 Abstammungswege).');
+  expect(output(lines({ a: ['p', 'q'], p: ['x'], q: ['x'] }), ['a', 'x'])).toBe('X ist Grossvater von A (2 Abstammungswege).');
+  const range = lines({ a: ['p', 'q'], p: ['x'], q: ['x', 'q2'], q2: ['x', 'q3'], q3: ['x', 'q4'], q4: ['x'] }, 'f');
+  expect(output(range, ['a', 'x'])).toBe('X ist Grossmutter von A (auch Urgrossmutter bis 3-fache Urgrossmutter; 5 Abstammungswege).');
+  expect(output(twoGenerations, ['a', 'x'], getT('en'))).toBe('X is grandfather of A (also great-grandfather; 2 lines of descent).');
+  expect(output(twoGenerations, ['a', 'x'], getT('pt'))).toContain('(também bisavô; 2 linhas de descendência)');
+});
+it('keeps single lines, social parents and collateral relationships unchanged', () => {
+  expect(output(lines({ a: ['p'], p: ['x'] }), ['a', 'x'])).toBe('X ist Grossvater von A.');
+  const guardian = lines({ a: ['p', 'q'], p: ['x'], q: ['x'] });
+  guardian.people.q.parentDetails = { x: { type: 'guardian' } };
+  expect(output(guardian, ['a', 'x'])).toBe('X ist Grossvater von A.');
+  const cousins = lines({ a: ['p'], b: ['r'], p: ['x'], r: ['x'] });
+  cousins.people.b.name = 'B'; cousins.people.p.parents = ['x', 'y']; cousins.people.r.parents = ['x', 'y'];
+  expect(output(cousins, ['a', 'b'])).not.toContain('Abstammungsweg');
+});
+it('lists only recorded generations when additional depths contain gaps', () => {
+  const data = lines({ a: ['p', 'q'], p: ['x'], q: ['x', 'q2'], q2: ['q3'], q3: ['x', 'q4'], q4: ['q5'], q5: ['x', 'q6'], q6: ['q7'], q7: ['x'] });
+  expect(output(data, ['a', 'x'])).toBe('X ist Grossvater von A (auch Ururgrossvater, 4-facher Urgrossvater und 6-facher Urgrossvater; 5 Abstammungswege).');
+});
+it('marks adopted lines even when the shortest selected path is not adopted', () => {
+  const data = lines({ a: ['p', 'q'], p: ['x'], q: ['y'], y: ['x'] });
+  data.people.q.parentDetails = { y: { type: 'adoptive' } };
+  data.people.y.parentDetails = { x: { type: 'adoptive' } };
+  expect(output(data, ['a', 'x'])).toContain('2 Abstammungswege; davon 1 mit Adoption');
+  expect(output(data, ['x', 'a'])).toContain('2 Abstammungswege; davon 1 mit Adoption');
+  expect(output(data, ['a', 'x'], getT('en'))).toContain('2 lines of descent; 1 including adoption');
+  expect(output(data, ['a', 'x'], getT('pt'))).toContain('2 linhas de descendência; 1 com adoção');
+});
+it('does not claim complete path counts for cyclic ancestry', () => {
+  const data = lines({ a: ['p', 'q'], p: ['q', 'x'], q: ['p', 'x'] });
+  expect(output(data, ['a', 'x'])).toBe('X ist Grossvater von A.');
+  data.people.a.parents!.reverse();
+  expect(output(data, ['a', 'x'])).toBe('X ist Grossvater von A.');
+});
+it('keeps counts exact beyond the safe integer limit', () => {
+  const data = lines({ a: ['x', 'l0', 'r0'] });
+  for (let i = 0; i < 54; i++) for (const side of ['l', 'r']) {
+    data.people[`${side}${i}`] = { parents: i === 53 ? ['x'] : [`l${i + 1}`, `r${i + 1}`] };
+  }
+  expect(output(data, ['a', 'x'])).toContain('18014398509481985 Abstammungswege');
+});

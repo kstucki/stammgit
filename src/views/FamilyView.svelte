@@ -1,7 +1,7 @@
 <script lang="ts">
   import { describeConnections } from '../domain/kinship';
   import { expandGraph, type Expansion, type Direction } from '../domain/graph-expansion';
-  import { computeGenerations, hourglassMaxDepth } from '../domain/graph/selection';
+  import { computeGenerations, hourglassMaxDepth, descendantsMaxDepth } from '../domain/graph/selection';
   import { rememberConnections } from '../state/connections';
   import { selectConnections } from '../domain/connections';
   import { untrack } from 'svelte';
@@ -10,7 +10,7 @@
   import type { FamilySession } from '../data/family';
   import { selectGraph, modeLabel } from '../domain/tree-selection';
   import type { GraphMode } from '../domain/tree-selection';
-  import { rememberCenter, rememberGraphState, readZoom, rememberZoom, readHourglassDepth, rememberHourglassDepth } from '../state/family';
+  import { rememberCenter, rememberGraphState, readZoom, rememberZoom, readGenerationDepth, rememberGenerationDepth } from '../state/family';
   import ResponsivePanel from '../components/ResponsivePanel.svelte';
   import type { PanelLevel } from '../components/ResponsivePanel.svelte';
   import type { GraphSearch } from '../state/graph-search';
@@ -37,33 +37,40 @@
     try { const saved = storage?.getItem(`fanDepth:${archive.tree.id}`); return saved ? clampFanDepth(Number(saved)) : 5; } catch { return 5; }
   }));
   $effect(() => { try { storage?.setItem(`fanDepth:${archive.tree.id}`, String(fanDepth)); } catch { /* Optional preference. */ } });
-  let hourglassDepth = $state(untrack(() => readHourglassDepth(archive.tree.id, storage)));
-  let hourglassFit = $state(false);
-  $effect(() => rememberHourglassDepth(archive.tree.id, hourglassDepth, storage));
-  function changeHourglassDepth(event: Event) {
+  let hourglassDepth = $state(untrack(() => readGenerationDepth(archive.tree.id, 'hourglass', storage)));
+  let descendantsDepth = $state(untrack(() => readGenerationDepth(archive.tree.id, 'descendants', storage)));
+  let depthFit = $state(false);
+  $effect(() => rememberGenerationDepth(archive.tree.id, 'hourglass', hourglassDepth, storage));
+  $effect(() => rememberGenerationDepth(archive.tree.id, 'descendants', descendantsDepth, storage));
+  function changeGenerationDepth(event: Event) {
     const value = Number((event.currentTarget as HTMLSelectElement).value);
-    if (value === hourglassDepth) return;
-    hourglassFit = true;
-    hourglassDepth = value;
+    if (value === generationDepth) return;
+    depthFit = true;
+    if (mode === 'descendants') descendantsDepth = value;
+    else hourglassDepth = value;
   }
-  function saveZoom(value: number) { scale = value; rememberZoom(value, zoomStorage); hourglassFit = false; }
+  function saveZoom(value: number) { scale = value; rememberZoom(value, zoomStorage); depthFit = false; }
   let center = $derived(route.person);
   let mode = $derived<GraphMode>(route.action === 'tree' ? 'hourglass' : ['family', 'hourglass', 'descendants', 'ancestors', 'connections'].includes(route.action) ? route.action as GraphMode : 'family');
   let roots = $derived(route.roots);
   let t = $derived(getT(archive.config.language));
   let activeCenter = $derived(dataset.people[center] ? center : dataset.meta.focusPersonId);
   let activeRoots = $derived([...new Set([activeCenter, ...roots.filter(id => dataset.people[id])])]);
-  let maxHourglassDepth = $derived(mode === 'hourglass' ? Math.max(5, Number.isFinite(hourglassDepth) ? hourglassDepth : 5, hourglassMaxDepth(dataset.people, activeRoots)) : 5);
+  let hasDepthFilter = $derived(mode === 'hourglass' || mode === 'descendants');
+  let generationDepth = $derived(mode === 'descendants' ? descendantsDepth : hourglassDepth);
+  let maxGenerationDepth = $derived(hasDepthFilter ? Math.max(5, Number.isFinite(generationDepth) ? generationDepth : 5,
+    mode === 'descendants' ? descendantsMaxDepth(dataset.people, activeCenter) : hourglassMaxDepth(dataset.people, activeRoots)) : 5);
   let connections = $derived(mode === 'connections' ? selectConnections(dataset, route.connectEmpty ? [] : route.connect) : null);
   let descriptionsByPair = $derived(connections ? describeConnections(dataset, connections.selected, t) : []);
   let baseScene = $derived(mode === 'connections' ? {
     family: connections!.family,
     generations: connections!.family ? computeGenerations(dataset.people, new Set(connections!.family.people), connections!.family.center) : undefined,
-  } : mode === 'ancestors' ? { family: null, generations: undefined } : selectGraph(dataset, activeCenter, mode, activeRoots, hourglassDepth));
-  let expansionContext = $derived(JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots, mode === 'hourglass' ? String(hourglassDepth) : null]));
+  } : mode === 'ancestors' ? { family: null, generations: undefined } : selectGraph(dataset, activeCenter, mode, activeRoots, generationDepth));
+  let expansionContext = $derived(JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots, hasDepthFilter ? String(generationDepth) : null]));
   let expansion = $state<{ context: string; steps: Expansion[] }>({ context: '', steps: [] });
   let steps = $derived(expansion.context === expansionContext ? expansion.steps : []);
   let scene = $derived({ ...baseScene, family: baseScene.family ? expandGraph(dataset, baseScene.family, steps) : null });
+  let personCount = $derived(scene.family?.people.length ?? 0);
   $effect(() => { if (expansion.context !== expansionContext) expansion = { context: expansionContext, steps: [] }; });
   function expand(id: string, direction: Direction) {
     expansion = { context: expansionContext, steps: [...steps, { id, direction }] };
@@ -93,7 +100,12 @@
 
 <section class="family-view" class:connections-view={mode === 'connections'} aria-label={t.get(modeLabel[mode])} data-center={activeCenter} data-mode={mode} data-layout-engine={mode === 'ancestors' ? 'fan' : engine} style:--sheet-height={`${connections ? panelHeight : 0}px`}>
   <div class="graph-tools"><GraphViewSwitcher {mode} {t} onchange={changeMode} />
-    {#if mode === 'hourglass'}<label class="fan-depth">{t.get('fanGenerations')} <select aria-label={t.get('fanGenerations')} value={hourglassDepth} onchange={changeHourglassDepth}>{#each Array.from({ length: maxHourglassDepth }, (_, i) => i + 1) as n}<option value={n}>{n}</option>{/each}<option value={Infinity} aria-label={t.get('hourglassAllGenerations')}>∞</option></select></label>{/if}
+    {#if hasDepthFilter}
+      <div class="graph-scope">
+        <label class="fan-depth">{t.get('fanGenerations')} <select aria-label={t.get('fanGenerations')} value={generationDepth} onchange={changeGenerationDepth}>{#each Array.from({ length: maxGenerationDepth }, (_, i) => i + 1) as n}<option value={n}>{n}</option>{/each}<option value={Infinity} aria-label={t.get('hourglassAllGenerations')}>∞</option></select></label>
+        <output class="graph-person-count" aria-live="polite" aria-atomic="true">{t.get(personCount === 1 ? 'graphPersonCountOne' : 'graphPersonCount', { n: personCount })}</output>
+      </div>
+    {/if}
     {#if mode === 'ancestors'}<label class="fan-depth">{t.get('fanGenerations')} <select aria-label={t.get('fanGenerations')} bind:value={fanDepth}>{#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as n}<option value={n}>{n}</option>{/each}</select></label>{/if}
   </div>
   <div class="graph-workspace">
@@ -104,8 +116,8 @@
       {#if mode === 'ancestors'}
         {#key `${activeCenter}:${fanDepth}`}<AncestorFan {dataset} center={activeCenter} depth={fanDepth} {t} onopen={onperson} />{/key}
       {:else if scene.family}
-        {#key JSON.stringify([mode, activeCenter, connections?.selected ?? activeRoots, mode === 'hourglass' ? String(hourglassDepth) : null])}
-          <FamilyCanvas {engine} onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} fitOnMount={mode === 'hourglass' && hourglassFit} initialScale={mode === 'hourglass' && hourglassFit ? undefined : scale} onscale={saveZoom} {dataset} assets={session.assets} {t} onopen={onperson} oncenter={chooseCenter} />
+        {#key expansionContext}
+          <FamilyCanvas {engine} onexpand={expand} family={scene.family} selectedIds={connections?.selected} generations={scene.generations} {mode} fitOnMount={hasDepthFilter && depthFit} initialScale={hasDepthFilter && depthFit ? undefined : scale} onscale={saveZoom} {dataset} assets={session.assets} {t} onopen={onperson} oncenter={chooseCenter} />
         {/key}
       {/if}
     </div>

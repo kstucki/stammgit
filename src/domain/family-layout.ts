@@ -87,11 +87,11 @@ export function consistentGenerations(family: FamilySlice, preferred: Map<string
   // A partner without visible ancestry may join an established partner's row,
   // but only by translating a separate component (preserving every parent step).
   const fixed = new Set<number>();
-  for (const group of family.groups) if (group.partnership) for (const id of group.adults) {
+  for (const group of family.groups) if (group.partnership || group.association) for (const id of group.adults) {
     if (parents.get(id)!.size) fixed.add(owner.get(id)!);
   }
   if (!fixed.size) fixed.add(owner.get(family.center)!);
-  const links = family.groups.filter(group => group.partnership).flatMap(group =>
+  const links = family.groups.filter(group => group.partnership || group.association).flatMap(group =>
     group.adults.flatMap(a => group.adults.filter(b => b !== a).map(b => [a, b])));
   const align = () => {
     let changed = false;
@@ -132,7 +132,8 @@ export function orderFamily(
   const measure = () => ({ w: CARD_WIDTH, h: CARD_HEIGHT });
   const { width, nodes } = engine === 'legacy' ? legacyLayoutGraph(graph, measure, levels) : layoutGraph(graph, measure, levels, {
     siblingGroups: family.groups.map(group => group.children),
-    partners: family.groups.filter(group => group.partnership && group.adults.length === 2)
+    // Adjacency is geometric here; historical links never enter family semantics.
+    partners: family.groups.filter(group => (group.partnership || group.association) && group.adults.length === 2)
       .map(group => [group.adults[0], group.adults[1]] as const),
   });
   return { width, nodes };
@@ -150,7 +151,7 @@ export function layoutFamily(family: FamilySlice, heights: ReadonlyMap<string, n
   for (const node of nodes) rowHeights.set(node.gen, Math.max(rowHeights.get(node.gen) || 0, height(node.id)));
   for (const group of family.groups) {
     const gen = Math.max(...group.adults.map(id => generation.get(id)!));
-    if (group.adults.length > 1) groupsPerRow.set(gen, (groupsPerRow.get(gen) || 0) + 1);
+    if (group.adults.length > 1) groupsPerRow.set(gen, (groupsPerRow.get(gen) || 0) + (group.association ? 3 : 1));
   }
   const top = new Map<number, number>([[0, PAD]]);
   const maxGen = Math.max(...nodes.map(node => node.gen));
@@ -166,11 +167,11 @@ export function layoutFamily(family: FamilySlice, heights: ReadonlyMap<string, n
     const floor = Math.max(...group.adults.map(id => people.get(id)!.y + height(id)));
     const row = Math.max(...group.adults.map(id => generation.get(id)!));
     const lane = lanes.get(row) || 0;
-    if (adults.length > 1) lanes.set(row, lane + 1);
+    if (adults.length > 1) lanes.set(row, lane + (group.association ? 3 : 1));
     anchors.set(group.id, { x, y: floor + (adults.length > 1 ? 32 + lane * 16 : 0) });
   }
   return { width: result.width + 2 * (PAD - 20),
-    height: Math.max(...[...people].map(([id, point]) => point.y + height(id)), ...[...anchors.values()].map(point => point.y)) + PAD,
+    height: Math.max(...[...people].map(([id, point]) => point.y + height(id)), ...family.groups.map(group => anchors.get(group.id)!.y + (group.association ? 32 : 0))) + PAD,
     people, anchors, heights };
 }
 

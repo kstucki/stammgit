@@ -71,9 +71,10 @@
         {@const anchor = layout.anchors.get(group.id)!}
         <g data-family-group={group.id}>
         {#if group.adults.length > 1}
-            {@const style = group.partnership ? partnerStyle(dataset, group.adults[0], group.adults[1]) : 'default'}
-            <path d={familyBridgePath(layout, group.id, group.adults)} class={`relation-${style}`} data-family-connection data-partnership={group.partnership || undefined}>
-              {#if style !== 'default'}<title>{t.get(lineLabel[style])}</title>{/if}
+            {@const style = group.association ? 'enslavement' : group.partnership ? partnerStyle(dataset, group.adults[0], group.adults[1]) : 'default'}
+            <path d={familyBridgePath(layout, group.id, group.adults)} class={`relation-${style}`} data-family-connection data-partnership={group.partnership || undefined} data-association={group.association ? group.id : undefined}>
+              {#if group.association}<title>{t.get('associationSentence', { from: dataset.people[group.association.from].name || group.association.from, to: dataset.people[group.association.to].name || group.association.to })}</title>
+              {:else if style !== 'default' && style !== 'enslavement'}<title>{t.get(lineLabel[style])}</title>{/if}
             </path>
         {/if}
         {#each group.children as child}
@@ -88,6 +89,16 @@
         </g>
       {/each}
     </svg>
+    {#each displayed.groups.filter(group => group.association) as group}
+      {@const link = group.association!}
+      {@const anchor = layout.anchors.get(group.id)!}
+      <button class="association-line-label" style:left={`${anchor.x}px`} style:top={`${anchor.y + 4}px`}
+        data-association-label={group.id} onclick={() => onopen(link.to)}
+        aria-label={t.get('associationSentence', { from: dataset.people[link.from].name || link.from, to: dataset.people[link.to].name || link.to })}>
+        {t.get('associationEnslavement')}
+        {#if link.detail.documented?.length}<span>{t.get('associationDocumented', { dates: link.detail.documented.join(', ') })}</span>{/if}
+      </button>
+    {/each}
     {#each childNotes as { child, notes }}
         {@const point = layout.people.get(child)!}
           <div class="family-line-notes" style:left={`${point.x}px`} style:top={`${point.y - notes.length * 22 - 6}px`} style:width={`${CARD_WIDTH}px`}>

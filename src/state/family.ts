@@ -44,15 +44,15 @@ export function rememberZoom(scale: number | undefined, storage?: Pick<Storage, 
 
 
 // Infinity is stored as a string so it survives persistence without JSON null.
-export function readHourglassDepth(tree: string, storage?: Pick<Storage, 'getItem'>): number {
+export function readGenerationDepth(tree: string, mode: 'hourglass' | 'descendants', storage?: Pick<Storage, 'getItem'>): number {
   try {
-    const raw = storage?.getItem(`hourglassDepth:${tree}`);
+    const raw = storage?.getItem(`${mode}Depth:${tree}`);
     if (raw === 'Infinity') return Infinity;
     const value = Number(raw);
     if (Number.isSafeInteger(value) && value >= 1) return value;
   } catch { /* Optional view preference. */ }
-  return 5;
+  return 3;
 }
-export function rememberHourglassDepth(tree: string, depth: number, storage?: Pick<Storage, 'setItem'>): void {
-  try { storage?.setItem(`hourglassDepth:${tree}`, String(depth)); } catch { /* Optional preference. */ }
+export function rememberGenerationDepth(tree: string, mode: 'hourglass' | 'descendants', depth: number, storage?: Pick<Storage, 'setItem'>): void {
+  try { storage?.setItem(`${mode}Depth:${tree}`, String(depth)); } catch { /* Optional preference. */ }
 }

@@ -1,11 +1,14 @@
 import type { Dataset } from './person';
 import { parentGroups, orderedPartners, parentType } from '../../public/assets/relationships.js';
+import { associationEntries } from '../../public/assets/associations.js';
+import type { Association } from './person';
 
 export interface FamilyGroup {
   id: string;
   adults: string[];
   children: string[];
   partnership: boolean;
+  association?: { from: string; to: string; detail: Association };
 }
 export interface FamilySlice {
   center: string;
@@ -39,9 +42,25 @@ export function familyIndex(dataset: Dataset) {
       children.set(parent, [...(children.get(parent) || []), id]);
     }
   }
-  return { dataset, children };
+  return { dataset, children, associations: associationEntries(people) as { id: string; from: string; to: string; detail: Association }[] };
 }
 export type FamilyIndex = ReturnType<typeof familyIndex>;
+
+// One-hop context, like adjacent partner cards, without traversing the other
+// person's ancestors/descendants or treating the connection as kinship.
+export function includeAssociates(index: FamilyIndex, selected: Set<string>): Set<string> {
+  const visible = new Set(selected);
+  for (const link of index.associations) {
+    if (selected.has(link.from)) visible.add(link.to);
+    if (selected.has(link.to)) visible.add(link.from);
+  }
+  return visible;
+}
+
+function associationGroups(index: FamilyIndex, visible: Set<string>): FamilyGroup[] {
+  return index.associations.filter(link => visible.has(link.from) && visible.has(link.to))
+    .map(({ id, ...association }) => ({ id, adults: [association.from, association.to], children: [], partnership: false, association }));
+}
 
 export function siblingsFor(index: FamilyIndex, id: string): FamilySlice['siblings'] {
   const { people } = index.dataset;
@@ -77,6 +96,7 @@ export function selectFamily(index: FamilyIndex, center: string): FamilySlice {
       adults.forEach(adult => visible.add(adult));
     }
   }
+  for (const id of includeAssociates(index, visible)) visible.add(id);
   for (const id of visible) {
     for (const partner of people[id].partners || []) {
       if (visible.has(partner)) group([id, partner]).partnership = true;
@@ -84,7 +104,7 @@ export function selectFamily(index: FamilyIndex, center: string): FamilySlice {
   }
   return { center, parents, children, partners, siblings, people: stable([...visible]),
     generationParents: generationParents(index.dataset, visible),
-    groups: [...groups.values()].sort((a, b) => a.id.localeCompare(b.id)) };
+    groups: [...groups.values(), ...associationGroups(index, visible)].sort((a, b) => a.id.localeCompare(b.id)) };
 }
 
 // Project an already selected view. Hidden parents stay hidden; the recorded
@@ -111,5 +131,5 @@ export function projectFamily(index: FamilyIndex, center: string, visible: Set<s
     partners: (orderedPartners(people, center) as string[]).filter(id => visible.has(id)),
     siblings: siblingsFor(index, center).filter(s => visible.has(s.id)),
     generationParents: generationParents(index.dataset, visible),
-    groups: [...groups.values()].sort((a, b) => a.id.localeCompare(b.id)) };
+    groups: [...groups.values(), ...associationGroups(index, visible)].sort((a, b) => a.id.localeCompare(b.id)) };
 }

@@ -16,7 +16,9 @@ private archive. Generated PDFs go in `public/sources/`.
    German; this does not translate the original or the supplied text.
 4. List unchanged original PDFs separately in `originale.json` with the same
    metadata, a stable `id`, `file` and `sha256`. They retain their own category.
-5. Sync metadata to the explicitly selected dataset, then validate the result.
+5. Set the document category explicitly in `sourceCategories`, based on its content
+   (register extracts remain `register`). Sync metadata to the selected dataset,
+   then validate the result.
 
 ```bash
 python3 -m venv .venv
@@ -32,6 +34,6 @@ npm run thumbnails
 Without IDs, rendering processes every `belege/B*.json`. Verification checks text,
 attachment hashes/images, PDF links and recorded page citations. It does not
 check historical accuracy or the continued availability of external URLs.
-Metadata sync preserves website family tags and stable IDs; it neither attaches
+Metadata sync preserves document categories, website family tags and stable IDs; it neither attaches
 sources to people nor removes obsolete sources. Review the YAML diff before
 committing. Commit records, original material, PDFs and previews together.

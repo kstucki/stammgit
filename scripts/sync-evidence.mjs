@@ -31,7 +31,8 @@ export function syncEvidence({ root = process.cwd(), tree, check = false }) {
       .filter(key => record[key]).map(key => [key, record[key]]));
     detail.tags = previous?.tags || [];
     data.sourceDetails ||= {}; data.sourceDetails[url] = detail;
-    if (record.evidence) { data.sourceCategories ||= {}; data.sourceCategories[url] = 'belege'; }
+    // A stable evidence ID does not define the document's category.
+    // Preserve the editor's choice, including register extracts.
   }
   const problems = validateDataset(data); if (problems.length) throw new Error(problems.join('\n'));
   if (check) {

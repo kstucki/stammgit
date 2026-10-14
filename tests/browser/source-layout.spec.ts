@@ -99,7 +99,13 @@ test('family tags are editable metadata, survive local sync, and do not change s
   const detail = await openSource(page);
   await detail.getByText('Dokument verwalten', { exact: true }).click();
   await detail.locator('.source-category-switch select').selectOption('belege');
-  await detail.locator('[name="sourceTags"]').fill('Meyer, Müller, Meyer');
+  for (const name of ['Meyer', 'Müller']) {
+    await detail.locator('[name="sourceTags"]').fill(name);
+    await detail.locator('[data-create-family]').click();
+  }
+  await detail.locator('[name="sourceTags"]').fill('  MEYER  ');
+  await expect(detail.locator('[data-create-family]')).toHaveCount(0);
+  await expect(detail.locator('.chosen .chip')).toHaveCount(2);
   await detail.locator('[data-save-source-tags]').click();
   await page.reload();
   await expect(detail.locator('.source-tag-list')).toContainText('Meyer · Müller');

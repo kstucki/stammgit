@@ -1,5 +1,5 @@
 import type { FamilySlice } from './family';
-import { familyIndex, projectFamily } from './family';
+import { familyIndex, projectFamily, includeAssociates } from './family';
 import type { Dataset } from './person';
 
 export type Direction = 'parents' | 'children' | 'partners';
@@ -22,10 +22,11 @@ export function expandGraph(data: Dataset, base: FamilySlice, steps: Expansion[]
   for (const { id, direction } of steps) {
     const targets = hiddenRelatives(data, family).get(id)?.[direction] || [];
     if (!targets.length) continue;
-    const visible = new Set([...family.people, ...targets]);
+    const visible = includeAssociates(index, new Set([...family.people, ...targets]));
     const projected = projectFamily(index, base.center, visible);
     const groups = new Map(family.groups.map(group => [group.id, { ...group, adults: [...group.adults], children: [...group.children] }]));
     for (const candidate of projected.groups) {
+      if (candidate.association) { groups.set(candidate.id, candidate); continue; }
       const children = direction === 'parents' && candidate.children.includes(id) && candidate.adults.some(a => targets.includes(a)) ? [id]
         : direction === 'children' && candidate.adults.includes(id) ? candidate.children.filter(c => targets.includes(c)) : [];
       const partnership = direction === 'partners' && candidate.partnership && candidate.adults.includes(id) && candidate.adults.some(a => targets.includes(a));

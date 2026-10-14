@@ -49,7 +49,7 @@ export async function readGedzip(file: Blob) {
     media.push({ path: target, ...(target !== path ? { variantPath: path } : {}), blob: new Blob([await item.async('arraybuffer')], { type: /\.pdf$/i.test(path) ? 'application/pdf' : /\.png$/i.test(path) ? 'image/png' : 'image/jpeg' }) });
   }
   for (const person of Object.values(parsed.people) as Dataset['people'][string][]) {
-    for (const source of [...(person.sources || []), ...Object.values(person.parentDetails || {}).flatMap(detail => detail.sources || [])]) {
+    for (const source of [...(person.sources || []), ...Object.values(person.parentDetails || {}).flatMap(detail => detail.sources || []), ...Object.values(person.associations || {}).flatMap(detail => detail.sources || [])]) {
       const [base] = source.url.split(/[?#]/);
       if (aliases.has(base)) source.url = aliases.get(base)! + source.url.slice(base.length);
     }

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FamilyTagPicker from '../components/FamilyTagPicker.svelte';
+  import { familyTags, canonicalFamilyTag } from '../domain/family-tags';
   import { tick, untrack } from 'svelte';
   import type { Workspace } from '../state/workspace.svelte';
   import { sourceDocuments, sourceCategories, sourceCategory, setSourceCategory, chronicleSourceUrls, sourcePage, type SourceFilter } from '../domain/sources';
@@ -10,7 +12,8 @@
   let { store, onperson, query = '', onclear, filter = $bindable(), personOpen = false }: {
     store: Workspace; onperson(id: string): void; query?: string; onclear(): void; filter: SourceFilter; personOpen?: boolean;
   } = $props();
-  let status = $state(''), tags = $state('');
+  let status = $state(''), tags = $state<string[]>([]);
+  let families = $derived(familyTags(store.dataset));
   let heading = $state<HTMLHeadingElement>();
   let resultsHeading: HTMLHeadingElement;
   let entries = $derived(sourceDocuments(store.dataset.people, store.sourceFiles, store.dataset.sourceDetails));
@@ -34,10 +37,10 @@
   $effect(() => { if (result.page !== filter.page) filter = { ...filter, page: result.page }; });
   $effect(() => {
     const url = selected?.url;
-    if (url) untrack(() => { tags = (store.dataset.sourceDetails?.[url]?.tags || []).join(', '); });
+    if (url) untrack(() => { tags = [...(store.dataset.sourceDetails?.[url]?.tags || [])]; });
   });
   $effect(() => { if (selected && !personOpen) void tick().then(() => heading?.focus({ preventScroll: true })); });
-  function category(value: string) { filter = { category: value as SourceFilter['category'], family: '', page: 1, selected: '' }; }
+  function category(value: string) { filter = { category: value as SourceFilter['category'], family: filter.family, page: 1, selected: '' }; }
   function page(value: number) { filter = { ...filter, page: value, selected: '' }; resultsHeading?.scrollIntoView({ block: 'start' }); }
   function close() { filter = { ...filter, selected: '' }; }
   function saveTags() {
@@ -46,7 +49,7 @@
     try {
       store.edit(data => {
         data.sourceDetails ||= {};
-        data.sourceDetails[url] = { ...data.sourceDetails[url], title: data.sourceDetails[url]?.title || label, tags: [...new Set(tags.split(',').map(tag => tag.trim()).filter(Boolean))] };
+        data.sourceDetails[url] = { ...data.sourceDetails[url], title: data.sourceDetails[url]?.title || label, tags: [...new Set(tags.map(tag => canonicalFamilyTag(tag, families)).filter(Boolean))] };
       });
       status = t.get('sourceTagsSaved');
     } catch (err) { status = err instanceof Error ? err.message : String(err); }
@@ -80,7 +83,7 @@
     <div class="source-results">
       <div class="source-filters">
         <label class="source-mobile-category">{t.get('sourceCategory')}<select aria-label={t.get('sourceCategory')} value={filter.category} onchange={event => category(event.currentTarget.value)}><option value="all">{categoryLabel('all')} ({result.matched})</option>{#each sourceCategories as key}<option value={key}>{categoryLabel(key)} ({result.counts[key]})</option>{/each}</select></label>
-        {#if filter.category === 'belege'}<label class="source-family-filter">{t.get('sourceFamily')}<select id="sourceFamily" value={filter.family} onchange={event => filter = { ...filter, family: event.currentTarget.value, page: 1, selected: '' }}><option value="">{t.get('sourceAllFamilies')}</option>{#each result.families as family}<option value={family}>{family}</option>{/each}</select></label>{/if}
+        <label class="source-family-filter">{t.get('sourceFamily')}<select id="sourceFamily" value={filter.family} onchange={event => filter = { ...filter, family: event.currentTarget.value, page: 1, selected: '' }}><option value="">{t.get('sourceAllFamilies')}</option>{#each result.families as family}<option value={family}>{family}</option>{/each}</select></label>
       </div>
       <h3 bind:this={resultsHeading} class="source-category-title">{categoryLabel(filter.category)}</h3>
       {#if filter.category !== 'all'}<p class="source-category-description">{t.get(`sourceCategoryDescription_${filter.category}`)}</p>{/if}
@@ -121,7 +124,7 @@
         </details>
         {#if store.admin}<details class="source-disclosure source-management"><summary>{t.get('sourceManage')}</summary>
           <label class="source-category-switch">{t.get('sourceCategory')}<select value={sourceCategory(store.dataset.sourceCategories, doc.url)} disabled={store.saving} onchange={event => changeCategory(doc.url, event)}>{#each sourceCategories as key}<option value={key}>{categoryLabel(key)}</option>{/each}</select></label>
-          {#if sourceCategory(store.dataset.sourceCategories, doc.url) === 'belege'}<label>{t.get('sourceFamilies')}<input name="sourceTags" bind:value={tags} placeholder={t.get('sourceTagsPlaceholder')} /></label><button type="button" data-save-source-tags disabled={store.saving} onclick={saveTags}>{t.get('sourceSaveTags')}</button>{/if}
+          <FamilyTagPicker bind:selected={tags} options={families} {t} disabled={store.saving} /><button type="button" data-save-source-tags disabled={store.saving} onclick={saveTags}>{t.get('sourceSaveTags')}</button>
           {#if variants.some(v => v.url)}<div class="source-uploads"><label>{t.get('sourceUploadOriginal')}<input type="file" accept=".pdf" disabled={store.saving || store.fileBusy > 0} onchange={event => uploadDocument(doc.url, 'de', event)} /></label>
             {#each variants as variant}{#if variant.url}{@const target = variant.url}<div><label>{t.get('sourceUploadTranslation')} · {variant.label}<input type="file" accept=".pdf" disabled={store.saving || store.fileBusy > 0} onchange={event => uploadDocument(doc.url, variant.code, event)} /></label>{#if store.sourceFiles.has(target)}<button type="button" class="danger" disabled={store.saving || store.fileBusy > 0} onclick={() => store.deleteSource(target).catch(error => status = error.message)}>{t.get('sourceDeleteTranslation')} · {variant.label}</button>{/if}</div>{/if}{/each}
           </div>{/if}

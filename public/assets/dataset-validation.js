@@ -114,6 +114,20 @@ export function validateDataset(data, { label = "dataset", maxPeople = 5000 } = 
     if (p.sources !== undefined && !sources(p.sources)) {
       fail(`'${pid}'.sources must be a list of { label, url }.`);
     }
+    if (p.associations !== undefined) {
+      if (!object(p.associations)) fail(`'${pid}'.associations must be an object.`);
+      else for (const [other, detail] of Object.entries(p.associations)) {
+        const field = `'${pid}'.associations.${other}`;
+        if (!known.has(other) || other === pid) fail(`${field}: invalid target.`);
+        if (!object(detail)) { fail(`${field}: expected an object.`); continue; }
+        if (detail.type !== 'enslavement') fail(`${field}: invalid type.`);
+        if (people[other]?.associations?.[pid]) fail(`${field}: a historical connection is stored in one direction only.`);
+        if (detail.documented !== undefined && (!Array.isArray(detail.documented)
+          || detail.documented.some(date => typeof date !== 'string' || !isValidDate(date))
+          || new Set(detail.documented).size !== detail.documented.length)) fail(`${field}: invalid documented dates.`);
+        if (detail.sources !== undefined && !sources(detail.sources)) fail(`${field}: invalid sources.`);
+      }
+    }
     if (p.links !== undefined && !validWebLinks(p.links)) {
       fail(`'${pid}'.links must be a list of { label?, url } with absolute HTTP(S) URLs.`);
     }

@@ -3,7 +3,7 @@ import type { Dataset } from './person';
 import { computeHourglass, hourglassMaxDepth } from './graph/selection';
 import { selectGraph } from './tree-selection';
 import { expandGraph } from './graph-expansion';
-import { readHourglassDepth, rememberHourglassDepth } from '../state/family';
+import { readGenerationDepth, rememberGenerationDepth } from '../state/family';
 
 function chain(): Dataset {
   const people: Dataset['people'] = { root: { parents: ['a1'], children: ['d1'] } };
@@ -49,15 +49,15 @@ it('revisits a shared ancestor through the shorter path and terminates cycles', 
   expect(hourglassMaxDepth(people, ['root'])).toBe(3);
   expect(computeHourglass(people, 'root').size).toBe(7);
 });
-it('persists finite and unlimited depth and defaults invalid values to five', () => {
+it('persists finite and unlimited depth and defaults invalid values to three', () => {
   let saved: string | null = null;
   const storage = { getItem: () => saved, setItem: (_: string, value: string) => { saved = value; } };
-  expect(readHourglassDepth('test', storage)).toBe(5);
+  expect(readGenerationDepth('test', 'hourglass', storage)).toBe(3);
   for (const depth of [2, 18, Infinity]) {
-    rememberHourglassDepth('test', depth, storage);
-    expect(readHourglassDepth('test', storage)).toBe(depth);
+    rememberGenerationDepth('test', 'hourglass', depth, storage);
+    expect(readGenerationDepth('test', 'hourglass', storage)).toBe(depth);
   }
   for (const invalid of ['0', '-2', 'NaN', '2.5', 'bad']) {
-    saved = invalid; expect(readHourglassDepth('test', storage)).toBe(5);
+    saved = invalid; expect(readGenerationDepth('test', 'hourglass', storage)).toBe(3);
   }
 });

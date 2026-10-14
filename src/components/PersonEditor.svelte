@@ -15,6 +15,8 @@
   import PhotoEditor from './PhotoEditor.svelte';
   import SourceEditor from './SourceEditor.svelte';
   import WebLinksEditor from './WebLinksEditor.svelte';
+  import AssociationEditor from './AssociationEditor.svelte';
+  import { associationsFor } from '../../public/assets/associations.js';
   let { store, id, onclose, onperson }: { store: Workspace; id: string; onclose(): void; onperson(id: string): void } = $props();
   let dialog: HTMLDialogElement;
   let section = $state('person');
@@ -73,7 +75,7 @@
     if (store.dataset.meta.focusPersonId === id) return alert(t.get('deleteFocus'));
     const linked = [store.chronicle, ...Object.values(store.chronicle?.variants || {})].flatMap(set => set?.chapters || []).filter(ch => ch.persons.includes(id));
     if (linked.length) return alert(t.get('chronicleDeleteBlocked', { n: linked.length }));
-    const n = ['parents', 'children', 'partners'].reduce((n, key) => n + (person[key as 'parents'] || []).length, 0);
+    const n = ['parents', 'children', 'partners'].reduce((n, key) => n + (person[key as 'parents'] || []).length, 0) + associationsFor(store.dataset.people, id).length;
     if (!confirm(t.get('deleteConfirm', { name, n }))) return;
     const photo = person.photo;
     try { store.edit(data => { if (!removePersonFromData(data, id).ok) throw new Error(t.get('deleteFailed')); }); onclose(); if (photo) await store.releasePhoto(photo); }
@@ -153,6 +155,7 @@
           <div class="toolbar"><button type="button" data-add-relation={relation} onclick={() => pick = relation}>{t.get(labels[relation][1])}</button><button type="button" data-create-relation={relation} onclick={() => add(relation)}>{t.get(labels[relation][2])}</button></div>
         </section>
       {/each}
+          <AssociationEditor {store} {id} {commit} />
         </div>
         <div id="editor-section-panel-sources" role="tabpanel" aria-labelledby="editor-section-tab-sources" tabindex="0" hidden={section !== 'sources'}>
           <section class="editor-evidence">

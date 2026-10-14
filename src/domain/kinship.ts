@@ -2,6 +2,9 @@ import type { Dataset } from './person';
 import { relationshipEngine, relationshipStations, inLawKind } from './relationship-engine';
 import type { RelationshipExplanation, RelationshipSegment, RelationshipStep } from './relationship-engine';
 import { relationshipChain } from './relationship-chain';
+import { associationsFor, associationDescription } from '../../public/assets/associations.js';
+import { directLines } from './direct-descent';
+import { connectionEdges } from './connections';
 type T = { get(key: string, vars?: Record<string, string | number>): string };
 export interface PairDescription { a: string; b: string; heading: string; chain: string[]; sentence?: string; message?: string }
 
@@ -125,6 +128,31 @@ function phrase(data: Dataset, atoms: Atom[], t: T): string {
     term: (index ? atom.term.apposition : atom.term.label) + evidence(data, atom.steps, t), name: name(atom.from),
   })).join(', ');
 }
+// Shortest term first; further generations and the number of lines follow.
+function multipleDescent(data: Dataset, explanation: RelationshipExplanation, station: RelationshipSegment, t: T): string {
+  const steps = station.steps, direction = steps[0].direction;
+  if (direction === 'partner' || steps.some(step => step.direction !== direction || ['guardian', 'other'].includes(step.parentType || ''))) return '';
+  const { from, to } = explanation;
+  const result = direction === 'up' ? directLines(data, from, to) : directLines(data, to, from);
+  if (!result) return '';
+  const lines = result.generations;
+  const total = [...lines.values()].reduce((sum, n) => sum + n, 0n);
+  if (total < 2n) return '';
+  const label = (depth: number) => direct(data, to, direction, depth, t).label;
+  const others = [...lines.keys()].filter(depth => depth !== steps.length).sort((a, b) => a - b);
+  const parts: string[] = [];
+  const consecutive = others.every((depth, i) => !i || depth === others[i - 1] + 1);
+  if (others.length) {
+    const labels = others.map(label);
+    const terms = others.length > 2 && consecutive
+      ? t.get('kinRange', { first: labels[0], last: labels.at(-1)! })
+      : labels.length > 1 ? labels.slice(0, -1).join(', ') + t.get('chainAnd') + labels.at(-1) : labels[0];
+    parts.push(t.get('kinAlso', { terms }));
+  }
+  parts.push(t.get('kinLines', { n: total.toString() }));
+  if (result.adopted) parts.push(t.get('kinAdoptedLines', { n: result.adopted.toString() }));
+  return ` (${parts.join('; ')})`;
+}
 export function formatKinship(data: Dataset, explanation: RelationshipExplanation, t: T): { sentence?: string; relation?: string; chain: string[]; stationCount: number } {
   const stations = relationshipStations(explanation.segments.flatMap(s => s.steps));
   const atoms = displayStations(data, stations, t);
@@ -132,7 +160,7 @@ export function formatKinship(data: Dataset, explanation: RelationshipExplanatio
   const name = (id: string) => data.people[id]?.name || id;
   if (!stations.length) return { chain: [name(explanation.from)], stationCount };
   if (stationCount <= 2) {
-    const relation = phrase(data, atoms.flat(), t);
+    const relation = phrase(data, atoms.flat(), t) + (stations.length === 1 ? multipleDescent(data, explanation, stations[0], t) : '');
     return { stationCount, chain: [], relation, sentence: t.get('kinSentence', { name: name(explanation.to), relation }) };
   }
   return { stationCount, chain: [name(explanation.from), ...atoms.map(terms => {
@@ -147,6 +175,23 @@ export function describeConnections(data: Dataset, selection: string[], t: T): P
   const [a, ...targets] = selected, engine = relationshipEngine(data);
   return targets.map(b => {
     const explanation = engine.explain(a, b), names = { a: data.people[a].name || a, b: data.people[b].name || b };
+    const historical = associationsFor(data.people, a).find(link => link.other === b);
+    if (historical) return { a, b, heading: t.get('relAssociations'), chain: [],
+      message: `${names.a}: ${associationDescription(historical, a, t)} — ${names.b}` };
+    if (!explanation) {
+      const edges = connectionEdges(data), previous = new Map<string, string | null>([[a, null]]), queue = [a];
+      for (let i = 0; i < queue.length && !previous.has(b); i++) {
+        for (const edge of edges) {
+          const next = edge.a === queue[i] ? edge.b : edge.b === queue[i] ? edge.a : '';
+          if (next && !previous.has(next)) { previous.set(next, queue[i]); queue.push(next); }
+        }
+      }
+      if (previous.has(b)) {
+        const path: string[] = [];
+        for (let id: string | null = b; id; id = previous.get(id) ?? null) path.unshift(data.people[id].name || id);
+        return { a, b, heading: t.get('relAssociations'), chain: path, message: t.get('associationPath', { path: path.join(' → ') }) };
+      }
+    }
     return { a, b, heading: t.get('chainHeading', names), ...(explanation ? formatKinship(data, explanation, t) : { chain: [] }),
       message: explanation ? undefined : t.get('kinDisconnected', names) };
   });
