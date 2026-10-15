@@ -14,6 +14,12 @@ npm run test:unit # pure graph, state, relationship and data-access tests
 npm run test:server # isolated local HTTP/save smoke checks
 ```
 
+Vite prebundles JSZip explicitly so the first on-demand GEDZIP export cannot
+trigger a dependency-optimizer reload. The export browser test checks that the
+same document survives through download. Local multi-project runs share a
+synthetic server; tests that persist state must use project-specific identifiers
+or explicitly isolate their inputs.
+
 Frontend code lives in `src/`; edit `index.html`, not generated
 `public/index.html`. Vite hashes browser assets. Keep `public/` content intact.
 Read [AGENTS.md](../AGENTS.md) and [architecture.md](architecture.md) before

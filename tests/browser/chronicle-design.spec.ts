@@ -3,6 +3,13 @@ import { test, login } from './support';
 
 for (const [language, title] of [['de', 'Testgeschichte'], ['en', 'Test story'], ['pt', 'História de teste']]) {
   test(`chronicle typography and book export use ${language}`, async ({ page, isMobile }, info) => {
+    await page.route('**/data/chronicle-demo.json', async route => {
+      const response = await route.fetch();
+      const index = await response.json();
+      for (const set of [index, ...Object.values(index.variants || {})] as any[])
+        set.chapters = set.chapters.filter((chapter: any) => /^intro(?:\.(?:en|pt))?\.md$/.test(chapter.file));
+      await route.fulfill({ json: index });
+    });
     await login(page);
     const file = `intro${language === 'de' ? '' : '.' + language}.md`;
     await page.goto(`/?view=chronicle&chapter=${file}&language=${language}`);

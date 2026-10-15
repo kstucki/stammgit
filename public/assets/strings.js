@@ -1252,7 +1252,7 @@ export const STRINGS = {
     welcomeInfoHeading: "Find out more about a person",
     welcomeCenterHeading: "The family from every perspective",
     welcomeIntro: "Discover our family and its stories.",
-    welcomeTitle: "Welcome to the family tree",
+    welcomeTitle: "Welcome to your family tree",
     welcomeTipCenter: "Tap a person. They become the central person, and the tree shows their family.",
     welcomeTipInfo: "“Person info” shows stories, photos and sources.",
     welcomeTipNavigation: "Switch between the family tree and chronicle using the navigation.",

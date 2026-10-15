@@ -93,27 +93,29 @@ test('pagination and intersecting family filters persist through reload and pers
   await expect(page.locator('.source-doc')).toHaveCount(25);
 });
 
-test('family tags are editable metadata, survive local sync, and do not change source references', async ({ page }) => {
+test('family tags are editable metadata, survive local sync, and do not change source references', async ({ page }, info) => {
   await login(page);
   await page.goto('/?view=sources');
   const detail = await openSource(page);
   await detail.getByText('Dokument verwalten', { exact: true }).click();
   await detail.locator('.source-category-switch select').selectOption('belege');
-  for (const name of ['Meyer', 'Müller']) {
+  while (await detail.locator('.chosen .chip').count()) await detail.locator('.chosen .chip').first().click();
+  const tags = [`Meyer ${info.project.name}`, `Müller ${info.project.name}`];
+  for (const name of tags) {
     await detail.locator('[name="sourceTags"]').fill(name);
     await detail.locator('[data-create-family]').click();
   }
-  await detail.locator('[name="sourceTags"]').fill('  MEYER  ');
+  await detail.locator('[name="sourceTags"]').fill(`  ${tags[0].toUpperCase()}  `);
   await expect(detail.locator('[data-create-family]')).toHaveCount(0);
   await expect(detail.locator('.chosen .chip')).toHaveCount(2);
   await detail.locator('[data-save-source-tags]').click();
   await page.reload();
-  await expect(detail.locator('.source-tag-list')).toContainText('Meyer · Müller');
+  await expect(detail.locator('.source-tag-list')).toContainText(tags.join(' · '));
   await page.goto('/?view=admin');
   page.once('dialog', dialog => dialog.accept());
   const saved = page.waitForResponse(r => r.url().endsWith('/save-family'));
   await page.locator('#adminSync').click(); expect((await saved).status()).toBe(200);
   const data = await (await page.request.get('/data/trees/demo.json')).json();
-  expect(data.sourceDetails['/sources/test.pdf'].tags).toEqual(['Meyer', 'Müller']);
+  expect(data.sourceDetails['/sources/test.pdf'].tags).toEqual(tags);
   expect(data.people.person_a.sources).toEqual([{ label: 'Testquelle', url: '/sources/test.pdf' }]);
 });

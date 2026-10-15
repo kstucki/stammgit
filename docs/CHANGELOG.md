@@ -11,15 +11,22 @@
 - Keep person evidence with its owner. Extend the family filter to all source
   categories, use a searchable tag picker and preserve categories during metadata
   sync. Register extracts remain registers regardless of their evidence ID.
-- Update synthetic adoption and tag-picker tests. Export tests surface actual
-  failure messages instead of waiting silently for a missing download.
+- Fix the first development-mode GEDZIP export: prebundle JSZip so dependency
+  discovery cannot reload the page while the download is being created. Assert
+  that export preserves the current document and surface actual export errors.
+- Update synthetic adoption, tag-picker and generation tests. Compare fractional
+  element bounds consistently; isolate persisted tags and chapter expectations
+  between browser projects. Retain the existing English welcome text.
 - Preserve the public demo, configuration, media, dependencies and existing
   public-only tests; no private content, map or private Git history transferred.
 
 Validation: build with 353 unit tests and no type errors. Isolated production,
 development and read-only server checks passed. Compact metrics are unchanged:
-0 crossings, maximum hole 622px, width 7463px. Full browser and Linux CI results
-will be recorded after the final run; existing expected failures remain explicit.
+0 crossings, maximum hole 622px, width 7463px. Full local runs covered 163 development and 276 production cases. After fixing
+all unexpected failures, affected reruns passed: 17 development and 50 production
+cases across desktop Chromium and mobile/narrow WebKit. Two existing gesture
+skips and four explicit expected failures remain; no assertions were disabled.
+Linux CI results will be recorded after the final run.
 
 ## 2026-10-06 — Source catalogue, multilingual archive and GEDZIP
 

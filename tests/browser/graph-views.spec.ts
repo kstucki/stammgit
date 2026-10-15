@@ -91,7 +91,7 @@ test('view bar supports keyboard selection without horizontal scrolling', async 
     await expect(page.locator(label === 'Fächer' ? '[data-fan-person]' : '[data-family-person]')).toHaveCount(count);
     await expect.poll(() => selected.evaluate(el => {
       const item = el.getBoundingClientRect(), bar = el.closest('.graph-view-switcher')!, area = bar.getBoundingClientRect();
-      return item.left >= area.left && item.right <= area.left + bar.clientWidth;
+      return item.left >= area.left && item.right <= area.right;
     })).toBe(true);
     const hitArea = (await selected.boundingBox())!;
     expect(hitArea.width).toBeGreaterThanOrEqual(44); expect(hitArea.height).toBeGreaterThanOrEqual(44);
@@ -122,6 +122,9 @@ test('large selections render through a worker and can be replaced by a local fa
   await expect(page.locator('[data-family-person]')).toHaveCount(2);
   await expect(page.locator('.person-count')).toHaveCount(0);
   await page.goto('/?view=family&person=n0&action=descendants');
+  await expect(page.getByLabel('Generationen', { exact: true })).toHaveValue('3');
+  await expect(page.locator('[data-family-person]')).toHaveCount(4);
+  await page.getByLabel('Generationen', { exact: true }).selectOption('Infinity');
   await expect(page.locator('[data-family-person]')).toHaveCount(100);
   expect(workers).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Einpassen', exact: true }).click();
