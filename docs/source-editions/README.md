@@ -6,6 +6,8 @@ private archive. Generated PDFs go in `public/sources/`.
 
 1. Add `belege/B000001.json` with `id`, `title`, `citation`, `original`, `archive`,
    `retrieved`, `kind`, `scope` and a `text` array. `## ` introduces a heading.
+   An optional `editorial` array contains interpretation, uncertainties and
+   open questions under a separate editorial heading; keep `text` for the source.
    Do not put family tags in the record; they belong in dataset `sourceDetails`.
 2. Optionally add `references` (text), `locators` (named one-based PDF pages),
    `localReferences` (`file`, `page`, `label`) and an `attachment` (`file`, `sha256`,

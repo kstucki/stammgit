@@ -17,6 +17,8 @@
 - Update synthetic adoption, tag-picker and generation tests. Compare fractional
   element bounds consistently; isolate persisted tags and chapter expectations
   between browser projects. Retain the existing English welcome text.
+- Carry over the separate editorial section in local evidence PDFs and its
+  text/link verification; keep the configurable public archive author.
 - Preserve the public demo, configuration, media, dependencies and existing
   public-only tests; no private content, map or private Git history transferred.
 
@@ -26,7 +28,10 @@ development and read-only server checks passed. Compact metrics are unchanged:
 all unexpected failures, affected reruns passed: 17 development and 50 production
 cases across desktop Chromium and mobile/narrow WebKit. Two existing gesture
 skips and four explicit expected failures remain; no assertions were disabled.
-Linux CI results will be recorded after the final run.
+Two additional historical-link screenshot checks passed after waiting for the
+loaded graph; desktop/mobile captures were reviewed. A synthetic PDF verified
+original/editorial separation, author metadata, two links and one page citation.
+The Linux matrix is checked on the review PR before publication.
 
 ## 2026-10-06 — Source catalogue, multilingual archive and GEDZIP
 

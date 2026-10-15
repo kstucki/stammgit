@@ -32,6 +32,9 @@ def render(record, output):
     if record.get('references'):
         body+='<h2>Quellennachweise des Originals</h2>'
         body+=''.join('<p>%s</p>'%linked(text) for text in record['references'])
+    if record.get('editorial'):
+        body+='<h2>Einordnung für den Stammbaum</h2>'
+        body+=''.join('<p>%s</p>'%linked(text) for text in record['editorial'])
     for ref in record.get('localReferences',[]):
         body+='<p><a href="%s%s/%d">%s</a></p>'%(LOCAL,html.escape(ref['file']),ref['page'],html.escape(ref['label']))
     story=fitz.Story(html=body,user_css=CSS)

@@ -32,7 +32,9 @@ for record in records:
             after = [hashlib.sha256(doc.extract_image(x[0])['image']).hexdigest() for x in doc[text_pages + i].get_images()]
             assert before == after, (identifier, 'Anhangabbildungen', i)
     body = normalized(''.join(p.get_text(clip=fitz.Rect(0, 0, p.rect.width, 780)) for p in doc.pages(0, text_pages)))
-    for paragraph in record['text'] + record.get('references', []):
+    if record.get('editorial'):
+        assert normalized('Einordnung für den Stammbaum') in body, (identifier, 'Redaktion nicht gekennzeichnet')
+    for paragraph in record['text'] + record.get('references', []) + record.get('editorial', []):
         paragraphs += 1
         assert normalized(paragraph.removeprefix('## ')) in body, (identifier, 'Text fehlt', paragraph[:90])
     for page in doc:

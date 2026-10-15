@@ -36,6 +36,8 @@ test('historical connection sits beside the person in all card views and opens b
     await expect(page.locator('[data-association-label]')).toContainText('belegt 1841, 1846');
   }
   await page.goto('/?person=a&action=family');
+  await expect(page.locator('[data-association-label]')).toBeVisible();
+  await sameRow(page, 'a', 'h');
   await page.screenshot({path: info.outputPath('historical-connection.png')});
   await page.locator('[data-association-label]').click();
   await expect(page.locator('#family-person-title')).toHaveText('Person H');
